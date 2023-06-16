@@ -1,0 +1,11 @@
+./Big_Test
+./Cassava
+./GitHub
+./NCBI
+./New_PB
+./Pathogen_Browser
+./script_testing
+./test_data
+./Tiny_Test*
+./work
+./.nextflow.log*
