@@ -28,7 +28,7 @@ if(params.bedtools_module == ""){
 
 params.align_cov = 85
 params.ref_iden = 99
-params.ref_edge = 250
+params.ref_edge = 500
 params.query_edge = 500
 
 alignment_coverage = params.align_cov.toFloat()
