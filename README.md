@@ -1,6 +1,6 @@
 # Yenta (v.0.5)  
 
-### Yenta is a Nextflow pipeline for fast and accurate SNP distance estimation among microbial isolates. Yenta was originally designed to identify reference strain contamination (screening microbial assemblies against a commonly used laboratory control strains), but can be used to quickly and accurately screen query isolates against any microcial assemblies provided by the user. Yenta uses *MUmmer* whole genome alignment and sensible data filtering to assess SNP distances, and will generate *SKESA* assemblies if WGS read data is provided.  
+### Yenta is a Nextflow pipeline for fast and accurate SNP distance estimation among microbial isolates. Yenta was originally designed to identify reference strain contamination (screening incoming microbial assemblies against a set of internal laboratory control strains), but can be used to quickly and accurately screen query isolates against any microbial assemblies provided by the user. Yenta uses *MUmmer* whole genome alignment and sensible data filtering to assess SNP distances, and will generate *SKESA* assemblies if WGS read data is provided.  
 
 ---
 ## Software Dependencies  
@@ -33,7 +33,8 @@ Yenta options can be specified on the command line, or through the Nextflow conf
 | ref_iden     | Only consider SNPs from contig alignments with <ref_iden>% identity                                                       | 99                                        |
 | ref_edge     | Remove SNPs that occur within <ref_edge>bp from the end of the reference contig                                           | 500                                       |
 | query_edge   | Remove SNPs that occur within <query_edge>bp from the end of the query contig                                             | 500                                       |
-| out          | Path to output folder (Must not exist)                                                                                    | ./YENTA_${new java.util.Date().getTime()} |
+| outbase      | Root path for output folder (Must exist)                                                                                  | $projectDir (Yenta directory)             |
+| out          | Path to output folder (Must not exist)                                                                                    | YENTA_${new java.util.Date().getTime()}   |
 | forward      | Suffix for forward query reads                                                                                            | _1.fastq.gz                               |
 | ref_forward  | Suffix for forward reference reads                                                                                        | _1.fastq.gz                               |
 | reverse      | Suffix for reverse query reads                                                                                            | _2.fastq.gz                               |
