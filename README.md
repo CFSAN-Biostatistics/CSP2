@@ -1,6 +1,6 @@
 # Yenta (v.0.5)  
 
-Yenta is a Nextflow pipeline for fast and accurate SNP distance estimation from WGS read data or genome assemblies.  
+### Yenta is a Nextflow pipeline for fast and accurate SNP distance estimation among microbial isolates. Yenta was originally designed to identify reference strain contamination (screening microbial assemblies against a commonly used laboratory control strains), but can be used to quickly and accurately screen query isolates against any microcial assemblies provided by the user. Yenta uses *MUmmer* whole genome alignment and sensible data filtering to assess SNP distances, and will generate *SKESA* assemblies if WGS read data is provided.  
 
 ---
 ## Software Dependencies  
@@ -8,13 +8,14 @@ The following software are required to run Yenta. Software version used during Y
 
 - Nextflow (22.10.7)  
 - Python (3.8.1)  
+  - pybedtools  
 - BEDTools (2.26.0)  
 - MUmmer (4.0.0)  
 - SKESA (2.5.0) [Only required if starting from raw reads]  
   
 ---
-## Installation  
-Yenta can be run by cloning the GitHub repo.  
+## Installing Yenta 
+Yenta can be installed by cloning the GitHub repo.  
 
 ```
 git clone https://github.com/CFSAN-Biostatistics/Yenta.git
@@ -22,7 +23,7 @@ git clone https://github.com/CFSAN-Biostatistics/Yenta.git
 
 ---
 ## Configuration  
-Yenta options can be specified on the command line, or through the Nextflow configuration files [nexflow.config + conf/profiles.config]  
+Yenta options can be specified on the command line, or through the Nextflow configuration files detailed in the next section.  
 
 **Options with defaults include**:  
 | Parameter    | Description                                                                                                               | Default                                   |
@@ -55,6 +56,99 @@ Yenta options can be specified on the command line, or through the Nextflow conf
 | skesa_module    | Name of SKESA module if 'module load SKESA' statement is required.                                                        | USER    |
 | bedtools_module | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                                  | USER    |
 
+---
+
+## Tips for configuring Nextflow  
+
+Feel free to skip this section if you're familiar with editing Nextflow configuration files.  
+
+There are two main configuration files associated wtih Yenta:  
+- [nextflow.config](nextflow.config)  
+- [profiles.config](conf/profiles.config)
+- Any options set in either of these files are overruled by options set on the command line  
+
+The [nextflow.config](nextflow.config) file shown below can be edited to include 'hard-set' parameters you want to be used for every Yenta run.   
+
+```
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    YENTA Nextflow config file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Default config options for all compute environments
+----------------------------------------------------------------------------------------
+*/
+
+// Import profile settings
+includeConfig "${projectDir}/conf/profiles.config"
+
+// Global default params
+params {
+    
+    // Output directory [Default: Yenta directory]
+    outbase = "${projectDir}"
+
+    // QUERY FILTERING
+
+    // Only consider queries where either the query or reference genome are covered by at least <align_cov>% [Default: 85]
+    align_cov = 85
+
+    // CONTIG FILTERING
+
+    // Only consider SNPs from contig alignments with <ref_iden>% identity [Default: 99]
+    ref_iden = 99
+
+    // SNP FILTERING
+
+    // Remove SNPs that occur within <ref_edge>bp from the end of the reference contig [Default: 500]
+    ref_edge = 500
+
+    // Remove SNPs that occur within <query_edge>bp from the end of the query contig [Default: 500]
+    query_edge = 500
+}
+```
+
+The [profiles.config](conf/profiles.config) file shown below can be edited to add information about your computing environment. These include:  
+
+- Number of cores per cpu (cores)  
+- Number of concurrent processess allowed at once (process.maxForks)  
+- Names of modules to load for Python, MUmmer, SKESA, and BEDTools (if required)  
+  - If modules are specified, they are loaded automatically by Nextflow via  ```module load -s <MODULE>```
+
+An example configuration setup (slurmHPC) is provided as a model.  
+
+```
+profiles {
+    standard {
+        process.executor = 'local'
+        process.cpus = 1
+        process.maxForks = 1
+        params.python_module = ""
+        params.mummer_module = ""
+        params.skesa_module = ""
+        params.bedtools_module = ""
+    }
+    local_multithread {
+        process.executor = 'local'
+        process.maxForks = 1
+        params.cores = 1
+        process.cpus = "${params.cores}"
+        params.python_module = ""
+        params.mummer_module = ""
+        params.skesa_module = ""
+        params.bedtools_module = ""
+    }
+    slurmHPC {
+        process.executor = 'slurm'
+        process.maxForks = 30
+        params.cores = 20
+        process.cpus = "${params.cores}"
+        params.python_module = "python/3.8.1"
+        params.mummer_module = "mummer/4.0.0"
+        params.skesa_module = "skesa/2.5.0"
+        params.bedtools_module = "bedtools"
+    }
+}
+```
 ---
 
 ## Example Runs

@@ -2,8 +2,10 @@
 // Params are passed from Yenta.nf or from the command line if run directly
 
 // Set output paths
-params.out = "./YENTA_${new java.util.Date().getTime()}"
-output_directory = file("${params.out}")
+// Create directory structure
+params.outbase = "${projectDir}"
+params.out = "YENTA_${new java.util.Date().getTime()}"
+output_directory = file("${params.outbase}/${params.out}")
 reference_directory = file("${output_directory}/Reference_Strain_Data")
 
 // Set cores

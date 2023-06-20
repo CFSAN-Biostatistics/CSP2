@@ -19,14 +19,15 @@ if(params.ref_reads == "" && params.ref_fasta == ""){
 }
 
 // Create directory structure
-params.out = "./YENTA_${new java.util.Date().getTime()}"
-output_directory = file("${params.out}")
+params.outbase = "${projectDir}"
+params.out = "YENTA_${new java.util.Date().getTime()}"
+output_directory = file("${params.outbase}/${params.out}")
 outroot = output_directory.getParent()
 
 if(output_directory.isDirectory()){
     error "${output_directory} (--out) already exists..."
 } else if(!outroot.isDirectory()){
-    error "$outroot is not a valid directory..."
+    error "$outroot (--outbase) is not a valid directory..."
 } else{
     output_directory.mkdirs()
     file("${output_directory}/Reference_Strain_Data").mkdirs()
