@@ -75,9 +75,9 @@ def parseMUmmerSNPs(mummer_dir,reference):
         snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
 
         # Add Loc data
-        snp_file['Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
-
-        return snp_file[['Ref_Contig','Ref_Pos','Loc','Query_Contig','Query_Pos','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base']]
+        snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
+        snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]
+        return snp_file[['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base']]
 
 def filterSNPs(snp_coords,ref_edge,query_edge):
 
@@ -98,18 +98,16 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
         snps_pf_iden_edge = snps_pf_iden[(snps_pf_iden.Dist_to_Ref_End >= ref_edge) & (snps_pf_iden.Dist_to_Query_End >= query_edge)]
 
         # Identify duplicated SNPs (Reference positions covered by multiple mappings) and select the SNP deriving from the longest alignment
-        snps_pf_iden_edge_dup = snps_pf_iden_edge.drop_duplicates(subset='Loc', keep=False)
-        duplicated_mask = snps_pf_iden_edge.duplicated(subset='Loc', keep=False)
+        snps_pf_iden_edge_dup = snps_pf_iden_edge.drop_duplicates(subset='Ref_Loc', keep=False)
+        duplicated_mask = snps_pf_iden_edge.duplicated(subset='Ref_Loc', keep=False)
         rejected_snps_dup = snps_pf_iden_edge[duplicated_mask]
 
         if len(duplicated_mask) > 0:
-            longest_dup_df = rejected_snps_dup.loc[rejected_snps_dup.groupby('Loc')['Ref_Aligned'].idxmax()]
+            longest_dup_df = rejected_snps_dup.loc[rejected_snps_dup.groupby('Ref_Loc')['Ref_Aligned'].idxmax()]
             rejected_snps_dup = snps_pf_iden_edge[~snps_pf_iden_edge.index.isin(longest_dup_df.index) & ~snps_pf_iden_edge.index.isin(snps_pf_iden_edge_dup.index)]
             rejected_snps_dup['Cat'] = "Filtered_Dup"
             snps_pf_iden_edge_dup = pd.concat([snps_pf_iden_edge_dup, longest_dup_df])
         
-        rejected_snps_dup_count = rejected_snps_dup.shape[0]
-
         # Look for high-density regions at the 1000bp (6 or fewer), 125bp (4 or fewer), 15bp (2 or fewer)
 
         # Create BED file for preserved SNPs
@@ -119,35 +117,34 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
         w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
         w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
         w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
-        rejected_density_1000 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Loc.isin(w_1000_locs)]
+        rejected_density_1000 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_1000_locs)]
 
         if w_1000_df.shape[0] > 0:
             density_locs = density_locs + w_1000_locs
-            preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+            preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
             rejected_density_1000['Cat'] = "Filtered_Density_1000"
         
         w_125 = preserved_bed.window(preserved_bed,c=True, w=125)
         w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 4")
         w_125_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_125_df.Ref_Contig, w_125_df.Ref_End))]
-        rejected_density_125 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Loc.isin(w_125_locs)]
+        rejected_density_125 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_125_locs)]
 
         if w_125_df.shape[0] > 0:
             density_locs = density_locs + w_125_locs
-            preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+            preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
             rejected_density_125['Cat'] = "Filtered_Density_125"
         
         w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
         w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
         w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
-        rejected_density_15 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Loc.isin(w_15_locs)]
+        rejected_density_15 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_15_locs)]
 
         if w_15_df.shape[0] > 0:
             density_locs = density_locs + w_15_locs
             rejected_density_15['Cat'] = "Filtered_Density_15"
 
-        final_snp_df = snps_pf_iden_edge_dup[~(snps_pf_iden_edge_dup.Loc.isin(density_locs))]
+        final_snp_df = snps_pf_iden_edge_dup[~(snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs))]
         final_snp_df['Cat'] = "Yenta_SNP"
-        final_snp_count = final_snp_df.shape[0]
 
         all_snps = final_snp_df.append(rejected_snps_iden).append(rejected_snps_edge).append(rejected_snps_dup).append(rejected_density_1000).append(rejected_density_125).append(rejected_density_15)
         
@@ -285,6 +282,18 @@ else:
                     filtered_snps.to_csv(mummer_dir+"/"+reference+"_MUmmer_SNPs.tsv",sep="\t",index=False)
                     final_bed = makeBED(filtered_snps[['Ref_Contig','Ref_Pos','Cat']])
                     pd.read_table(final_bed.fn).to_csv(mummer_dir+"/"+reference+"_MUmmer_SNPs.bed",sep="\t",index=False)
+                
+                # Save Yenta_SNP data
+                if final_snp_count > 0:
+                    yenta_df = filtered_snps[filtered_snps.Cat == "Yenta_SNP"]
+                    yenta_df.rename(columns={"Ref_Loc": "Isolate_A_Loc",
+                                             "Query_Loc": "Isolate_B_Loc",
+                                             "Ref_Base" = "Isolate_A_Base",
+                                             "Query_Base" = "Isolate_B_Base"})
+
+                    yenta_df['Isolate_A'] = reference
+                    yenta_df['Isolate_B'] = isolate
+                    yenta_df[["Isolate_A","Isolate_B","Isolate_A_Loc","Isolate_B_Loc","Isolate_A_Base","Isolate_B_Base"]].to_csv(mummer_dir+"/"+reference+"_Yenta_SNPs.tsv",sep="\t",index=False)
 
 # Print output for Nextflow
 print(",".join([
