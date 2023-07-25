@@ -2,11 +2,20 @@
 // Params are passed from Yenta.nf or from the command line if run directly
 
 // Set output paths
-// Create directory structure
-params.outbase = "${projectDir}"
-params.out = "YENTA_${new java.util.Date().getTime()}"
-output_directory = file("${params.outbase}/${params.out}")
-reference_directory = file("${output_directory}/Reference_Strain_Data")
+params.out = "Yenta_${new java.util.Date().getTime()}"
+params.outroot = ""
+if(params.outroot == ""){
+    output_directory = file("${params.out}")
+} else{
+    output_directory = file("${file("${params.outroot}")}/${params.out}")
+}
+assembly_directory = file("${output_directory}/Assemblies")
+
+if(!output_directory.isDirectory()){
+    error "${output_directory} (--out) is not a valid directory..."
+} else if(!assembly_directory.isDirectory()){
+    assembly_directory.mkdirs()
+}
 
 // Set cores
 params.cores = 1
@@ -18,50 +27,46 @@ params.ref_reads = ""
 params.ref_fasta = ""
 
 // Set data type (Default: srazip)
-params.readtype = ""
-params.ref_readtype = ""
-
-if(params.readtype){
-    if(params.readtype == "illumina"){
-        params.readext = "fastq.gz"
-        params.forward = "_R1_001.fastq.gz"
-        params.reverse = "_R2_001.fastq.gz"
-    } else if (params.readtype == "sra"){
-        params.readext = "fastq"
-        params.forward = "_1.fastq"
-        params.reverse = "_2.fastq"
-    } else if (params.readtype == "srazip"){
-        params.readext = "fastq.gz"
-        params.forward = "_1.fastq.gz"
-        params.reverse = "_2.fastq.gz"
-    } else{
-        error "Invalid --readtype [ Options include illumina, sra, srazip (Default) ]"
-    }
-} else{
+params.readtype == ""
+if(params.readtype == ""){
     params.readext = "fastq.gz"
     params.forward = "_1.fastq.gz"
     params.reverse = "_2.fastq.gz"
-}
-if(params.ref_readtype){
-    if(params.ref_readtype == "illumina"){
-        params.ref_readext = "fastq.gz"
-        params.ref_forward = "_R1_001.fastq.gz"
-        params.ref_reverse = "_R2_001.fastq.gz"
-    } else if (params.ref_readtype == "sra"){
-        params.ref_readext = "fastq"
-        params.ref_forward = "_1.fastq"
-        params.ref_reverse = "_2.fastq"
-    } else if (params.ref_readtype == "srazip"){
-        params.ref_readext = "fastq.gz"
-        params.ref_forward = "_1.fastq.gz"
-        params.ref_reverse = "_2.fastq.gz"
-    } else{
-        error "Invalid --ref_readtype [ Options include illumina, sra, srazip (Default) ]"
-    }
+} else if(params.readtype == "illumina"){
+    params.readext = "fastq.gz"
+    params.forward = "_R1_001.fastq.gz"
+    params.reverse = "_R2_001.fastq.gz"
+} else if(params.readtype == "sra"){
+    params.readext = "fastq"
+    params.forward = "_1.fastq"
+    params.reverse = "_2.fastq"
+} else if(params.readtype == "srazip"){
+    params.readext = "fastq.gz"
+    params.forward = "_1.fastq.gz"
+    params.reverse = "_2.fastq.gz"
 } else{
+    error "Invalid --readtype [ Options include illumina, sra, srazip (Default) ]"
+}
+
+params.ref_readtype == ""
+if(params.ref_readtype == ""){
     params.ref_readext = "fastq.gz"
     params.ref_forward = "_1.fastq.gz"
     params.ref_reverse = "_2.fastq.gz"
+} else if(params.ref_readtype == "illumina"){
+    params.ref_readext = "fastq.gz"
+    params.ref_forward = "_R1_001.fastq.gz"
+    params.ref_reverse = "_R2_001.fastq.gz"
+} else if(params.ref_readtype == "sra"){
+    params.ref_readext = "fastq"
+    params.ref_forward = "_1.fastq"
+    params.ref_reverse = "_2.fastq"
+} else if(params.ref_readtype == "srazip"){
+    params.ref_readext = "fastq.gz"
+    params.ref_forward = "_1.fastq.gz"
+    params.ref_reverse = "_2.fastq.gz"
+} else{
+    error "Invalid --ref_readtype [ Options include illumina, sra, srazip (Default) ]"
 }
 
 // Create module loading scripts if necessary
@@ -90,25 +95,28 @@ workflow fetchSampleData{
     // Collect paths to read/assembly data for samples
     ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
     ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
-
-    all_sample_data = sample_read_data.concat(sample_assembly_data) 
     
-    sample_data = mergeDuos(all_sample_data,"Sample") | makeSampleFolder | splitCsv | assembleSamples
+    sample_data = mergeDuos(sample_read_data.concat(sample_assembly_data)) | assembleIsolate
 }
+
 workflow fetchReferenceData{
     emit:
     reference_data
 
     main:
-    
-    // Collect paths to read/assembly data for references
-    ("${params.ref_reads}" != "" ? getReads(params.ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
-    ("${params.ref_fasta}" != "" ? getAssemblies(params.ref_fasta) : Channel.empty()).set{reference_assembly_data}
-    
-    all_reference_data = reference_read_data.concat(reference_assembly_data)
+        
+    if(params.ref_reads == "" && params.ref_fasta == ""){
+        reference_data = Channel.empty()
+    } else{
+        // Collect paths to read/assembly data for references
+        ("${params.ref_reads}" != "" ? getReads(params.ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
+        ("${params.ref_fasta}" != "" ? getAssemblies(params.ref_fasta) : Channel.empty()).set{reference_assembly_data}
 
-    reference_data = mergeDuos(all_reference_data,"Reference") | assembleReference
+        reference_data = mergeDuos(reference_read_data.concat(reference_assembly_data)) | assembleIsolate
+    }
 }
+
+// Fetch workflows //
 workflow getReads{
 
     take:
@@ -185,82 +193,6 @@ workflow getAssemblies{
         | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get the path and the name
     }
 }
-workflow mergeDuos{
-
-    // Workflow to merge data that are provided as both reads and assembly
-
-    take:
-    isolate_data
-    run_mode
-
-    emit:
-    merged_data
-   
-    main:
-
-    // If reads and assemblies are provided, split data
-    if(run_mode == "Sample"){
-        split_data = isolate_data
-        | branch{
-            assembly: "${it[1]}" == "Assembly"
-                return tuple(it[0],it[1],"",it[2])
-            read: true
-                return tuple(it[0],it[1],it[2],"${output_directory}/${it[0]}/${it[0]}.fasta")}
-    } else if(run_mode == "Reference"){
-        split_data = isolate_data
-        | branch{
-            assembly: "${it[1]}" == "Assembly"
-                return tuple(it[0],it[1],"",it[2])
-            read: true
-                return tuple(it[0],it[1],it[2],"${reference_directory}/${it[0]}.fasta")}    
-    } else{
-        error "run_mode should be Sample or Reference, not $run_mode..."
-    }
-
-    // For any references with both read and assembly data, merge and create a single entry      
-    split_data.read.join(split_data.assembly.map{it->tuple(it[0],it[3])},by:0).map{it-> tuple(it[0],"Duo_${it[1]}",it[2],it[4])}.ifEmpty{tuple("No_Duo","No_Duo","No_Duo","No_Duo")}.set{duo_data}
-    duo_isolates = duo_data.map{it -> it[0]}.collect()
-        
-    merged_data = pruneDuos(duo_data.concat(split_data.read).concat(split_data.assembly),duo_isolates) | splitCsv()
-}
-workflow assembleSamples{
-    take:
-    sample_data
-
-    emit:
-    assembled_samples
-
-    main:
-    
-    split_data = sample_data
-    | branch{
-        single: "${it[1]}" == "Single"
-        paired: "${it[1]}" == "Paired"
-        assembled: true
-    }
-
-    assembled_samples = runSKESA(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
-}
-workflow assembleReference{
-    take:
-    reference_data
-
-    emit:
-    assembled_reference
-
-    main:
-
-    split_data = reference_data
-    | branch{
-        single: "${it[1]}" == "Single"
-        paired: "${it[1]}" == "Paired"
-        assembled: true
-    }
-
-    assembled_reference = runSKESA(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
-}
-
-// Processes //
 process fetchPairedReads{
 
     executor = 'local'
@@ -285,6 +217,33 @@ process fetchPairedReads{
     ${params.load_python_module}
     python ${findPairedReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix}
     """
+}
+
+// Merge workflows //
+workflow mergeDuos{
+
+    // Workflow to merge data that are provided as both reads and assembly
+
+    take:
+    isolate_data
+    
+    emit:
+    merged_data
+   
+    main:
+
+    split_data = isolate_data
+    | branch{
+        assembly: "${it[1]}" == "Assembly"
+            return tuple(it[0],it[1],"",it[2])
+        read: true
+            return tuple(it[0],it[1],it[2],"${assembly_directory}/${it[0]}.fasta")} 
+
+    // For any references with both read and assembly data, merge and create a single entry      
+    split_data.read.join(split_data.assembly.map{it->tuple(it[0],it[3])},by:0).map{it-> tuple(it[0],"Duo_${it[1]}",it[2],it[4])}.ifEmpty{tuple("No_Duo","No_Duo","No_Duo","No_Duo")}.set{duo_data}
+    duo_isolates = duo_data.map{it -> it[0]}.collect()
+        
+    merged_data = pruneDuos(duo_data.concat(split_data.read).concat(split_data.assembly),duo_isolates) | splitCsv()
 }
 process pruneDuos{
     executor = 'local'
@@ -325,35 +284,27 @@ process pruneDuos{
         }
     }
 }
-process makeSampleFolder{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
 
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+// Assembly //
+workflow assembleIsolate{
+    take:
+    sample_data
 
-    output:
-    stdout
-   
-    script:
+    emit:
+    assembled_samples
+
+    main:
     
-    sample_dir = file("${output_directory}/${sample_name}")
-    mummer_dir = file("${sample_dir}/MUmmer")
-
-    if(sample_dir.isDirectory()){
-        error "$sample_dir already exists"
-    } else if(!output_directory.isDirectory()){
-        error "$output_directory doesn't exist"
-    } else{
-        """
-        mkdir $sample_dir
-        mkdir $mummer_dir
-        echo "$sample_name,$data_type,$read_location,$assembly_location"
-        """     
+    split_data = sample_data
+    | branch{
+        single: "${it[1]}" == "Single"
+        paired: "${it[1]}" == "Paired"
+        assembled: true
     }
+
+    assembled_samples = skesaAssemble(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
 }
-process runSKESA{
+process skesaAssemble{
     
     input:
     tuple val(sample_name),val(read_type),val(read_location),val(assembly_out)
@@ -387,5 +338,36 @@ process runSKESA{
         } else{
             error "read_type should be Paired or Single, not $read_type..."
         }
+    }
+}
+
+// Processes //
+
+process makeSampleFolder{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    output:
+    stdout
+   
+    script:
+    
+    sample_dir = file("${output_directory}/${sample_name}")
+    mummer_dir = file("${sample_dir}/MUmmer")
+
+    if(sample_dir.isDirectory()){
+        error "$sample_dir already exists"
+    } else if(!output_directory.isDirectory()){
+        error "$output_directory doesn't exist"
+    } else{
+        """
+        mkdir $sample_dir
+        mkdir $mummer_dir
+        echo "$sample_name,$data_type,$read_location,$assembly_location"
+        """     
     }
 }

@@ -1,10 +1,21 @@
 // Subworkflow to run MUmmer for query/referece comparisons
 // Params are passed from Yenta.nf or from the command line if run directly
 
-// Set output folder
-params.outbase = "${projectDir}"
-params.out = "YENTA_${new java.util.Date().getTime()}"
-output_directory = file("${params.outbase}/${params.out}")
+// Set output paths
+params.out = "Yenta_${new java.util.Date().getTime()}"
+params.outroot = ""
+if(params.outroot == ""){
+    output_directory = file("${params.out}")
+} else{
+    output_directory = file("${file("${params.outroot}")}/${params.out}")
+}
+assembly_directory = file("${output_directory}/Assemblies")
+
+if(!output_directory.isDirectory()){
+    error "${output_directory} (--out) is not a valid directory..."
+} else if(!assembly_directory.isDirectory()){
+    assembly_directory.mkdirs()
+}
 results_directory = file("${output_directory}/Screening_Results")
 reference_directory = file("${output_directory}/Reference_Strain_Data")
 
@@ -37,7 +48,7 @@ reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 
-workflow dnaDiff{
+workflow runScreen{
     
     take:
     sample_data
