@@ -22,30 +22,26 @@ if(output_directory.isDirectory()){
 } else{
     output_directory.mkdirs()
     file("${output_directory}/Assemblies").mkdirs()
-    file("${output_directory}/Isolate_Info").mkdirs()
     file("${output_directory}/MUmmer_Output").mkdirs()
     file("${output_directory}/MUmmer_Output/Raw").mkdirs()
-    file("${output_directory}/Results").mkdirs()
 }
 
 // Import modules
 include {fetchSampleData; fetchReferenceData} from "./subworkflows/fetchData/main.nf"
-//include {runSnpPipeline; runScreen } from "./subworkflows/dnadiff/main.nf"
+include {runScreen } from "./subworkflows/dnadiff/main.nf"
 
 workflow{
 
-    println("test")
     ////// 01: Collect paths to data and assemble read data if necessary ////// 
     sample_data = fetchSampleData()
-    reference_data = fetchReferenceData()
-
+    
+    ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
+    if(params.ref_reads == "" && params.ref_fasta == ""){
+        //mummer_results = runSnpPipeline(sample_data)
+    } else{
+        reference_data = fetchReferenceData()
+        mummer_results = runScreen(sample_data,reference_data)
+    }
     //sample_data.subscribe{println("$it")}
     //reference_data.subscribe{println("$it")}
-
-    ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
-//    if(params.ref_reads == "" && params.ref_fasta == ""){
-//        mummer_results = runSnpPipeline(sample_data)
-//    } else{
-//        mummer_results = runScreen(sample_data,reference_data)
-//    }
 }

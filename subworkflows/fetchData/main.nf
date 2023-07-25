@@ -11,9 +11,13 @@ if(params.outroot == ""){
 }
 assembly_directory = file("${output_directory}/Assemblies")
 
-if(!output_directory.isDirectory()){
-    error "${output_directory} (--out) is not a valid directory..."
-} else if(!assembly_directory.isDirectory()){
+// Check if parent folder exists
+if(!output_directory.getParent().isDirectory()){
+    error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
+} else if(!output_directory.isDirectory()){ // Check if output directory exists
+    output_directory.mkdirs()
+    assembly_directory.mkdirs()
+} else if(!assembly_directory.isDirectory()){ // Check if assembly directory exists
     assembly_directory.mkdirs()
 }
 
