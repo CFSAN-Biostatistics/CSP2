@@ -62,6 +62,14 @@ def parseMUmmerSNPs(mummer_dir,report_id):
         'SNP_Buffer','Dist_to_End','Ref_Length','Query_Length',
         'Seq_Direction','gSNP','Ref_Contig','Query_Contig'])
 
+    # Print indels if there are any
+    indel_file = snp_file[(snp_file.Ref_Base == ".") | (snp_file.Query_Base == ".")]
+
+    if indel_file.shape[0] > 0:
+        indel_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(indel_file.Ref_Contig, indel_file.Ref_Pos))]
+        indel_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(indel_file.Query_Contig, indel_file.Query_Pos))]
+        indel_file.to_csv(mummer_dir+"/"+report_id+"_Indels.tsv",sep="\t",index=False)
+
     # Remove indels
     snp_file = snp_file[(snp_file.Ref_Base != ".") & (snp_file.Query_Base != ".")]
     
@@ -131,7 +139,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
 
     if w_125_df.shape[0] > 0:
         density_locs = density_locs + w_125_locs
-        preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+        preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
         rejected_density_125['Cat'] = "Filtered_Density_125"
     
     w_15 = preserved_bed.window(preserved_bed,c=True, w=15)

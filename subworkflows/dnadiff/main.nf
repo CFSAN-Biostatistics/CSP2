@@ -27,7 +27,7 @@ if(!output_directory.getParent().isDirectory()){
     } else if(!raw_mummer_directory.isDirectory()){
         raw_mummer_directory.mkdirs()
     }
- }
+}
 
 // Set path to mummer script
 mummer_processing_script = file("$projectDir/bin/filterMUmmer.py")
@@ -61,6 +61,66 @@ reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 
+workflow runSnpPipeline{
+    take:
+    sample_data
+
+    emit:
+    sample_pairwise
+
+    main:
+    all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
+        
+        same: "${it[0]}" == "${it[4]}"
+        return(it)
+        
+        different: true
+        return(it)}
+    
+    same_comparisons = all_comparisons.same.map{
+        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${it[0]};${it[4]}")}
+        .collect().flatten().collate(5)
+        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][0])}
+
+    different_comparisons = all_comparisons.different.map{
+        def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
+        def higherValue = "${it[0]}" >= "${it[4]}" ? "${it[0]}" : "${it[4]}" 
+        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
+        .collect().flatten().collate(5)
+        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
+
+    sample_pairwise = runMUmmer(same_comparisons.concat(different_comparisons)) | splitCsv 
+
+    // Prep and save log files
+    sample_log_file = prepSampleLog()
+    sample_log_data = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
+    saveSampleLog(sample_log_file,sample_log_data)
+
+    snp_log_file = prepSNPLog()
+    saveDNADiffLog(snp_log_file,sample_pairwise)
+
+    // Grab all Yenta SNPs
+    sample_pairwise
+    | collect | flatten | collate(17)
+    | map{it -> tuple("${mummer_directory}")}
+}
+
+process getYentaSNPs{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(mummer_directory)
+
+    script:
+
+    all_snp_tsvs = Channel.fromPath(["${mummer_directory}/*_SNPs.tsv"])
+
+    """
+    cat $mummer_directory/
+    """
+}
 workflow runScreen{
     
     take:
@@ -100,7 +160,11 @@ workflow runScreen{
 }
 
 process runMUmmer{
-     
+
+    newForks = "${params.cores}".toInteger() * "${params.maxForks}".toInteger()
+    maxForks = newForks.toInteger()
+    cpus = 1
+    
     input:
     tuple val(query_fasta),val(ref_fasta)
     
@@ -146,6 +210,20 @@ process prepQueryLog{
     echo -n "${output_directory}/Query_Data.tsv"
     """
 }
+process prepSampleLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    output:
+    stdout
+
+    script:
+    """
+    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Isolate_Data.tsv"
+    echo -n "${output_directory}/Isolate_Data.tsv"
+    """
+}
 process prepRefLog{
     executor = 'local'
     cpus = 1
@@ -176,6 +254,25 @@ process saveQueryLog{
     } else{
     """
     echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $query_log_file
+    """
+    }
+}
+process saveSampleLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(sample_log_file)
+    tuple val(sample_id),val(data_type),val(read_data),val(assembly_data),val(assembly_contigs),val(assembly_bases)
+
+    script:
+
+    if(!file(sample_log_file).isFile()){
+        error "$sample_log_file doesn't exist..."
+    } else{
+    """
+    echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $sample_log_file
     """
     }
 }
@@ -210,6 +307,20 @@ process prepDNADiffLog{
     """
     echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Screening_Results.tsv"
     echo -n "${output_directory}/Screening_Results.tsv"
+    """
+}
+process prepSNPLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    output:
+    stdout
+
+    script:
+    """
+    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
+    echo -n "${output_directory}/Raw_Pairwise_Distances.tsv"
     """
 }
 process saveDNADiffLog{
