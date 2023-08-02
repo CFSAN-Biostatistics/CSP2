@@ -97,61 +97,62 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
 
     snps_pf_iden = snp_coords[~snp_coords.isnull().any(1)]
     
-    # Identify SNPs that are too close to the contig edges
-    rejected_snps_edge = snps_pf_iden[(snps_pf_iden.Dist_to_Ref_End < ref_edge) | (snps_pf_iden.Dist_to_Query_End < query_edge)]
-    rejected_snps_edge_count = rejected_snps_edge.shape[0]
-    if rejected_snps_edge_count > 0:
-        rejected_snps_edge['Cat'] = "Filtered_Edge"
-
-    snps_pf_iden_edge = snps_pf_iden[(snps_pf_iden.Dist_to_Ref_End >= ref_edge) & (snps_pf_iden.Dist_to_Query_End >= query_edge)]
-
     # Identify duplicated SNPs (Reference positions covered by multiple mappings) and select the SNP deriving from the longest alignment
-    snps_pf_iden_edge_dup = snps_pf_iden_edge.drop_duplicates(subset='Ref_Loc', keep=False)
-    duplicated_mask = snps_pf_iden_edge.duplicated(subset='Ref_Loc', keep=False)
-    rejected_snps_dup = snps_pf_iden_edge[duplicated_mask]
+    snps_pf_iden_dup = snps_pf_iden.drop_duplicates(subset='Ref_Loc', keep=False)
+    duplicated_mask = snps_pf_iden.duplicated(subset='Ref_Loc', keep=False)
+    rejected_snps_dup = snps_pf_iden[duplicated_mask]
 
     if len(duplicated_mask) > 0:
         longest_dup_df = rejected_snps_dup.loc[rejected_snps_dup.groupby('Ref_Loc')['Ref_Aligned'].idxmax()]
-        rejected_snps_dup = snps_pf_iden_edge[~snps_pf_iden_edge.index.isin(longest_dup_df.index) & ~snps_pf_iden_edge.index.isin(snps_pf_iden_edge_dup.index)]
+        rejected_snps_dup = snps_pf_iden[~snps_pf_iden.index.isin(longest_dup_df.index) & ~snps_pf_iden.index.isin(snps_pf_iden_dup.index)]
         rejected_snps_dup['Cat'] = "Filtered_Dup"
-        snps_pf_iden_edge_dup = pd.concat([snps_pf_iden_edge_dup, longest_dup_df])
-    
+        snps_pf_iden_dup = pd.concat([snps_pf_iden_dup, longest_dup_df])
+
     # Look for high-density regions at the 1000bp (6 or fewer), 125bp (4 or fewer), 15bp (2 or fewer)
 
     # Create BED file for preserved SNPs
-    preserved_bed = makeBED(snps_pf_iden_edge_dup[['Ref_Contig','Ref_Pos']])
+    preserved_bed = makeBED(snps_pf_iden_dup[['Ref_Contig','Ref_Pos']])
     density_locs = []
 
-    w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
-    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
-    w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
-    rejected_density_1000 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_1000_locs)]
+    w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
+    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
+    w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
+    rejected_density_15 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_15_locs)]
 
-    if w_1000_df.shape[0] > 0:
-        density_locs = density_locs + w_1000_locs
-        preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_1000['Cat'] = "Filtered_Density_1000"
+    if w_15_df.shape[0] > 0:
+        density_locs = density_locs + w_15_locs
+        preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+        rejected_density_15['Cat'] = "Filtered_Density_15"
     
     w_125 = preserved_bed.window(preserved_bed,c=True, w=125)
     w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 4")
     w_125_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_125_df.Ref_Contig, w_125_df.Ref_End))]
-    rejected_density_125 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_125_locs)]
+    rejected_density_125 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_125_locs)]
 
     if w_125_df.shape[0] > 0:
         density_locs = density_locs + w_125_locs
-        preserved_bed = makeBED(snps_pf_iden_edge_dup[~snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+        preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
         rejected_density_125['Cat'] = "Filtered_Density_125"
+
+    w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
+    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
+    w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
+    rejected_density_1000 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_1000_locs)]
+
+    if w_1000_df.shape[0] > 0:
+        density_locs = density_locs + w_1000_locs
+        preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
+        rejected_density_1000['Cat'] = "Filtered_Density_1000"
     
-    w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
-    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
-    w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
-    rejected_density_15 = snps_pf_iden_edge_dup[snps_pf_iden_edge_dup.Ref_Loc.isin(w_15_locs)]
+    snps_pf_iden_dup_density = snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)]
 
-    if w_15_df.shape[0] > 0:
-        density_locs = density_locs + w_15_locs
-        rejected_density_15['Cat'] = "Filtered_Density_15"
+    # Identify SNPs that are too close to the contig edges
+    rejected_snps_edge = snps_pf_iden_dup_density[(snps_pf_iden_dup_density.Dist_to_Ref_End < ref_edge) | (snps_pf_iden_dup_density.Dist_to_Query_End < query_edge)]
+    rejected_snps_edge_count = rejected_snps_edge.shape[0]
+    if rejected_snps_edge_count > 0:
+        rejected_snps_edge['Cat'] = "Filtered_Edge"
 
-    final_snp_df = snps_pf_iden_edge_dup[~(snps_pf_iden_edge_dup.Ref_Loc.isin(density_locs))]
+    final_snp_df = snps_pf_iden_dup_density[(snps_pf_iden_dup_density.Dist_to_Ref_End >= ref_edge) & (snps_pf_iden_dup_density.Dist_to_Query_End >= query_edge)]
     final_snp_df['Cat'] = "Yenta_SNP"
 
     all_snps = final_snp_df.append(rejected_snps_iden).append(rejected_snps_edge).append(rejected_snps_dup).append(rejected_density_1000).append(rejected_density_125).append(rejected_density_15)
