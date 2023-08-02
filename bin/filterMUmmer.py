@@ -176,6 +176,9 @@ perc_iden = float(sys.argv[6])
 ref_edge = int(sys.argv[7])
 query_edge = int(sys.argv[8])
 
+# Create dummy columns
+final_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Length','Query_Start','Query_End','Query_Aligned','Cat','Ref','Query\n']
+
 #### 02: Read in MUmmer report data ####
 report_data = parseMUmmerReport(mummer_dir,report_id)
 
@@ -208,6 +211,10 @@ if (percent_ref_aligned < align_cov) & (percent_query_aligned < align_cov):
     rejected_snps_density1000_count = "NA"
     rejected_snps_density125_count = "NA"
     rejected_snps_density15_count = "NA"
+    
+    # Save empty TSV
+    with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
+        file.write("\t".join(final_columns))
 
 else:
 
@@ -225,7 +232,10 @@ else:
         rejected_snps_density1000_count = "NA"
         rejected_snps_density125_count = "NA"
         rejected_snps_density15_count = "NA"
-    
+
+        # Save empty TSV
+        with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
+            file.write("\t".join(final_columns))
     else:
         # Get information for filtered mappings
         filtered_ref_bases = sum(coords_file.Ref_Aligned)
@@ -244,7 +254,11 @@ else:
             rejected_snps_density1000_count = "NA"
             rejected_snps_density125_count = "NA"
             rejected_snps_density15_count = "NA"
-        
+
+            # Save empty TSV
+            with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
+                file.write("\t".join(final_columns))
+
         else:
 
             #### 04: Process MUmmer SNPs file ####
@@ -264,6 +278,10 @@ else:
                 rejected_snps_density1000_count = 0
                 rejected_snps_density125_count = 0
                 rejected_snps_density15_count = 0
+
+                # Save empty TSV
+                with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
+                    file.write("\t".join(final_columns))
             
             else:
                 # Merge SNP data and coordinate data
@@ -287,6 +305,10 @@ else:
                     filtered_snps.to_csv(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv",sep="\t",index=False)
                     final_bed = makeBED(filtered_snps[['Ref_Contig','Ref_Pos','Cat']])
                     pd.read_table(final_bed.fn).to_csv(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.bed",sep="\t",index=False)
+                else:
+                    # Save empty TSV
+                    with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
+                        file.write("\t".join(final_columns))
 
 # Print output for Nextflow
 print(",".join([

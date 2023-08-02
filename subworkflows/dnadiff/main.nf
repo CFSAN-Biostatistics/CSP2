@@ -53,8 +53,8 @@ if(params.bedtools_module == ""){
 
 params.align_cov = 85
 params.ref_iden = 99
-params.ref_edge = 50
-params.query_edge = 50
+params.ref_edge = 250
+params.query_edge = 250
 
 alignment_coverage = params.align_cov.toFloat()
 reference_identity = params.ref_iden.toFloat()
@@ -90,6 +90,7 @@ workflow runSnpPipeline{
         .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
     sample_pairwise = runMUmmer(same_comparisons.concat(different_comparisons)) | splitCsv 
+    | collect | flatten | collate(17)
 
     // Prep and save log files
     sample_log_file = prepSampleLog()
@@ -101,11 +102,12 @@ workflow runSnpPipeline{
 
     // Grab all Yenta SNPs
     sample_pairwise
-    | collect | flatten | collate(17)
     | map{it -> tuple("${mummer_directory}")}
+    | first
+    | fetchSNPs
 }
 
-process getYentaSNPs{
+process fetchSNPs{
     executor = 'local'
     cpus = 1
     maxForks = 1
@@ -121,6 +123,7 @@ process getYentaSNPs{
     cat $mummer_directory/
     """
 }
+
 workflow runScreen{
     
     take:
