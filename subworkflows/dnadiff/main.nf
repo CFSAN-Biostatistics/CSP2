@@ -101,23 +101,15 @@ workflow runSnpPipeline{
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Grab all Yenta SNPs
-    sample_pairwise
-    | map{it -> tuple("${mummer_directory}")}
-    | first
-    | fetchSNPs
+    //snps = fetchSNPs(sample_pairwise)
 }
 
 process fetchSNPs{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
 
     input:
-    val(mummer_directory)
+    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
 
     script:
-
-    all_snp_tsvs = Channel.fromPath(["${mummer_directory}/*_SNPs.tsv"])
 
     """
     cat $mummer_directory/

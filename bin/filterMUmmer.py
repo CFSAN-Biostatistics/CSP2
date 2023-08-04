@@ -93,7 +93,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     rejected_snps_iden = snp_coords[snp_coords.isnull().any(1)]
     rejected_snps_iden_count = rejected_snps_iden.shape[0]
     if rejected_snps_iden_count > 0:
-        rejected_snps_iden['Cat'] = "Filtered_Identity"
+        rejected_snps_iden['Cat'] = "Purged_Identity"
 
     snps_pf_iden = snp_coords[~snp_coords.isnull().any(1)]
     
@@ -105,7 +105,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     if len(duplicated_mask) > 0:
         longest_dup_df = rejected_snps_dup.loc[rejected_snps_dup.groupby('Ref_Loc')['Ref_Aligned'].idxmax()]
         rejected_snps_dup = snps_pf_iden[~snps_pf_iden.index.isin(longest_dup_df.index) & ~snps_pf_iden.index.isin(snps_pf_iden_dup.index)]
-        rejected_snps_dup['Cat'] = "Filtered_Dup"
+        rejected_snps_dup['Cat'] = "Purged_Dup"
         snps_pf_iden_dup = pd.concat([snps_pf_iden_dup, longest_dup_df])
 
     # Look for high-density regions at the 1000bp (6 or fewer), 125bp (4 or fewer), 15bp (2 or fewer)
@@ -202,6 +202,7 @@ percent_ref_aligned = 100*(float(ref_aligned)/ref_bases)
 percent_query_aligned = 100*(float(query_aligned)/query_bases)
 
 if (percent_ref_aligned < align_cov) & (percent_query_aligned < align_cov):
+    sample_category = "Purged_Filter_Coverage"
     percent_ref_aligned_filtered = "NA"
     percent_query_aligned_filtered = "NA"
     final_snp_count = "NA"
@@ -223,6 +224,7 @@ else:
 
     # STOP if the coordinates file is empty after filtering based on <perc_iden>
     if coords_file.shape[0] == 0:
+        sample_category = "Purged_Filter_Coverage"
         percent_ref_aligned_filtered = "NA"
         percent_query_aligned_filtered = "NA"
         final_snp_count = "NA"
@@ -293,9 +295,9 @@ else:
                 filtered_snps['Ref'] = reference
                 filtered_snps['Query'] = query
                 final_snp_count = filtered_snps[filtered_snps.Cat == "Yenta_SNP"].shape[0]
-                rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Filtered_Identity"].shape[0]
+                rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Purged_Identity"].shape[0]
                 rejected_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
-                rejected_snps_dup_count = filtered_snps[filtered_snps.Cat =="Filtered_Dup"].shape[0]
+                rejected_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
                 rejected_snps_density1000_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_1000"].shape[0]
                 rejected_snps_density125_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_125"].shape[0]
                 rejected_snps_density15_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_15"].shape[0]
