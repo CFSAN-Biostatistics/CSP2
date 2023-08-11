@@ -52,7 +52,7 @@ def parseMUmmerCoords(mummer_dir,report_id,perc_iden,min_len):
     'Ref_Length','Query_Length','Ref_Cov',
     'Query_Cov','Ref_Contig','Query_Contig'])
 
-    coords_file = coords_file[(coords_file.Ref_Length >= min_len) & (coords_file.Query_Length >= min_len)]
+    coords_file = coords_file[coords_file.Ref_Aligned >= min_len]
     coords_file = coords_file[coords_file.Perc_Iden >= perc_iden]
     return coords_file[['Ref_Contig','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Contig','Query_Length','Query_Start','Query_End','Query_Aligned']]
     
