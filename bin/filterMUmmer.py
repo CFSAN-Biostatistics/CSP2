@@ -44,7 +44,7 @@ def parseMUmmerReport(mummer_dir,report_id):
 
     return report_data
 
-def parseMUmmerCoords(mummer_dir,report_id,perc_iden):
+def parseMUmmerCoords(mummer_dir,report_id,perc_iden,min_len):
     
     coords_file = pd.read_csv(mummer_dir+"/"+report_id+".1coords",sep="\t",index_col=False,
     names=['Ref_Start','Ref_End','Query_Start','Query_End',
@@ -52,6 +52,7 @@ def parseMUmmerCoords(mummer_dir,report_id,perc_iden):
     'Ref_Length','Query_Length','Ref_Cov',
     'Query_Cov','Ref_Contig','Query_Contig'])
 
+    coords_file = coords_file[(coords_file.Ref_Length >= min_len) & (coords_file.Query_Length >= min_len)]
     coords_file = coords_file[coords_file.Perc_Iden >= perc_iden]
     return coords_file[['Ref_Contig','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Contig','Query_Length','Query_Start','Query_End','Query_Aligned']]
     
@@ -93,7 +94,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     rejected_snps_iden = snp_coords[snp_coords.isnull().any(1)]
     rejected_snps_iden_count = rejected_snps_iden.shape[0]
     if rejected_snps_iden_count > 0:
-        rejected_snps_iden['Cat'] = "Purged_Identity"
+        rejected_snps_iden['Cat'] = "Purged_Identity_Length"
 
     snps_pf_iden = snp_coords[~snp_coords.isnull().any(1)]
     
@@ -113,16 +114,16 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     # Create BED file for preserved SNPs
     preserved_bed = makeBED(snps_pf_iden_dup[['Ref_Contig','Ref_Pos']])
     density_locs = []
+    
+    w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
+    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
+    w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
+    rejected_density_1000 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_1000_locs)]
 
-    w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
-    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
-    w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
-    rejected_density_15 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_15_locs)]
-
-    if w_15_df.shape[0] > 0:
-        density_locs = density_locs + w_15_locs
+    if w_1000_df.shape[0] > 0:
+        density_locs = density_locs + w_1000_locs
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_15['Cat'] = "Filtered_Density_15"
+        rejected_density_1000['Cat'] = "Filtered_Density_1000"
     
     w_125 = preserved_bed.window(preserved_bed,c=True, w=125)
     w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 4")
@@ -134,16 +135,16 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
         rejected_density_125['Cat'] = "Filtered_Density_125"
 
-    w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
-    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
-    w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
-    rejected_density_1000 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_1000_locs)]
+    w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
+    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
+    w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
+    rejected_density_15 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_15_locs)]
 
-    if w_1000_df.shape[0] > 0:
-        density_locs = density_locs + w_1000_locs
+    if w_15_df.shape[0] > 0:
+        density_locs = density_locs + w_15_locs
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_1000['Cat'] = "Filtered_Density_1000"
-    
+        rejected_density_15['Cat'] = "Filtered_Density_15"
+        
     snps_pf_iden_dup_density = snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)]
 
     # Identify SNPs that are too close to the contig edges
@@ -175,6 +176,7 @@ align_cov = float(sys.argv[5])
 perc_iden = float(sys.argv[6])
 ref_edge = int(sys.argv[7])
 query_edge = int(sys.argv[8])
+min_len = int(sys.argv[9])
 
 # Create dummy columns
 final_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Length','Query_Start','Query_End','Query_Aligned','Cat','Ref','Query\n']
@@ -220,7 +222,7 @@ if (percent_ref_aligned < align_cov) & (percent_query_aligned < align_cov):
 else:
 
     #### 03: Process MUmmer coords file ####
-    coords_file = parseMUmmerCoords(mummer_dir,report_id,perc_iden)
+    coords_file = parseMUmmerCoords(mummer_dir,report_id,perc_iden,min_len)
 
     # STOP if the coordinates file is empty after filtering based on <perc_iden>
     if coords_file.shape[0] == 0:
@@ -295,7 +297,7 @@ else:
                 filtered_snps['Ref'] = reference
                 filtered_snps['Query'] = query
                 final_snp_count = filtered_snps[filtered_snps.Cat == "Yenta_SNP"].shape[0]
-                rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Purged_Identity"].shape[0]
+                rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Purged_Identity_Length"].shape[0]
                 rejected_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
                 rejected_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
                 rejected_snps_density1000_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_1000"].shape[0]

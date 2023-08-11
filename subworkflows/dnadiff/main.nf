@@ -55,11 +55,13 @@ params.align_cov = 85
 params.ref_iden = 99
 params.ref_edge = 250
 params.query_edge = 250
+params.min_len = 500
 
 alignment_coverage = params.align_cov.toFloat()
 reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
+min_length = params.min_len.toInteger()
 
 workflow runSnpPipeline{
     take:
@@ -185,7 +187,7 @@ process runMUmmer{
 
         cd "${raw_mummer_directory}"
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}
-        python ${mummer_processing_script} ${query_name} ${ref_name} ${report_id} ${raw_mummer_directory} ${alignment_coverage} ${reference_identity} ${reference_edge} ${query_edge}        
+        python ${mummer_processing_script} ${query_name} ${ref_name} ${report_id} ${raw_mummer_directory} ${alignment_coverage} ${reference_identity} ${reference_edge} ${query_edge} ${min_length}       
         """
     }
 }
