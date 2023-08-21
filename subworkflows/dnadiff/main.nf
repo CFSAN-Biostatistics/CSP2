@@ -12,6 +12,7 @@ if(params.outroot == ""){
 
 mummer_directory = file("${output_directory}/MUmmer_Output")
 raw_mummer_directory = file("${output_directory}/MUmmer_Output/Raw")
+snp_directory = file("${output_directory}/SNP_Analysis")
 
 // Check if parent folder exists
 if(!output_directory.getParent().isDirectory()){
@@ -31,6 +32,7 @@ if(!output_directory.getParent().isDirectory()){
 
 // Set path to mummer script
 mummer_processing_script = file("$projectDir/bin/filterMUmmer.py")
+snp_script = file("$projectDir/bin/mergeSNPs.py")
 
 // Set modules if necessary
 if(params.mummer_module == ""){
@@ -79,10 +81,10 @@ workflow runSnpPipeline{
         different: true
         return(it)}
     
-    same_comparisons = all_comparisons.same.map{
+    /*same_comparisons = all_comparisons.same.map{
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${it[0]};${it[4]}")}
         .collect().flatten().collate(5)
-        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][0])}
+        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][0])}*/
 
     different_comparisons = all_comparisons.different.map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
@@ -91,7 +93,7 @@ workflow runSnpPipeline{
         .collect().flatten().collate(5)
         .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
-    sample_pairwise = runMUmmer(same_comparisons.concat(different_comparisons)) | splitCsv 
+    sample_pairwise = runMUmmer(/*same_comparisons.concat(*/different_comparisons/*)*/) | splitCsv 
     | collect | flatten | collate(17)
 
     // Prep and save log files

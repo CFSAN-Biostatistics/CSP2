@@ -61,7 +61,7 @@ def parseMUmmerSNPs(mummer_dir,report_id):
     snp_file = pd.read_csv(mummer_dir+"/"+report_id+".snps",sep="\t",index_col=False,
         names=['Ref_Pos','Ref_Base','Query_Base','Query_Pos',
         'SNP_Buffer','Dist_to_End','Ref_Length','Query_Length',
-        'Seq_Direction','gSNP','Ref_Contig','Query_Contig'])
+        'Ref_Direction','Query_Direction','Ref_Contig','Query_Contig'])
 
     # Print indels if there are any
     indel_file = snp_file[(snp_file.Ref_Base == ".") | (snp_file.Query_Base == ".")]
@@ -86,7 +86,7 @@ def parseMUmmerSNPs(mummer_dir,report_id):
         snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
         snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]    
 
-        return snp_file[['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base']]
+        return snp_file[['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Direction','Query_Direction']]
 
 def filterSNPs(snp_coords,ref_edge,query_edge):
 
@@ -123,7 +123,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     if w_1000_df.shape[0] > 0:
         density_locs = density_locs + w_1000_locs
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_1000['Cat'] = "Filtered_Density_1000"
+        rejected_density_1000['Cat'] = "Purged_Density_1000"
     
     w_125 = preserved_bed.window(preserved_bed,c=True, w=125)
     w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 4")
@@ -133,7 +133,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     if w_125_df.shape[0] > 0:
         density_locs = density_locs + w_125_locs
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_125['Cat'] = "Filtered_Density_125"
+        rejected_density_125['Cat'] = "Purged_Density_125"
 
     w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
     w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
@@ -143,7 +143,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     if w_15_df.shape[0] > 0:
         density_locs = density_locs + w_15_locs
         preserved_bed = makeBED(snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Pos']])
-        rejected_density_15['Cat'] = "Filtered_Density_15"
+        rejected_density_15['Cat'] = "Purged_Density_15"
         
     snps_pf_iden_dup_density = snps_pf_iden_dup[~snps_pf_iden_dup.Ref_Loc.isin(density_locs)]
 
@@ -179,7 +179,7 @@ query_edge = int(sys.argv[8])
 min_len = int(sys.argv[9])
 
 # Create dummy columns
-final_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Length','Query_Start','Query_End','Query_Aligned','Cat','Ref','Query\n']
+final_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Direction','Query_Direction','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Length','Query_Start','Query_End','Query_Aligned','Cat','Ref','Query\n']
 
 #### 02: Read in MUmmer report data ####
 report_data = parseMUmmerReport(mummer_dir,report_id)
@@ -300,9 +300,9 @@ else:
                 rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Purged_Identity_Length"].shape[0]
                 rejected_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
                 rejected_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
-                rejected_snps_density1000_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_1000"].shape[0]
-                rejected_snps_density125_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_125"].shape[0]
-                rejected_snps_density15_count = filtered_snps[filtered_snps.Cat =="Filtered_Density_15"].shape[0]
+                rejected_snps_density1000_count = filtered_snps[filtered_snps.Cat =="Purged_Density_1000"].shape[0]
+                rejected_snps_density125_count = filtered_snps[filtered_snps.Cat =="Purged_Density_125"].shape[0]
+                rejected_snps_density15_count = filtered_snps[filtered_snps.Cat =="Purged_Density_15"].shape[0]
 
                 # Save SNP data
                 if filtered_snps.shape[0] > 0:
