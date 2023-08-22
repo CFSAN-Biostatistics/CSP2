@@ -56,7 +56,7 @@ workflow runSnpPipeline{
     sample_data
 
     emit:
-    sample_data
+    sample_log_data
 
     main:
 
