@@ -340,7 +340,7 @@ else:
             final_snp_df = pd.concat(df_list, ignore_index=True)
 
             global final_full_alignment
-            final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description=" ") for records in zip(*full_align_list)])
+            final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*full_align_list)])
 
             # Get pairwise distances
             pairwise_combinations = list(combinations(isolate_list, 2))
