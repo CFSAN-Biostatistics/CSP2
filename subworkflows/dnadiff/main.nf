@@ -11,6 +11,7 @@ if(params.outroot == ""){
 }
 
 mummer_directory = file("${output_directory}/MUmmer_Output")
+snp_directory = file("${output_directory}/SNP_Analysis")
 raw_mummer_directory = file("${output_directory}/MUmmer_Output/Raw")
 
 // Set path to mummer script
