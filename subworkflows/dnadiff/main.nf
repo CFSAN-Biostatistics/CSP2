@@ -80,7 +80,7 @@ workflow runSnpPipeline{
 
     // Prep and save log files
     sample_log_file = prepSampleLog()
-    sample_log_data = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
+    sample_log_data = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])}) + sample_data | join(sample_pairwise.map{it -> tuple(it[1],it[3],it[5])})
     saveSampleLog(sample_log_file,sample_log_data)
 
     snp_log_file = prepSNPLog()
