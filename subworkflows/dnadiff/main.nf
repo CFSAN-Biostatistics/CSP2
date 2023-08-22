@@ -61,7 +61,7 @@ workflow runSnpPipeline{
     main:
 
     // Check the size of the channel
-    def channelSize = sample_data.size()
+    def channelSize = sample_data.count()
 
     println "Number of items in the channel: $channelSize"
     
