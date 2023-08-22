@@ -152,6 +152,11 @@ process runMUmmer{
         cd ${raw_mummer_directory}
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}
         python ${mummer_processing_script} ${query_name} ${ref_name} ${report_id} ${raw_mummer_directory} ${alignment_coverage} ${reference_identity} ${reference_edge} ${query_edge} ${min_length}       
+        """
+    }
+}
+
+/*
         rm -rf ${raw_mummer_directory}/${report_id}.mdelta
         rm -rf ${raw_mummer_directory}/${report_id}.mcoords
         rm -rf ${raw_mummer_directory}/${report_id}.1delta
@@ -163,9 +168,7 @@ process runMUmmer{
         mv ${raw_mummer_directory}/${report_id}.snps ${raw_mummer_directory}/SNPs
         mv ${raw_mummer_directory}/${report_id}.report ${raw_mummer_directory}/Reports
         mv ${raw_mummer_directory}/${report_id}.1coords ${raw_mummer_directory}/1coords
-        """
-    }
-}
+*/
 
 // Log functions //
 process prepQueryLog{
