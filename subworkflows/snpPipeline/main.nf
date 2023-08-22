@@ -31,14 +31,13 @@ workflow compileSNPs{
     snp_output
 
     main:
-
     snp_output = mergeSNPs()
 }
 
 process mergeSNPs{
 
     output:
-    snp_directory
+    val(snp_directory)
 
     script:
     """
