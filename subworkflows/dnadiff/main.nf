@@ -266,13 +266,13 @@ process saveSampleLog{
         error "$sample_log_file doesn't exist..."
     } else{
         """
-        echo "Sample ID: ${sample_id}" > ${sample_log_file}.out
-        echo "Data Type: ${data_type}" >> ${sample_log_file}.out
-        echo "Read Data: ${read_data}" >> ${sample_log_file}.out
-        echo "Assembly Data: ${assembly_data}" >> ${sample_log_file}.out
-        echo "Assembly Contigs: ${assembly_contigs}" >> ${sample_log_file}.out
-        echo "Assembly Bases: ${assembly_bases}" >> ${sample_log_file}.out
-        echo "--------------------------" >> ${sample_log_file}.out
+        echo "Sample ID: ${sample_id}" > ${sample_id}.out
+        echo "Data Type: ${data_type}" >> ${sample_id}.out
+        echo "Read Data: ${read_data}" >> ${sample_id}.out
+        echo "Assembly Data: ${assembly_data}" >> ${sample_id}.out
+        echo "Assembly Contigs: ${assembly_contigs}" >> ${sample_id}.out
+        echo "Assembly Bases: ${assembly_bases}" >> ${sample_id}.out
+        echo "--------------------------" >> ${sample_id}.out
         echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $sample_log_file
         """
     }
