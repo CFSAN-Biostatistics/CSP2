@@ -86,7 +86,7 @@ workflow runSnpPipeline{
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Run merging
-    merged_snps = sample_pairwise.map { it.first() } | mergeSNPs
+    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs
 }
 
 workflow runScreen{
@@ -177,7 +177,7 @@ process runMUmmer{
 process mergeSNPs{
 
     input:
-    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
+    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count) from sample_pairwise.first()
 
     output:
     val(snp_directory)
