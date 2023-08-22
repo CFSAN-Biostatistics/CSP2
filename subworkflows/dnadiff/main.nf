@@ -59,6 +59,12 @@ workflow runSnpPipeline{
     sample_pairwise
 
     main:
+
+    // Check the size of the channel
+    def channelSize = sample_data.size()
+
+    println "Number of items in the channel: $channelSize"
+    
     all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
         
         same: "${it[0]}" == "${it[4]}"
