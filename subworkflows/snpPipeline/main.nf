@@ -13,22 +13,6 @@ if(params.outroot == ""){
 mummer_directory = file("${output_directory}/MUmmer_Output")
 snp_directory = file("${output_directory}/SNP_Analysis")
 
-// Check if parent folder exists
-if(!output_directory.getParent().isDirectory()){
-    error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
-} else if(!output_directory.isDirectory()){ // Check if output directory exists
-    output_directory.mkdirs()
-    mummer_directory.mkdirs()
-    raw_mummer_directory.mkdirs()
-} else{
-    if(!mummer_directory.isDirectory()){ // Check if MUmmer directories exist
-        mummer_directory.mkdirs()
-        raw_mummer_directory.mkdirs()
-    } else if(!raw_mummer_directory.isDirectory()){
-        raw_mummer_directory.mkdirs()
-    }
-}
-
 // Set path to snp script
 snp_script = file("$projectDir/bin/mergeSNPs.py")
 
