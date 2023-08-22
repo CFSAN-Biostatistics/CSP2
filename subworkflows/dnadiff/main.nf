@@ -82,7 +82,7 @@ workflow runSnpPipeline{
     sample_log_file = prepSampleLog()
     log_data_a = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
     log_data_b = sample_data | join(sample_pairwise.map{it -> tuple(it[1],it[3],it[5])})
-    sample_log_data = log_data_a.concat(log_data_b) | collect | sort{it->it[0]} | flatten | collate(6) | distinct
+    sample_log_data = log_data_a.concat(log_data_b) | toSortedList{.toSortedList({ a, b -> a[0] <=> b[0] })} | flatten | collate(6) | distinct
     saveSampleLog(sample_log_file,sample_log_data)
 
     snp_log_file = prepSNPLog()
