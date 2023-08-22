@@ -45,7 +45,7 @@ workflow{
     ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
     if(params.ref_reads == "" && params.ref_fasta == ""){
         mummer_results = sample_data | collect | flatten | collate(4) | runSnpPipeline
-        compileSNPs(mummer_results)
+        mummer_results.into { compileSNPs(it) }
     } else{
         reference_data = fetchReferenceData()
         runScreen(sample_data,reference_data)
