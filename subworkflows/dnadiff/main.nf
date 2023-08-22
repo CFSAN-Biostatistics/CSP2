@@ -86,7 +86,7 @@ workflow runSnpPipeline{
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Run merging
-    merged_snps = mergeSNPs(sample_pairwise) | collect
+    merged_snps = sample_pairwise.map { it.first() } | mergeSNPs
 }
 
 workflow runScreen{
