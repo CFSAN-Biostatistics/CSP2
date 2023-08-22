@@ -51,3 +51,14 @@ workflow compileSNPs{
     snp_output = sample_pairwise
 }
 
+process mergeSNPs{
+
+    output:
+    stdout
+
+    script:
+    """
+    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Query_Data.tsv"
+    echo -n "${output_directory}/Query_Data.tsv"
+    """
+}

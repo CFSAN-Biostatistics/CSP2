@@ -24,6 +24,9 @@ if(output_directory.isDirectory()){
     file("${output_directory}/Assemblies").mkdirs()
     file("${output_directory}/MUmmer_Output").mkdirs()
     file("${output_directory}/MUmmer_Output/Raw").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/Reports").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/1coords").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/SNPs").mkdirs()
     if(params.ref_reads == "" && params.ref_fasta == ""){
         file("${output_directory}/SNP_Analysis").mkdirs()
     }
