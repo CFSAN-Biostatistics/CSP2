@@ -32,17 +32,17 @@ workflow compileSNPs{
 
     main:
 
-    snp_output = sample_pairwise
+    snp_output = mergeSNPs()
 }
 
 process mergeSNPs{
 
     output:
-    stdout
+    snp_directory
 
     script:
     """
-    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Query_Data.tsv"
-    echo -n "${output_directory}/Query_Data.tsv"
+    ${params.load_python_module}
+    python $snp_script $mummer_directory $snp_directory
     """
 }
