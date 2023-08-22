@@ -12,7 +12,6 @@ if(params.outroot == ""){
 
 mummer_directory = file("${output_directory}/MUmmer_Output")
 raw_mummer_directory = file("${output_directory}/MUmmer_Output/Raw")
-snp_directory = file("${output_directory}/SNP_Analysis")
 
 // Check if parent folder exists
 if(!output_directory.getParent().isDirectory()){
@@ -80,11 +79,6 @@ workflow runSnpPipeline{
         
         different: true
         return(it)}
-    
-    /*same_comparisons = all_comparisons.same.map{
-        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${it[0]};${it[4]}")}
-        .collect().flatten().collate(5)
-        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][0])}*/
 
     different_comparisons = all_comparisons.different.map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
@@ -93,7 +87,7 @@ workflow runSnpPipeline{
         .collect().flatten().collate(5)
         .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
-    sample_pairwise = runMUmmer(/*same_comparisons.concat(*/different_comparisons/*)*/) | splitCsv 
+    sample_pairwise = runMUmmer(different_comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
     // Prep and save log files
@@ -103,21 +97,6 @@ workflow runSnpPipeline{
 
     snp_log_file = prepSNPLog()
     saveDNADiffLog(snp_log_file,sample_pairwise)
-
-    // Grab all Yenta SNPs
-    //snps = fetchSNPs(sample_pairwise)
-}
-
-process fetchSNPs{
-
-    input:
-    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
-
-    script:
-
-    """
-    cat $mummer_directory/
-    """
 }
 
 workflow runScreen{
