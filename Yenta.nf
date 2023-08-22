@@ -32,6 +32,7 @@ if(output_directory.isDirectory()){
 // Import modules
 include {fetchSampleData; fetchReferenceData} from "./subworkflows/fetchData/main.nf"
 include {runSnpPipeline; runScreen } from "./subworkflows/dnadiff/main.nf"
+include {compileSNPs} from "./subworkflows/snpPipeline/main.nf"
 
 workflow{
 
@@ -41,10 +42,9 @@ workflow{
     ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
     if(params.ref_reads == "" && params.ref_fasta == ""){
         mummer_results = sample_data | collect | flatten | collate(4) | runSnpPipeline
+        snp_results = compileSNPs(mummer_results)
     } else{
         reference_data = fetchReferenceData()
         mummer_results = runScreen(sample_data,reference_data)
     }
-    //sample_data.subscribe{println("$it")}
-    //reference_data.subscribe{println("$it")}
 }

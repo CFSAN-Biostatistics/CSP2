@@ -31,7 +31,6 @@ if(!output_directory.getParent().isDirectory()){
 
 // Set path to mummer script
 mummer_processing_script = file("$projectDir/bin/filterMUmmer.py")
-snp_script = file("$projectDir/bin/mergeSNPs.py")
 
 // Set modules if necessary
 if(params.mummer_module == ""){
