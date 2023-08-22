@@ -265,9 +265,16 @@ process saveSampleLog{
     if(!file(sample_log_file).isFile()){
         error "$sample_log_file doesn't exist..."
     } else{
-    """
-    echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $sample_log_file
-    """
+        """
+        echo "Sample ID: ${sample_id}"
+        echo "Data Type: ${data_type}"
+        echo "Read Data: ${read_data}"
+        echo "Assembly Data: ${assembly_data}"
+        echo "Assembly Contigs: ${assembly_contigs}"
+        echo "Assembly Bases: ${assembly_bases}"
+        echo "--------------------------"
+        echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $sample_log_file
+        """
     }
 }
 process saveReferenceLog{
