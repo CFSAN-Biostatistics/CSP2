@@ -43,7 +43,8 @@ workflow{
     
     ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
     if(params.ref_reads == "" && params.ref_fasta == ""){
-        sample_data | collect | flatten | collate(4) | runSnpPipeline
+        snp_output = sample_data | collect | flatten | collate(4) | runSnpPipeline
+        snp_output.subscribe{println("$it")}
     } else{
         runScreen(sample_data,fetchReferenceData())
     }
