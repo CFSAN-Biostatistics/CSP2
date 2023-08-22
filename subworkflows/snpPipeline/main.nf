@@ -42,7 +42,6 @@ process mergeSNPs{
     script:
     """
     ${params.load_python_module}
-    la $mummer_directory
     python $snp_script $mummer_directory $snp_directory
     """
 }
