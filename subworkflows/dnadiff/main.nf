@@ -86,10 +86,10 @@ workflow runSnpPipeline{
 
     // Move this to after merging?
     snp_log_file = prepSNPLog()
-    saveDNADiffLog(snp_log_file,sample_pairwise)
+    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Run merging + tree building
-    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs
+    merged_snps = diff_results | collect | mergeSNPs
 }
 
 workflow runScreen{
@@ -180,8 +180,8 @@ process runMUmmer{
 process mergeSNPs{
 
     input:
-    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
-
+    val(ready)
+    
     output:
     val(snp_directory)
 
@@ -334,6 +334,10 @@ process saveDNADiffLog{
 
     input:
     val(diff_log)
+
+    output:
+    val(true)
+
     tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
     script:
 
