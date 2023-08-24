@@ -91,10 +91,16 @@ workflow runSnpPipeline{
     snp_log_file = prepSNPLog()
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
-    // Run merging
-    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs
+    // Run merging + tree building
+    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs | collect | buildTrees
 }
 
+process buildTrees{
+    input:
+    val snp_directory
+
+
+}
 workflow runScreen{
     
     take:
@@ -191,7 +197,7 @@ process mergeSNPs{
     script:
     """
     ${params.load_python_module}
-    python $snp_script $output_directory $mummer_directory $snp_directory $align_cov $max_perc_n
+    python $snp_script $output_directory $mummer_directory $snp_directory $align_coverage $perc_max_n
     """
 }
 

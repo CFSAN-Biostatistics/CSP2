@@ -451,6 +451,13 @@ else:
     pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Pairwise_SNP_Distances.tsv",sep="\t",index=False)
     AlignIO.write(final_full_alignment, snp_dir+"/SNP_Alignment.fasta","fasta")
 
+    # Merge pairwise results with previous
+    pairwise_results['Combined'] = pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
+    pairwise_df['Combined'] = pairwise_df.apply(lambda row: tuple(sorted([row['Query_ID'], row['Reference_ID']])), axis=1)
+    merged_pairwise_df = pd.merge(pairwise_df[['Query_ID','Reference_ID','Combined','Yenta_SNPs']],pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
+    merged_pairwise_df.rename(columns={'Yenta_SNPs': 'Raw_Yenta_SNPs', 'SNP_Difference': 'Full_SNP_Difference','Cocalled_Sites':'Full_Cocalled_Sites'}, inplace=True)
+    print(merged_pairwise_df)
+
     n_data = []
     for record in final_full_alignment:
         sequence_id = record.id
@@ -491,9 +498,9 @@ else:
         for future in concurrent.futures.as_completed(pairwise_results):
             pairwise_list.append(future.result())
     
-        pairwise_results = pd.concat(pairwise_list)
-        pairwise_results['SNP_Difference'] = pairwise_results['Cocalled_Sites'] - pairwise_results['Identical_Sites']
-        pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+        filtered_pairwise_results = pd.concat(pairwise_list)
+        filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
+        filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
         AlignIO.write(filtered_alignment, snp_dir+"/Filtered_SNP_Alignment.fasta","fasta")
         n_data = []
         for record in final_full_alignment:
