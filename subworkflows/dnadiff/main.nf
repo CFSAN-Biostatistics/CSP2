@@ -51,7 +51,7 @@ reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 min_length = params.min_len.toInteger()
-perc_max_n = max_perc_n.toFloat()
+perc_max_n = params.max_perc_n.toFloat()
 
 workflow runSnpPipeline{
     take:
