@@ -505,7 +505,7 @@ else:
         filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
         filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
         filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
-        merged_pairwise_df = pd.merge(merged_pairwise_df,pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
+        merged_pairwise_df = pd.merge(merged_pairwise_df,filtered_pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
         merged_pairwise_df.rename(columns={'SNP_Difference': 'Filtered_SNP_Difference','Cocalled_Sites':'Filtered_Cocalled_Sites'}, inplace=True)
         merged_pairwise_df.drop('Combined', axis=1).to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
 
