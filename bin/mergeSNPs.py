@@ -186,6 +186,8 @@ def getIsolateData(tuple_list):
             iso_base = [item[1] for item in set_bases if item[0] == isolate][0]
             snp_alignment.append(SeqRecord(Seq(iso_base), id=str(isolate),description=""))
     else:
+        print(site_isolates)
+        print(set_bases)
         exit("Alignment error")
     
 
