@@ -95,12 +95,6 @@ workflow runSnpPipeline{
     merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs | collect | buildTrees
 }
 
-process buildTrees{
-    input:
-    val snp_directory
-
-
-}
 workflow runScreen{
     
     take:
