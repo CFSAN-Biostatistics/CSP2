@@ -345,8 +345,8 @@ else:
 
         # Add to SNP dict unless counterpart is already there
         for index, row in isolate_df.iterrows():
-            #if (row['Compare_Isolate'],row['Compare_Loc'],row['Focal_Isolate']) not in snp_dict:
-            snp_dict[(row['Focal_Isolate'],row['Focal_Loc'],row['Compare_Isolate'])] = (row['Compare_Loc'],row['Focal_Base'],row['Focal_Direction'],row['Compare_Base'],row['Compare_Direction'])
+            if (row['Compare_Isolate'],row['Compare_Loc'],row['Focal_Isolate']) not in snp_dict:
+                snp_dict[(row['Focal_Isolate'],row['Focal_Loc'],row['Compare_Isolate'])] = (row['Compare_Loc'],row['Focal_Base'],row['Focal_Direction'],row['Compare_Base'],row['Compare_Direction'])
 
     end_time = time.time()
     dict_time = end_time - start_time
@@ -365,7 +365,7 @@ else:
         start_time = time.time()
         isolate_tuples = [yenta_tuple for yenta_tuple in yenta_tuples if yenta_tuple[0] == isolate]
         isolate_dict = {(k[0],k[1],k[2]):v[0] for k, v in snp_dict.items() if k[0] == isolate}
-        #isolate_dict.update({(k[2],v[0],k[0]):k[1] for k, v in snp_dict.items() if k[2] == isolate})
+        isolate_dict.update({(k[2],v[0],k[0]):k[1] for k, v in snp_dict.items() if k[2] == isolate})
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = [executor.submit(process_yenta_tuple, yenta_tuple,isolate_dict) for yenta_tuple in isolate_tuples]
             
