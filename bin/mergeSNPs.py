@@ -234,6 +234,7 @@ else:
         with open(log_file,"a+") as log:
             log.write("Done!\n")
             log.write("\t- Found pairwise file ("+output_dir+"/Raw_Pairwise_Distances.tsv), which contains data on " + str(len(full_isolate_list)) + " isolates...\n")
+            log.write("\t- Pairwise file contains "+str(pairwise_df.shape[0])+" rows...\n")
             log.write("\n-------------------------------------------------------\n\n")
     except:
         with open(log_file,"a+") as log:
