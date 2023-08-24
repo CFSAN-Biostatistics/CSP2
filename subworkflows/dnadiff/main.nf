@@ -44,12 +44,14 @@ params.ref_iden = 99
 params.ref_edge = 250
 params.query_edge = 250
 params.min_len = 500
+params.max_perc_n = 50
 
 alignment_coverage = params.align_cov.toFloat()
 reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 min_length = params.min_len.toInteger()
+perc_max_n = max_perc_n.toFloat()
 
 workflow runSnpPipeline{
     take:
@@ -85,6 +87,7 @@ workflow runSnpPipeline{
     sample_log_data = log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | flatten | collate(6) | distinct
     saveSampleLog(sample_log_file,sample_log_data)
 
+    // Move this to after merging?
     snp_log_file = prepSNPLog()
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
@@ -188,7 +191,7 @@ process mergeSNPs{
     script:
     """
     ${params.load_python_module}
-    python $snp_script $mummer_directory $snp_directory
+    python $snp_script $output_directory $mummer_directory $snp_directory $align_cov $max_perc_n
     """
 }
 
