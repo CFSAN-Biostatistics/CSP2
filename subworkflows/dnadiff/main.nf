@@ -191,7 +191,7 @@ process mergeSNPs{
     script:
     """
     ${params.load_python_module}
-    python $snp_script $output_directory $mummer_directory $snp_directory $align_coverage $perc_max_n
+    python $snp_script $output_directory $mummer_directory $snp_directory $alignment_coverage $perc_max_n
     """
 }
 
