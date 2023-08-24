@@ -478,12 +478,12 @@ else:
 
     # Create a new alignment from the filtered sequences
     if len(filtered_seqs) == final_full_alignment.get_alignment_length():
-        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
+        merged_pairwise_df.drop('Combined', axis=1).to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
         with open(log_file,"a+") as log:
             log.write("\n\t- The final alignment ("+snp_dir+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
             log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
     elif len(filtered_seqs) == 0:
-        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
+        merged_pairwise_df.drop('Combined', axis=1).to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
         with open(log_file,"a+") as log:
             log.write("\n\t- The final alignment ("+snp_dir+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
             log.write("\n\t- All sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
@@ -505,7 +505,7 @@ else:
         filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
         merged_pairwise_df = pd.merge(merged_pairwise_df,pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
         merged_pairwise_df.rename(columns={'SNP_Difference': 'Filtered_SNP_Difference','Cocalled_Sites':'Filtered_Cocalled_Sites'}, inplace=True)
-        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
+        merged_pairwise_df.drop('Combined', axis=1).to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
 
         AlignIO.write(filtered_alignment, snp_dir+"/Filtered_SNP_Alignment.fasta","fasta")
         n_data = []

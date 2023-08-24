@@ -57,9 +57,6 @@ workflow runSnpPipeline{
     take:
     sample_data
 
-    emit:
-    sample_log_data
-
     main:
 
     all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
