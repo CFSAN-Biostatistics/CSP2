@@ -456,7 +456,6 @@ else:
     pairwise_df['Combined'] = pairwise_df.apply(lambda row: tuple(sorted([row['Query_ID'], row['Reference_ID']])), axis=1)
     merged_pairwise_df = pd.merge(pairwise_df[['Query_ID','Reference_ID','Combined','Yenta_SNPs']],pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
     merged_pairwise_df.rename(columns={'Yenta_SNPs': 'Raw_Yenta_SNPs', 'SNP_Difference': 'Full_SNP_Difference','Cocalled_Sites':'Full_Cocalled_Sites'}, inplace=True)
-    print(merged_pairwise_df)
 
     n_data = []
     for record in final_full_alignment:
@@ -479,10 +478,12 @@ else:
 
     # Create a new alignment from the filtered sequences
     if len(filtered_seqs) == final_full_alignment.get_alignment_length():
+        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
         with open(log_file,"a+") as log:
             log.write("\n\t- The final alignment ("+snp_dir+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
             log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
     elif len(filtered_seqs) == 0:
+        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
         with open(log_file,"a+") as log:
             log.write("\n\t- The final alignment ("+snp_dir+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
             log.write("\n\t- All sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
@@ -501,6 +502,11 @@ else:
         filtered_pairwise_results = pd.concat(pairwise_list)
         filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
         filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+        filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
+        merged_pairwise_df = pd.merge(merged_pairwise_df,pairwise_results[['Combined','SNP_Difference','Cocalled_Sites']],on='Combined',how='inner')
+        merged_pairwise_df.rename(columns={'SNP_Difference': 'Filtered_SNP_Difference','Cocalled_Sites':'Filtered_Cocalled_Sites'}, inplace=True)
+        merged_pairwise_df.to_csv(snp_dir+"/Merged_Pairwise_Distances.tsv",sep="\t",index=False)
+
         AlignIO.write(filtered_alignment, snp_dir+"/Filtered_SNP_Alignment.fasta","fasta")
         n_data = []
         for record in final_full_alignment:
