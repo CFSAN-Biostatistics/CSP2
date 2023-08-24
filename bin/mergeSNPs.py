@@ -512,7 +512,7 @@ else:
 
         AlignIO.write(filtered_alignment, snp_dir+"/Filtered_SNP_Alignment.fasta","fasta")
         n_data = []
-        for record in final_full_alignment:
+        for record in filtered_alignment:
             sequence_id = record.id
             n_count = Counter(record.seq)['N']
             n_data.append((sequence_id, n_count))
