@@ -92,7 +92,7 @@ workflow runSnpPipeline{
     saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Run merging + tree building
-    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs | collect | buildTrees
+    merged_snps = sample_pairwise.first() | collect | flatten | collate(17) | mergeSNPs
 }
 
 workflow runScreen{
