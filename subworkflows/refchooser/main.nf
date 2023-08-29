@@ -29,9 +29,8 @@ workflow runRefChooser{
     main:
     
     // Get reference isolate
-    ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser | flatten
-    println("Ref Path: $ref_path")
-    reference_data = sample_data.filter{"${it[3]}" == "${ref_path}"} | collect | flatten | collate(4)
+    ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
+    reference_data = sample_data.filter{"${it[3]}" == "${ref_path[0]}"} | collect | flatten | collate(4)
 }
 
 process refChooser{
