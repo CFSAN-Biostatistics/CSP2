@@ -29,7 +29,7 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | colllate(4)| subscribe{println("$it")}
+    sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | collate(4)| subscribe{println("$it")}
 
     //reference_data = sample_data.branch{
     //    same: "${it[4]}" == "${ref_path}"
