@@ -24,18 +24,13 @@ workflow runRefChooser{
     sample_data
 
     emit:
-    sample_data
+    reference_data
 
     main:
     
-    // Create assembly list
-     sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | first | refChooser | subscribe{println("$it")}
-    
-    //reference_data = sample_data.branch{
-    //    same: "${it[4]}" == "${ref_path}"
-    //    return(it)}
-    
-    //ref_data = reference_data.same
+    // Get reference isolate
+    ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
+    reference_data = sample_data.filter{it->"${it[3]}" == "${ref_path}"} | collect | flatten | collate(4)
 }
 
 process refChooser{
