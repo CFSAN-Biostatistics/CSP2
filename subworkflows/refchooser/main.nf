@@ -32,7 +32,7 @@ workflow runRefChooser{
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
     
     sample_data.combine(ref_path).subscribe{println("Raw: $it")}
-    sample_data.combine(ref_path) | collect | flatten | collate(5) 
+    reference_data = sample_data.combine(ref_path) | collect | flatten | collate(5) 
     | branch{
         
         same: "${it[3]}" == "${it[4]}"
