@@ -29,7 +29,8 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | collate(4)| subscribe{println("$it")}
+    ref_path = sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | collate(1) | first | runRefChooser | flatten
+    println(ref_path)
 
     //reference_data = sample_data.branch{
     //    same: "${it[4]}" == "${ref_path}"
@@ -48,14 +49,14 @@ process refChooser{
     val(assembly_file)
 
     output:
-    env FOO
+    env REF
 
     script:
     """
     $params.load_refchooser_module
     cd $assembly_directory
     refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
-    FOO=\$(head -2 refchooser_results.txt | tail -1 | cut -f7)
+    REF=\$(head -2 refchooser_results.txt | tail -1 | cut -f7)
     """
 }
 
@@ -68,7 +69,7 @@ process writeAssemblyPath{
     tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
 
     output:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+    val(assembly_file)
 
     script:
     """

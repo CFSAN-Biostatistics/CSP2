@@ -34,7 +34,6 @@ workflow fetchSampleData{
     
     sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(3) | mergeDuos | assembleIsolate
 }
-
 workflow fetchReferenceData{
 
     take:
@@ -53,7 +52,7 @@ workflow fetchReferenceData{
         ("${ref_reads}" != "" ? getReads(ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
         ("${ref_fasta}" != "" ? getAssemblies(ref_fasta) : Channel.empty()).set{reference_assembly_data}
 
-        reference_data = reference_read_data.concat(reference_assembly_data) | collect | flatten | collate(4) | mergeDuos | assembleIsolate
+        reference_data = reference_read_data.concat(reference_assembly_data) | collect | flatten | collate(3) | mergeDuos | assembleIsolate
     }
 }
 
@@ -283,4 +282,21 @@ process skesaAssemble{
             error "read_type should be Paired or Single, not $read_type..."
         }
     }
+}
+
+process writeAssemblyPath{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    output:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    script:
+    """
+    echo "${assembly_location}\n" >> $assembly_file
+    """
 }

@@ -41,11 +41,7 @@ workflow{
 
     ////// Read in sample data ///////
     sample_data = fetchSampleData()
-    sample_data.subscribe{println("$it")}
-}
-/*
-    ////// Parse commmand line arguments and run in appropriate mode //////
-    
+     
      // If --ref_reads/--ref_fasta are set, run in reference screener mode
     if(params.ref_reads != "" || params.ref_fasta != ""){
         reference_data = fetchReferenceData(params.ref_reads,params.ref_fasta)
@@ -56,8 +52,7 @@ workflow{
         reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)
         runSnpPipeline(sample_data,reference_data)} 
     
-    else{
-         
+    else{     
         // If --all is set, run in reference-free SNP pipeline mode
         if(params.all){ 
             runAllvAll(sample_data)}
@@ -69,5 +64,3 @@ workflow{
     }
     }
 }
-
-*/
