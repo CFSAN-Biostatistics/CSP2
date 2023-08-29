@@ -39,6 +39,8 @@ workflow runRefChooser{
         different: true
         return(it)}
     
+    reference_data.same.subscribe{println("Same: $it")}
+    reference_data.different.subscribe{println("Diff: $it")}
     reference_sample = reference_data.same.map{it-> tuple(it[0],it[1],it[2],it[3])}
 }
 
