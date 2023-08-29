@@ -23,7 +23,7 @@ workflow runRefChooser{
     take:
     sample_data
 
-    //emit:
+    emit:
     sample_data
     reference_data
 
