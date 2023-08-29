@@ -20,9 +20,6 @@ if(params.skesa_module == ""){
     params.load_skesa_module = "module load -s ${params.skesa_module}"
 }
 
-assembly_directory = file("${output_directory}/Assemblies")
-assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
-
 // Workflows //
 workflow fetchSampleData{
     

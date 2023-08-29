@@ -30,7 +30,7 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    ref_path = refChooser()
+    ref_path = sample_data | writeAssemblyPath | collect | flatten | collate(1) | first | refChooser
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
@@ -44,6 +44,9 @@ process refChooser{
     executor = 'local'
     cpus = 1
     maxForks = 1
+
+    input:
+    val(assembly_file)
 
     output:
     env FOO
@@ -66,7 +69,7 @@ process writeAssemblyPath{
     tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
 
     output:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+    val(assembly_file)
 
     script:
     """
