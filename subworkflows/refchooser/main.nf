@@ -29,9 +29,8 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    ref_path = sample_data | collect | flatten | collate(4) | writeAssemblyPath | collect | flatten | collate(1) | first | runRefChooser | flatten
-    println(ref_path)
-
+     sample_data | collect | flatten | collate(4) | subscibe{println("$it")}
+    
     //reference_data = sample_data.branch{
     //    same: "${it[4]}" == "${ref_path}"
     //    return(it)}
