@@ -97,6 +97,7 @@ workflow runSnpPipeline{
         .collect().flatten().collate(5)
         .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
+    all_comparisons.subscribe{println("Raw: $it")}
     sample_pairwise = runMUmmer(all_comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
