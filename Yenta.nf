@@ -65,4 +65,5 @@ workflow{
             reference_data = runRefChooser(sample_data)
             //runSnpPipeline(sample_data,reference_data)}
     }
+    }
 }
