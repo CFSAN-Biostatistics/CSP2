@@ -20,6 +20,9 @@ if(params.skesa_module == ""){
     params.load_skesa_module = "module load -s ${params.skesa_module}"
 }
 
+assembly_directory = file("${output_directory}/Assemblies")
+assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
+
 // Workflows //
 workflow fetchSampleData{
     
@@ -245,8 +248,22 @@ workflow assembleIsolate{
         assembled: true
     }
 
-    assembled_samples = skesaAssemble(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
+    assembled_samples = split_data.single.concat(split_data.paired) | writeAssemblyPath | skesaAssemble | splitCsv | concat(split_data.assembled)
 }
+
+process writeAssemblyPath{
+    input:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    output:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    script:
+    """
+    echo "${assembly_location}\n" >> $assembly_file
+    """
+}
+
 process skesaAssemble{
     
     input:

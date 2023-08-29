@@ -30,41 +30,20 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    ref_path = sample_data.map{it -> it[4]}
-    .collectFile(name: "${assembly_directory}/Assemblies.txt", newLine: true)
-    .subscribe {
-        println "${it.text}"
-    } | collect | refChooser("${assembly_directory}/Assemblies.txt")
+    ref_path = refChooser(assembly_file)
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
         return(it)}
 }
 
-process saveAssembly{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    input:
-    assembly_dir
-
-    output:
-    assembly_file
-
-    script:
-    """
-    cd $assembly_directory
-    echo "${$assembly_dir}\n" >> assembly_file
-    """
-}
 process refChooser{
     executor = 'local'
     cpus = 1
     maxForks = 1
 
     input:
-    assembly_dir
+    assembly_file
 
     output:
     stdout
@@ -72,8 +51,8 @@ process refChooser{
     script:
     """
     $params.load_refchooser_module
-    cd $assembly_dir
-    refchooser metrics --sort Score --threads 16 Assemblies.txt sketch_dir > refchooser_results.txt
+    cd $assembly_directory
+    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
     head -2 refchooser_results.txt | tail -1 | cut -f7 | echo
     """
 }
