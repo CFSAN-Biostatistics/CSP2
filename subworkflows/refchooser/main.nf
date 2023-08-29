@@ -48,14 +48,13 @@ process refChooser{
     val(assembly_file)
 
     output:
-    stdout
+    env(REF)
 
     script:
     """
     $params.load_refchooser_module
     cd $assembly_directory
-    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
-    head -2 refchooser_results.txt | tail -1 | cut -f7 | echo
+    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt && REF=\$(head -2 refchooser_results.txt | tail -1 | cut -f7)
     """
 }
 
