@@ -9,6 +9,7 @@ if(params.outroot == ""){
 }
 
 assembly_directory = file("${output_directory}/Assemblies")
+assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
 
 // Set modules if necessary
 params.refchooser_module = ""
@@ -27,15 +28,37 @@ workflow runRefChooser{
     reference_data
 
     main:
-    sample_data.map{it -> it[4]} | view() | text() | saveAs("${assembly_directory}/Assemblies.txt")
-    ref_path = refChooser("${assembly_directory}/Assemblies.txt")
+    
+    // Create assembly list
+    ref_path = sample_data.map{it -> it[4]}
+    .collectFile(name: "${assembly_directory}/Assemblies.txt", newLine: true)
+    .subscribe {
+        println "${it.text}"
+    } | collect | refChooser("${assembly_directory}/Assemblies.txt")
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
         return(it)}
 }
 
-// Log functions //
+
+process saveAssembly{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    assembly_dir
+
+    output:
+    assembly_file
+
+    script:
+    """
+    cd $assembly_directory
+    echo "${$assembly_dir}\n" >> assembly_file
+    """
+}
 process refChooser{
     executor = 'local'
     cpus = 1
