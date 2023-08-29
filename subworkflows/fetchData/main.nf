@@ -252,6 +252,10 @@ workflow assembleIsolate{
 }
 
 process writeAssemblyPath{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
     input:
     tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
 
