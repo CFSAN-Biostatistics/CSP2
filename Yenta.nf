@@ -56,8 +56,9 @@ workflow{
             fetchSampleData() | collect | flatten | collate(4) | runAllvAll} 
         
         // Run in SNP Pipeline mode using a refchooser reference
-        else{ 
-            fetchSampleData() | collect | flatten | collate(4) | runRefChooser //| runSnpPipeline
+        else{
+            println("snp")
+            //fetchSampleData() | collect | flatten | collate(4) | runRefChooser //| runSnpPipeline
         }
     }
 }
