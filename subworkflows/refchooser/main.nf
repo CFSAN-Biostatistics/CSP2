@@ -31,17 +31,19 @@ workflow runRefChooser{
     // Get reference isolate
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
     
+    sample_data.combine(ref_path).subscribe{println("Raw: $it")}
+
     reference_data = sample_data.combine(ref_path).branch{
         
         same: "${it[3]}" == "${it[4]}"
-        return(it)
+        return(tuple(it[0],it[1],it[2],it[3]))
         
         different: true
         return(it)}
     
     reference_data.same.subscribe{println("Same: $it")}
     reference_data.different.subscribe{println("Diff: $it")}
-    reference_sample = reference_data.same.map{it-> tuple(it[0],it[1],it[2],it[3])}
+    reference_sample = reference_data.same
 }
 
 process refChooser{
