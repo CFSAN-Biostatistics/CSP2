@@ -32,8 +32,8 @@ workflow runRefChooser{
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
     
     sample_data.combine(ref_path).subscribe{println("Raw: $it")}
-
-    reference_data = sample_data.combine(ref_path).branch{
+    sample_data.combine(ref_path) | collect | flatten | collate(5) 
+    | branch{
         
         same: "${it[3]}" == "${it[4]}"
         return(tuple(it[0],it[1],it[2],it[3]))
