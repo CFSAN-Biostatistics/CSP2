@@ -30,7 +30,6 @@ workflow runRefChooser{
     
     // Get reference isolate
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
-    sample_data.map{it[3]}.subscribe{println("3: $it")}
     reference_data = sample_data.filter{"${it[3]}" == "${ref_path}"} | collect | flatten | collate(4)
 }
 
