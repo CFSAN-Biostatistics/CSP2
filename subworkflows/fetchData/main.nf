@@ -32,7 +32,7 @@ workflow fetchSampleData{
     ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
     ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
     
-    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(4) | mergeDuos | assembleIsolate
+    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(4) | subscribe{println("$it")} | mergeDuos | assembleIsolate
 }
 workflow fetchReferenceData{
 
