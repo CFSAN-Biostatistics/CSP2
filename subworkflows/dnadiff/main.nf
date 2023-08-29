@@ -91,7 +91,7 @@ workflow runSnpPipeline{
     main:
 
     all_comparisons = sample_data.combine(reference_data).collect().flatten().collate(8)
-    all_comparisons..map{
+    all_comparisons.map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
         def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
