@@ -30,7 +30,7 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    ref_path = refChooser(assembly_file)
+    ref_path = refChooser()
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
@@ -38,12 +38,10 @@ workflow runRefChooser{
 }
 
 process refChooser{
+    
     executor = 'local'
     cpus = 1
     maxForks = 1
-
-    input:
-    assembly_file
 
     output:
     stdout
