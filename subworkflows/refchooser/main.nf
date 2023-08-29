@@ -30,6 +30,7 @@ workflow runRefChooser{
     
     // Get reference isolate
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
+    sample_data.combine(ref_path).view()
     reference_data = sample_data.combine(ref_path).filter{it->"${it[3]}" == "${it[4]}"} | map{it-> tuple(it[0],it[1],it[2],it[3])}
 }
 
