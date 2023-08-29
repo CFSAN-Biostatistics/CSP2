@@ -95,7 +95,7 @@ workflow runSnpPipeline{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
         def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
-        .collect().flatten().collate(5).subscribe{println("Mid: $it")}
+        .collect().flatten().collate(5).groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}.subscribe{println("Final: $it")}
     
     /*.map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
