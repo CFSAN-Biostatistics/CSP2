@@ -31,7 +31,7 @@ workflow runRefChooser{
     // Get reference isolate
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
     
-    sample_data.combine(ref_path).subscribe{println("Raw: $it")}
+    //sample_data.combine(ref_path).subscribe{println("Raw: $it")}
     reference_data = sample_data.combine(ref_path) | collect | flatten | collate(5) 
     | branch{
         
@@ -42,7 +42,7 @@ workflow runRefChooser{
         return(it)}
     
     reference_data.same.subscribe{println("Same: $it")}
-    reference_data.different.subscribe{println("Diff: $it")}
+    //reference_data.different.subscribe{println("Diff: $it")}
     reference_sample = reference_data.same
 }
 
