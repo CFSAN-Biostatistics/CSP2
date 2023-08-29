@@ -37,8 +37,8 @@ workflow fetchSampleData{
 workflow fetchReferenceData{
 
     take:
-    val(ref_reads)
-    val(ref_fasta)
+    ref_reads
+    ref_fasta
     
     emit:
     reference_data
