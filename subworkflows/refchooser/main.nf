@@ -24,7 +24,6 @@ workflow runRefChooser{
     sample_data
 
     emit:
-    sample_data
     ref_data
 
     main:
