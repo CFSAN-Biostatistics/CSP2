@@ -130,7 +130,7 @@ workflow getAssemblies{
         }
 
         // Check if the channel is empty and throw an error
-        assert ch_fasta.isEmpty(), "Error: No FASTA files detected at $fasta_loc"
+        //assert ch_fasta.isEmpty(), "Error: No FASTA files detected at $fasta_loc"
 
         fasta_data = ch_fasta
         | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get the path and the name
