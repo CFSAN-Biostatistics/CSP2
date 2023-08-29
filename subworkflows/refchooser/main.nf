@@ -24,25 +24,13 @@ workflow runRefChooser{
     sample_data
 
     emit:
-    reference_sample
+    reference_data
 
     main:
     
     // Get reference isolate
     ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
-    
-    sample_data.combine(ref_path) | collect | flatten | collate(5) | map{it->tuple(it[3],it[4])} | subscribe{println("4,5: $it")}
-    //sample_data.combine(ref_path).subscribe{println("Raw: $it")}
-    reference_data = sample_data.combine(ref_path) | collect | flatten | collate(5) 
-    | branch{
-        
-        same: "${it[4]}" == "/flash/storage/scratch/Robert.Literman/NextFlow/YENTA/GitHub/Yenta/NCBI_Clusters/Salmonella_PDS000043084.34/skesa_contigs/SRR10843746.fasta"
-        return(tuple(it[0],it[1],it[2],it[3]))
-        
-        different: true
-        return(it)}
-    
-    reference_sample = reference_data.same
+    reference_data = sample_data.combine(ref_path) | collect | flatten | collate(5).filter{it[3] == it[4]}.map{it->tuple(it[0],it[1],it[2],it[3])}
 }
 
 process refChooser{
@@ -61,7 +49,7 @@ process refChooser{
     """
     $params.load_refchooser_module
     cd $assembly_directory
-    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt && echo \$(head -2 refchooser_results.txt | tail -1 | cut -f7)
+    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt && echo -n \$(head -2 refchooser_results.txt | tail -1 | cut -f7)
     """
 }
 
