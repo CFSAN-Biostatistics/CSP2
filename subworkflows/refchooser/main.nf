@@ -46,11 +46,11 @@ process refChooser{
     output:
     env FOO
 
-    script:
-    """
+    shell:
+    '''
     $params.load_refchooser_module
     cd $assembly_directory
     refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
     FOO=$(head -2 refchooser_results.txt | tail -1 | cut -f7)
-    """
+    '''
 }
