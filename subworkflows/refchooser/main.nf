@@ -27,7 +27,7 @@ workflow runRefChooser{
     reference_data
 
     main:
-    sample_data.map{it -> it[4]} | view | text | saveAs("${assembly_directory}/Assemblies.txt")
+    sample_data.map{it -> it[4]} | view() | text() | saveAs("${assembly_directory}/Assemblies.txt")
     ref_path = refChooser("${assembly_directory}/Assemblies.txt")
 
     reference_data = sample_data.branch{
