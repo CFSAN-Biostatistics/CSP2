@@ -90,22 +90,14 @@ workflow runSnpPipeline{
 
     main:
 
-    all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
-        
-        same: "${it[0]}" == "${it[4]}"
-        return(it)
-        
-        different: true
-        return(it)}
-
-    different_comparisons = all_comparisons.different.map{
+    all_comparisons = sample_data.combine(reference_data).collect().flatten().collate(8).map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
-        def higherValue = "${it[0]}" >= "${it[4]}" ? "${it[0]}" : "${it[4]}" 
+        def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
         .collect().flatten().collate(5)
         .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
-    sample_pairwise = runMUmmer(different_comparisons) | splitCsv 
+    sample_pairwise = runMUmmer(all_comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
     // Prep and save log files
@@ -120,7 +112,7 @@ workflow runSnpPipeline{
     diff_results = saveDNADiffLog(snp_log_file,sample_pairwise)
 
     // Run merging + tree building
-    merged_snps = diff_results | collect | mergeSNPs
+    //merged_snps = diff_results | collect | mergeSNPs
 }
 
 workflow runScreen{
