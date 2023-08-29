@@ -39,26 +39,31 @@ include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
 
+    ////// Read in sample data ///////
+    sample_data = fetchSampleData()
+
     ////// Parse commmand line arguments and run in appropriate mode //////
     
      // If --ref_reads/--ref_fasta are set, run in reference screener mode
     if(params.ref_reads != "" || params.ref_fasta != ""){
-        runScreen(fetchSampleData(),fetchReferenceData(params.ref_reads,params.ref_fasta))} 
+        reference_data = fetchReferenceData(params.ref_reads,params.ref_fasta)
+        runScreen(sample_data,reference_data)} 
     
     // If --snp_ref_reads/--snp_ref_fasta are set, run in SNP Pipeline mode with user-selected references
     else if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){
-        println("Snp_Ref")}
-        //runSnpPipeline(fetchSampleData(),fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta))} 
+        reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)
+        runSnpPipeline(sample_data,reference_data)} 
     
     else{
+         
         // If --all is set, run in reference-free SNP pipeline mode
         if(params.all){ 
-            fetchSampleData() | collect | flatten | collate(4) | runAllvAll} 
+            runAllvAll(sample_data)}
         
         // Run in SNP Pipeline mode using a refchooser reference
         else{
-            sample_data = fetchSampleData() | collect | flatten | collate(4)
-            //runRefChooser(sample_data) //| runSnpPipeline
+            reference_data = runRefChooser(sample_data) | collect | flatten | collate(4)
+            runSnpPipeline(sample_data | collect | flatten | collate(4),reference_data)
         }
     }
 }

@@ -35,7 +35,7 @@ workflow fetchSampleData{
     ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
     ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
     
-    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(4) | mergeDuos | writeAssemblyPath | assembleIsolate
+    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(4) | mergeDuos | assembleIsolate
 }
 workflow fetchReferenceData{
 
@@ -250,24 +250,6 @@ workflow assembleIsolate{
 
     assembled_samples = skesaAssemble(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
 }
-
-process writeAssemblyPath{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    output:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    script:
-    """
-    echo "${assembly_location}\n" >> $assembly_file
-    """
-}
-
 process skesaAssemble{
     
     input:

@@ -54,3 +54,20 @@ process refChooser{
     FOO=\$(head -2 refchooser_results.txt | tail -1 | cut -f7)
     """
 }
+
+process writeAssemblyPath{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    output:
+    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
+
+    script:
+    """
+    echo "${assembly_location}\n" >> $assembly_file
+    """
+}
