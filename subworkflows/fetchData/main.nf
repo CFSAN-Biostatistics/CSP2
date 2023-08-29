@@ -2,80 +2,12 @@
 // Params are passed from Yenta.nf or from the command line if run directly
 
 // Set output paths
-params.out = "Yenta_${new java.util.Date().getTime()}"
-params.outroot = ""
 if(params.outroot == ""){
     output_directory = file("${params.out}")
 } else{
     output_directory = file("${file("${params.outroot}")}/${params.out}")
 }
 assembly_directory = file("${output_directory}/Assemblies")
-
-// Check if parent folder exists
-if(!output_directory.getParent().isDirectory()){
-    error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
-} else if(!output_directory.isDirectory()){ // Check if output directory exists
-    output_directory.mkdirs()
-    assembly_directory.mkdirs()
-} else if(!assembly_directory.isDirectory()){ // Check if assembly directory exists
-    assembly_directory.mkdirs()
-}
-
-// Set cores
-params.cores = 1
-
-// Set data location
-params.reads = ""
-params.fasta = ""
-params.ref_reads = ""
-params.ref_fasta = ""
-
-// Set data type (Default: srazip)
-params.readtype == ""
-if(params.readtype == ""){
-    params.readext = "fastq.gz"
-    params.forward = "_1.fastq.gz"
-    params.reverse = "_2.fastq.gz"
-} else if(params.readtype == "illumina"){
-    params.readext = "fastq.gz"
-    params.forward = "_R1_001.fastq.gz"
-    params.reverse = "_R2_001.fastq.gz"
-} else if(params.readtype == "sra"){
-    params.readext = "fastq"
-    params.forward = "_1.fastq"
-    params.reverse = "_2.fastq"
-} else if(params.readtype == "srazip"){
-    params.readext = "fastq.gz"
-    params.forward = "_1.fastq.gz"
-    params.reverse = "_2.fastq.gz"
-} else{
-    error "Invalid --readtype [ Options include illumina, sra, srazip (Default) ]"
-}
-
-params.ref_readtype == ""
-if(params.ref_readtype == ""){
-    params.ref_readext = "fastq.gz"
-    params.ref_forward = "_1.fastq.gz"
-    params.ref_reverse = "_2.fastq.gz"
-} else if(params.ref_readtype == "illumina"){
-    params.ref_readext = "fastq.gz"
-    params.ref_forward = "_R1_001.fastq.gz"
-    params.ref_reverse = "_R2_001.fastq.gz"
-} else if(params.ref_readtype == "sra"){
-    params.ref_readext = "fastq"
-    params.ref_forward = "_1.fastq"
-    params.ref_reverse = "_2.fastq"
-} else if(params.ref_readtype == "srazip"){
-    params.ref_readext = "fastq.gz"
-    params.ref_forward = "_1.fastq.gz"
-    params.ref_reverse = "_2.fastq.gz"
-} else{
-    error "Invalid --ref_readtype [ Options include illumina, sra, srazip (Default) ]"
-}
-
-// Create module loading scripts if necessary
-params.python_module = ""
-params.skesa_module = ""
 
 if(params.python_module == ""){
     params.load_python_module = ""
@@ -100,23 +32,27 @@ workflow fetchSampleData{
     ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
     ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
     
-    sample_data = mergeDuos(sample_read_data.concat(sample_assembly_data)) | assembleIsolate
+    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(4) | mergeDuos | assembleIsolate
 }
-
 workflow fetchReferenceData{
+
+    take:
+    val(ref_reads)
+    val(ref_fasta)
+    
     emit:
     reference_data
 
     main:
         
-    if(params.ref_reads == "" && params.ref_fasta == ""){
+    if(ref_reads == "" && ref_fasta == ""){
         reference_data = Channel.empty()
     } else{
         // Collect paths to read/assembly data for references
-        ("${params.ref_reads}" != "" ? getReads(params.ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
-        ("${params.ref_fasta}" != "" ? getAssemblies(params.ref_fasta) : Channel.empty()).set{reference_assembly_data}
+        ("${ref_reads}" != "" ? getReads(ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
+        ("${ref_fasta}" != "" ? getAssemblies(ref_fasta) : Channel.empty()).set{reference_assembly_data}
 
-        reference_data = mergeDuos(reference_read_data.concat(reference_assembly_data)) | assembleIsolate
+        reference_data = reference_read_data.concat(reference_assembly_data) | collect | flatten | collate(4) | mergeDuos | assembleIsolate
     }
 }
 
@@ -193,6 +129,9 @@ workflow getAssemblies{
             error "$fasta_dir is not a valid directory or file..."
         }
 
+        // Check if the channel is empty and throw an error
+        assert ch_fasta.isEmpty(), "Error: No FASTA files detected at $fasta_loc"
+
         fasta_data = ch_fasta
         | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get the path and the name
     }
@@ -223,7 +162,7 @@ process fetchPairedReads{
     """
 }
 
-// Merge workflows //
+// Merge samples with reads and assembly data //
 workflow mergeDuos{
 
     // Workflow to merge data that are provided as both reads and assembly
@@ -342,36 +281,5 @@ process skesaAssemble{
         } else{
             error "read_type should be Paired or Single, not $read_type..."
         }
-    }
-}
-
-// Processes //
-
-process makeSampleFolder{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    output:
-    stdout
-   
-    script:
-    
-    sample_dir = file("${output_directory}/${sample_name}")
-    mummer_dir = file("${sample_dir}/MUmmer")
-
-    if(sample_dir.isDirectory()){
-        error "$sample_dir already exists"
-    } else if(!output_directory.isDirectory()){
-        error "$output_directory doesn't exist"
-    } else{
-        """
-        mkdir $sample_dir
-        mkdir $mummer_dir
-        echo "$sample_name,$data_type,$read_location,$assembly_location"
-        """     
     }
 }

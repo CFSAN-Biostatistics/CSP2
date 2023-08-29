@@ -2,8 +2,6 @@
 // Params are passed from Yenta.nf or from the command line if run directly
 
 // Set output paths
-params.out = "Yenta_${new java.util.Date().getTime()}"
-params.outroot = ""
 if(params.outroot == ""){
     output_directory = file("${params.out}")
 } else{
@@ -39,13 +37,6 @@ if(params.bedtools_module == ""){
     params.load_bedtools_module = "module load -s ${params.bedtools_module}"
 }
 
-params.align_cov = 85
-params.ref_iden = 99
-params.ref_edge = 250
-params.query_edge = 250
-params.min_len = 500
-params.max_perc_n = 50
-
 alignment_coverage = params.align_cov.toFloat()
 reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
@@ -53,9 +44,49 @@ query_edge = params.query_edge.toInteger()
 min_length = params.min_len.toInteger()
 perc_max_n = params.max_perc_n.toFloat()
 
+workflow runAllvAll{
+    take:
+    sample_data
+
+    main:
+
+    all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
+        
+        same: "${it[0]}" == "${it[4]}"
+        return(it)
+        
+        different: true
+        return(it)}
+
+    different_comparisons = all_comparisons.different.map{
+        def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
+        def higherValue = "${it[0]}" >= "${it[4]}" ? "${it[0]}" : "${it[4]}" 
+        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
+        .collect().flatten().collate(5)
+        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
+
+    sample_pairwise = runMUmmer(different_comparisons) | splitCsv 
+    | collect | flatten | collate(17)
+
+    // Prep and save log files
+    sample_log_file = prepSampleLog()
+    log_data_a = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
+    log_data_b = sample_data | join(sample_pairwise.map{it -> tuple(it[1],it[3],it[5])})
+    sample_log_data = log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | flatten | collate(6) | distinct
+    saveSampleLog(sample_log_file,sample_log_data)
+
+    // Move this to after merging?
+    snp_log_file = prepSNPLog()
+    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise)
+
+    // Run merging + tree building
+    merged_snps = diff_results | collect | mergeSNPs
+}
+
 workflow runSnpPipeline{
     take:
     sample_data
+    reference_data
 
     main:
 

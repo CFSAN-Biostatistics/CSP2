@@ -34,17 +34,32 @@ if(output_directory.isDirectory()){
 
 // Import modules
 include {fetchSampleData; fetchReferenceData} from "./subworkflows/fetchData/main.nf"
-include {runSnpPipeline; runScreen } from "./subworkflows/dnadiff/main.nf"
+include {runSnpPipeline; runScreen; runAllvAll } from "./subworkflows/dnadiff/main.nf"
+include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
 
-    ////// 01: Collect paths to data and assemble read data if necessary ////// 
-    sample_data = fetchSampleData()
+    ////// Parse commmand line arguments and run in appropriate mode //////
     
-    ////// 02: If reference data is provided, run the screening pipeline. Otherwise, run a SNP analysis //////
-    if(params.ref_reads == "" && params.ref_fasta == ""){
-        sample_data | collect | flatten | collate(4) | runSnpPipeline
-    } else{
-        runScreen(sample_data,fetchReferenceData())
+     // If --ref_reads/--ref_fasta are set, run in reference screener mode
+    if(params.ref_reads != "" || params.ref_fasta != ""){
+        runScreen(fetchSampleData(),fetchReferenceData(params.ref_reads,params.ref_fasta))} 
+    
+    // If --snp_ref_reads/--snp_ref_fasta are set, run in SNP Pipeline mode with user-selected references
+    else if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){
+        println("Snp_Ref")}
+        //runSnpPipeline(fetchSampleData(),fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta))} 
+    
+    else{
+        sample_data = fetchSampleData() | collect | flatten | collate(4)
+        
+        // If --all is set, run in reference-free SNP pipeline mode
+        if(params.all){ 
+            runAllvAll(sample_data)} 
+        
+        // Run in SNP Pipeline mode using a refchooser reference
+        else{ 
+            runRefChooser(sample_data) //| runSnpPipeline
+        }
     }
 }
