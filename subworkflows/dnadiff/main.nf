@@ -90,21 +90,12 @@ workflow runSnpPipeline{
 
     main:
 
-    all_comparisons = sample_data.combine(reference_data).collect().flatten().collate(8)
-    all_comparisons.map{
+    all_comparisons = sample_data.combine(reference_data).collect().flatten().collate(8).map{
         def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
         def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
-        .collect().flatten().collate(5).groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}.subscribe{println("Final: $it")}
+        .collect().flatten().collate(5).map{it -> tuple(it[2],it[3])}
     
-    /*.map{
-        def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
-        def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
-        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
-        .collect().flatten().collate(5)
-        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
-
-    all_comparisons.subscribe{println("Raw: $it")}
     sample_pairwise = runMUmmer(all_comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
@@ -121,7 +112,6 @@ workflow runSnpPipeline{
 
     // Run merging + tree building
     //merged_snps = diff_results | collect | mergeSNPs
-    */
 }
 
 workflow runScreen{
