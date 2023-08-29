@@ -30,7 +30,7 @@ workflow runRefChooser{
     main:
     
     // Create assembly list
-    ref_path = refChooser() | collect
+    ref_path = refChooser()
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
@@ -51,6 +51,6 @@ process refChooser{
     $params.load_refchooser_module
     cd $assembly_directory
     refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
-    FOO=$(head -2 refchooser_results.txt | tail -1 | cut -f7 | echo)
+    FOO=$(head -2 refchooser_results.txt | tail -1 | cut -f7)
     """
 }
