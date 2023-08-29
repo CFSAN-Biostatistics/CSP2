@@ -41,6 +41,7 @@ workflow{
 
     ////// Read in sample data ///////
     sample_data = fetchSampleData()
+    sample_data.subscribe{println("$it")}
 }
 /*
     ////// Parse commmand line arguments and run in appropriate mode //////
