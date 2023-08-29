@@ -167,6 +167,7 @@ process runMUmmer{
 
     script:
 
+    println("Query: $query_fasta; Ref: $ref_fasta")
     query_name = file(query_fasta).getBaseName()
     ref_name = file(ref_fasta).getBaseName()
     report_id = "${query_name}_vs_${ref_name}"
