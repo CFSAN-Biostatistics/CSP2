@@ -24,8 +24,8 @@ workflow runRefChooser{
     sample_data
 
     //emit:
-    //sample_data
-    //reference_data
+    sample_data
+    reference_data
 
     main:
     
@@ -34,7 +34,7 @@ workflow runRefChooser{
 
     reference_data = sample_data.branch{
         same: "${it[4]}" == "${ref_path}"
-        return(it)}
+        return(it)}.same
 }
 
 process refChooser{
