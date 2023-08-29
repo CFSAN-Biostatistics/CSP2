@@ -23,9 +23,9 @@ workflow runRefChooser{
     take:
     sample_data
 
-    emit:
-    sample_data
-    reference_data
+    //emit:
+    //sample_data
+    //reference_data
 
     main:
     
@@ -40,7 +40,6 @@ workflow runRefChooser{
         same: "${it[4]}" == "${ref_path}"
         return(it)}
 }
-
 
 process saveAssembly{
     executor = 'local'
