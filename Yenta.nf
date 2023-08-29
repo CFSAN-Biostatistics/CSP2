@@ -60,8 +60,6 @@ workflow{
         // Run in SNP Pipeline mode using a refchooser reference
         else{
             reference_data = runRefChooser(sample_data)
-            reference_data.subscribe{println("Ref: $it")}
-            //runSnpPipeline(sample_data,reference_data)}
-    }
+            runSnpPipeline(sample_data,reference_data)}
     }
 }
