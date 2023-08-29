@@ -35,7 +35,7 @@ workflow runRefChooser{
     reference_data = sample_data.combine(ref_path) | collect | flatten | collate(5) 
     | branch{
         
-        same: "${it[3]}" == "${it[4]}"
+        same: "${it[3]}" == "/flash/storage/scratch/Robert.Literman/NextFlow/YENTA/GitHub/Yenta/NCBI_Clusters/Salmonella_PDS000043084.34/skesa_contigs/SRR10843746.fasta"
         return(tuple(it[0],it[1],it[2],it[3]))
         
         different: true
