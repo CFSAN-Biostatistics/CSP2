@@ -51,15 +51,13 @@ workflow{
         //runSnpPipeline(fetchSampleData(),fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta))} 
     
     else{
-        sample_data = fetchSampleData() | collect | flatten | collate(4)
-        
         // If --all is set, run in reference-free SNP pipeline mode
         if(params.all){ 
-            runAllvAll(sample_data)} 
+            fetchSampleData() | collect | flatten | collate(4) | runAllvAll} 
         
         // Run in SNP Pipeline mode using a refchooser reference
         else{ 
-            runRefChooser(sample_data) //| runSnpPipeline
+            fetchSampleData() | collect | flatten | collate(4) | runRefChooser //| runSnpPipeline
         }
     }
 }
