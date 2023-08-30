@@ -50,22 +50,16 @@ workflow runAllvAll{
 
     main:
 
-    all_comparisons = sample_data.combine(sample_data).collect().flatten().collate(8).branch{
-        
-        same: "${it[0]}" == "${it[4]}"
-        return(it)
-        
-        different: true
-        return(it)}
-
-    different_comparisons = all_comparisons.different.map{
-        def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
-        def higherValue = "${it[0]}" >= "${it[4]}" ? "${it[0]}" : "${it[4]}" 
+    comparisons = sample_data.combine(sample_data).collect().flatten().collate(8)
+    .filter{it[0] != it[4]}
+    .map{
+        def lowerValue = "${it[0]}" < "${it[4]}" ? "${it[0]}" : "${it[4]}"
+        def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
-        .collect().flatten().collate(5)
-        .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
+    .collect().flatten().collate(5)
+    .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
 
-    sample_pairwise = runMUmmer(different_comparisons) | splitCsv 
+    sample_pairwise = runMUmmer(comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
     // Prep and save log files
@@ -90,13 +84,15 @@ workflow runSnpPipeline{
 
     main:
 
-    all_comparisons = sample_data.combine(reference_data).collect().flatten().collate(8).map{
-        def lowerValue = "${it[0]}" <= "${it[4]}" ? "${it[0]}" : "${it[4]}"
+    comparisons = sample_data.combine(reference_data).collect().flatten().collate(8)
+    .filter{it[0] != it[4]}
+    .map{
+        def lowerValue = "${it[0]}" < "${it[4]}" ? "${it[0]}" : "${it[4]}"
         def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
         return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
         .collect().flatten().collate(5).map{it -> tuple(it[2],it[3])}
     
-    sample_pairwise = runMUmmer(all_comparisons) | splitCsv 
+    sample_pairwise = runMUmmer(comparisons) | splitCsv 
     | collect | flatten | collate(17)
 
     // Prep and save log files
@@ -166,7 +162,6 @@ process runMUmmer{
 
     script:
 
-    println("Query: $query_fasta; Ref: $ref_fasta")
     query_name = file(query_fasta).getBaseName()
     ref_name = file(ref_fasta).getBaseName()
     report_id = "${query_name}_vs_${ref_name}"
