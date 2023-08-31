@@ -84,7 +84,6 @@ workflow runSnpPipeline{
     reference_data
 
     main:
-    reference_data.subscribe{println("Ref: $it")}
     comparisons = sample_data.combine(reference_data).collect().flatten().collate(8)
     .filter{it[0] != it[4]}
     .map{
