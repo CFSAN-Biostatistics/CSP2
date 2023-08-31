@@ -34,8 +34,16 @@ workflow runRefChooser{
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     ref_path = refChooser(hold_file,n_ref) | splitCsv | collect | flatten
 
-    // NEED TO FIX
-    reference_data = sample_data.combine(ref_path) | filter { tuple -> ref_path.contains(tuple[3])} | map{it->tuple(it[0],it[1],it[2],it[3])}
+    // Define a filter function
+    def filterFunction(tuple, filterList) {
+        tuple[3] in filterList
+    }
+    filtered_data = sample_data.filter { tuple ->
+            filterFunction(tuple, ref_path)
+        }
+    reference_data = filtered_data.map { tuple ->
+        tuple(tuple[0], tuple[1], tuple[2], tuple[3])
+    }
 }
 
 process refChooser{
