@@ -37,7 +37,7 @@ workflow runRefChooser{
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
     ref_ch = ref_path.map { line -> line.collect { it.trim() } } | view()
-    reference_data = sample_data.filter { tuple -> ref_ch.any { refString -> tuple[3] == refString} }
+    reference_data = sample_data.filter { tuple -> ref_ch.any { refString -> tuple[3] == refString} } | view()
 }
 
 process refChooser{
