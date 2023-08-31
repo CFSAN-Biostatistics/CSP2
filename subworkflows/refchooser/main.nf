@@ -40,6 +40,7 @@ workflow runRefChooser{
 
     filtered_data = sample_data.filter { tuple -> filterFunction(tuple, ref_path) }
     reference_data = filtered_data.map { tuple -> tuple(tuple[0], tuple[1], tuple[2], tuple[3]) }
+    ref_path.subscribe{println("Ref_Path: $it")}
     filtered_data.subscribe{println("Filt: $it")}
     reference_data.subscribe{println("Ref: $it")}
 }
