@@ -34,7 +34,7 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
-    ref_path = refChooser(hold_file,n_ref) | splitCsv | map { 
+    ref_path = refChooser(hold_file,n_ref) | splitCsv | collect { 
         line -> def elements = line.tokenize(',') 
         elements }
 
