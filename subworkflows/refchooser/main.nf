@@ -34,13 +34,13 @@ workflow runRefChooser{
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
-    ref_path.subscribe{println{"Raw_Ref: $it"}}
+    ref_path.subscribe{println("Raw_Ref: $it")}
 
     ref_data = sample_data.combine(ref_path) 
-    ref_data.subscribe{println{"Combined_Ref: $it"}}
+    ref_data.subscribe{println("Combined_Ref: $it")}
     
     reference_data= ref_data.filter{it[3] == it[4]}.map{it->tuple(it[0],it[1],it[2],it[3],it[4])}
-    reference_data.subscribe{println{"Final_Ref: $it"}}
+    reference_data.subscribe{println("Final_Ref: $it")}
 }
 
 process refChooser{
