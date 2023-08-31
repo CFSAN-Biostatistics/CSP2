@@ -378,7 +378,7 @@ else:
                 
                     filtered_pairwise_results = pd.concat(pairwise_list)
                     filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
-                    filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(snp_dir+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+                    filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
                     filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
 
                     AlignIO.write(filtered_alignment, ref_directory+"/Filtered_SNP_Alignment.fasta","fasta")
