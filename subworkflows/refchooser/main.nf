@@ -36,7 +36,7 @@ workflow runRefChooser{
     
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
-    ref_path = refChooser(hold_file,n_ref) | splitCsv | collect | flatten
+    ref_path = refChooser(hold_file,n_ref) | splitCsv
 
     filtered_data = sample_data.filter { tuple -> filterFunction(tuple, ref_path) }
     reference_data = filtered_data.map { tuple -> tuple(tuple[0], tuple[1], tuple[2], tuple[3]) }
