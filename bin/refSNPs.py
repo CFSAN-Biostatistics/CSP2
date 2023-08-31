@@ -262,8 +262,9 @@ else:
             # Get Yenta sites
             yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
             yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
+            orig_yenta_count = len(yenta_locs)
             removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
-            #yenta_locs = [loc for loc in yenta_locs if not loc in purged_locs]
+            yenta_locs = [loc for loc in yenta_locs if not loc in purged_locs]
                         
             if len(yenta_locs) == 0:
                 with open(log_file,"a+") as log:
