@@ -33,7 +33,7 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
-    ref_path = refChooser(hold_file,n_ref) | splitCsv
+    ref_path = refChooser(hold_file,n_ref) | splitCsv | view
 
     reference_data = sample_data.combine(ref_path).collect().flatten().collate(6)
     .filter{(it[3] == it[4]) || it[3] == it[5]}
