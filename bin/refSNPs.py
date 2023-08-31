@@ -358,7 +358,7 @@ else:
                 # Create a new alignment from the filtered sequences
                 if len(filtered_seqs) == final_full_alignment.get_alignment_length():
                     with open(log_file,"a+") as log:
-                        log.write("\n\t- The final alignment ("+snp_dir+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
+                        log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
                         log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
                 elif len(filtered_seqs) == 0:
                     with open(log_file,"a+") as log:
@@ -392,4 +392,4 @@ else:
 
                     with open(log_file,"a+") as log:
                         log.write("\n- The raw SNP alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                        log.write("\n\t- "+str(final_full_alignment.get_alignment_length() - filtered_alignment.get_alignment_length()) +" sites contained more than " + str(max_perc_n) + "% Ns, so a filtered dataset containing " + str(filtered_alignment.get_alignment_length()) +" was generated at "+snp_dir+"/Filtered_SNP_Alignment.fasta\n")
+                        log.write("\n\t- "+str(final_full_alignment.get_alignment_length() - filtered_alignment.get_alignment_length()) +" sites contained more than " + str(max_perc_n) + "% Ns, so a filtered dataset containing " + str(filtered_alignment.get_alignment_length()) +" was generated at "+ref_directory+"/Filtered_SNP_Alignment.fasta\n")
