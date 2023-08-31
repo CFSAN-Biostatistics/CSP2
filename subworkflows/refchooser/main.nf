@@ -38,12 +38,8 @@ workflow runRefChooser{
     def filterFunction(tuple, filterList) {
         tuple[3] in filterList
     }
-    filtered_data = sample_data.filter { tuple ->
-            filterFunction(tuple, ref_path)
-        }
-    reference_data = filtered_data.map { tuple ->
-        tuple(tuple[0], tuple[1], tuple[2], tuple[3])
-    }
+    filtered_data = sample_data.filter { tuple -> filterFunction(tuple, ref_path) }
+    reference_data = filtered_data.map { tuple -> tuple(tuple[0], tuple[1], tuple[2], tuple[3]) }
 }
 
 process refChooser{
