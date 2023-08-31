@@ -12,6 +12,7 @@ assembly_directory = file("${output_directory}/Assemblies")
 assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
 
 n_ref = params.n_ref.toInteger()
+collate_num = n_ref+4
 
 // Set modules if necessary
 params.refchooser_module = ""
@@ -33,10 +34,12 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
-    ref_path = refChooser(hold_file,n_ref) | splitCsv | view
+    ref_path = refChooser(hold_file,n_ref) | splitCsv | map { 
+        line -> def elements = line.tokenize(',') 
+        elements }
 
-    reference_data = sample_data.combine(ref_path).collect().flatten().collate(6)
-    .filter{(it[3] == it[4]) || it[3] == it[5]}
+    reference_data = sample_data.combine(ref_path).collect().flatten().collate(5).view()
+    .filter{(it[3] == it[4])}
     .map{it-> tuple(it[0],it[1],it[2],it[3])}
 }
 
