@@ -264,7 +264,7 @@ else:
             yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
             orig_yenta_count = len(yenta_locs)
             removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
-            yenta_locs = [loc for loc in yenta_locs if not loc in purged_locs]
+            #yenta_locs = [loc for loc in yenta_locs if not loc in purged_locs]
                         
             if len(yenta_locs) == 0:
                 with open(log_file,"a+") as log:
@@ -273,7 +273,7 @@ else:
             else:
                 if len(removed_locs) > 0:
                     with open(log_file,"a+") as log:
-                        log.write("\t- Removed "+str(len(removed_locs))+" locs due to QC, " + str(len(yenta_locs))+" remain.\n")
+                        log.write("\t- Of "+str(orig_yenta_count) + "sites, "+str(len(removed_locs))+" were removed due to QC, " + str(len(yenta_locs))+" remain.\n")
                         log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
                         log.write("\n-------------------------------------------------------\n\n")
                 else:
