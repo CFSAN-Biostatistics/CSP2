@@ -34,12 +34,10 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
-    ref_path = refChooser(hold_file,n_ref) | splitCsv
+    ref_path = refChooser(hold_file,n_ref) | splitCsv | collate(1)
 
-    sample_data.subscribe{println("Sample: $it")}
-    ref_path.subscribe{println("Ref: $it")}
-
-    reference_data = sample_data
+    reference_data = sample_data.combine(ref_path).filter{it[3] == it[4]}
+    reference_data.subscribe{println("Ref: $it")}
 }
 
 process refChooser{
