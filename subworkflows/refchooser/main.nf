@@ -34,13 +34,15 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
-    ref_path = refChooser(hold_file,n_ref) | splitCsv | collect { 
-        line -> def elements = line.tokenize(',') 
-        elements }
+    ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    reference_data = sample_data.combine(ref_path).collect().flatten().collate(5).view()
-    .filter{(it[3] == it[4])}
-    .map{it-> tuple(it[0],it[1],it[2],it[3])}
+    ref_ch = ref_path.map { line ->
+    line.tokenize(',').collect { it.trim() }
+
+    reference_data = sample_data.filter { tuple ->
+    ref_ch.any { refString ->
+        tuple[3] == refString}
+    }.view()
 }
 
 process refChooser{
