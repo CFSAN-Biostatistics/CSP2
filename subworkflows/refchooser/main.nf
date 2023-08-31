@@ -35,9 +35,10 @@ workflow runRefChooser{
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    reference_data = scatter (sample in sample_data, ref_path in ref_paths) {
-        reference_data.write(tuple(sample[0], sample[1], sample[2], sample[3], ref))
-    }.filter{it[3] == it[4]}
+    reference_data = sample_data.combine(ref_path).collect().flatten().collate(5)
+    .filter{it[0] != it[4]}
+    .map{it-> tuple(it[0],it[1],it[2],it[3])}
+
     reference_data.subscribe{println("Final_Ref: $it")}
 }
 
