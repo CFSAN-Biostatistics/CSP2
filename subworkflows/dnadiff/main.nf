@@ -121,6 +121,7 @@ process refSNPs{
     script:
     """
     ${params.load_python_module}
+    ${params.load_bedtools_module}
     python $ref_snp_script $output_directory $alignment_coverage $reference_identity $min_length $perc_max_n $ref_isolate
     """
 }

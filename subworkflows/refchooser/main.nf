@@ -35,7 +35,7 @@ workflow runRefChooser{
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    reference_data = sample_data.combine(ref_path).collect().flatten().collate(6).view()
+    reference_data = sample_data.combine(ref_path).collect().flatten().collate(6)
     .filter{(it[3] == it[4]) || it[3] == it[5]}
     .map{it-> tuple(it[0],it[1],it[2],it[3])}
 }
