@@ -35,16 +35,9 @@ workflow runRefChooser{
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    sample_data.flatMap { sample ->
-        ref_paths.map { ref_path ->
-            tuple(sample[0], sample[1], sample[2], sample[3], ref_path)
-        }
-    } | filter { tuple ->
-        tuple[3] == tuple[4] // Filter based on your condition
-    } | map { tuple ->
-        tuple(tuple[0], tuple[1], tuple[2], tuple[3])
-    } into reference_data
-
+    reference_data = scatter (sample in sample_data, ref_path in ref_paths) {
+        reference_data.write(tuple(sample[0], sample[1], sample[2], sample[3], ref))
+    }.filter{it[3] == it[4]}
     reference_data.subscribe{println("Final_Ref: $it")}
 }
 
