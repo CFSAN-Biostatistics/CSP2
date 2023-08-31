@@ -40,9 +40,9 @@ workflow runRefChooser{
     sample_data_map = sample_data.groupTuple(by:3)
 
     // Combine tuples from sample_data_map and strings from ref_channel
-    combined_channel = ref_path.map { refString ->
-        def tuple = sample_data_map[refString]?.first() ?: [null, null, null, null]
-        [tuple[0], tuple[1], tuple[2], tuple[3], refString]}
+combined_channel = ref_path.map { refString ->
+    def tuple = sample_data_map[refString]?.toList()?.first() ?: [null, null, null, null]
+    [tuple[0], tuple[1], tuple[2], tuple[3], refString]}
     
     combined_channel.subscribe{println("Combined: $it")}
 
