@@ -36,8 +36,13 @@ workflow runRefChooser{
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    ref_ch = ref_path.map { line -> line.collect { it.trim() } }
-    reference_data = sample_data.combine(ref_ch)
+    combined_channel = sample_data.zip(ref_path).map { tuple, refString ->
+        [tuple[0], tuple[1], tuple[2], tuple[3], refString]}
+    
+    combined_channel.subscribe{println("Combined: $it")}
+
+    reference_data = combined_channel.filter{it[3] != it[4]}
+
     reference_data.subscribe{println("Ref: $it")}
 }
 
