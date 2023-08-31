@@ -37,7 +37,7 @@ workflow runRefChooser{
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
     // Create a map of tuples from sample_data indexed by the fourth element
-    sample_data_map = sample_data.groupBy { it[3] }
+    sample_data_map = sample_data.groupTuple(by:3)
 
     // Combine tuples from sample_data_map and strings from ref_channel
     combined_channel = ref_path.map { refString ->
