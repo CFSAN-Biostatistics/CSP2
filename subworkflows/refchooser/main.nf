@@ -33,7 +33,7 @@ workflow runRefChooser{
     // Get reference isolate
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     ref_path = refChooser(hold_file,n_ref) | splitCsv | collect | flatten
-    println(ref_path)
+    ref_path.subscribe{println("$it")}
     reference_data = sample_data.combine(ref_path) | filter { tuple -> ref_path.contains(tuple[3])} | map{it->tuple(it[0],it[1],it[2],it[3])}
 }
 
