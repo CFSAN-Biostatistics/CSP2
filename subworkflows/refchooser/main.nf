@@ -36,17 +36,10 @@ workflow runRefChooser{
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
 
-    // Create a map of tuples from sample_data indexed by the fourth element
-    sample_data_map = sample_data.groupTuple(by:3)
+    sample_data.subscribe{println("Sample: $it")}
+    ref_path.subscribe{println("Ref: $it")}
 
-    // Combine tuples from sample_data_map and strings from ref_channel
-combined_channel = ref_path.map { refString ->
-    def tuple = sample_data_map[refString]?.toList()?.first() ?: [null, null, null, null]
-    [tuple[0], tuple[1], tuple[2], tuple[3], refString]}
-    
-    combined_channel.subscribe{println("Combined: $it")}
-
-    reference_data = combined_channel.filter{it[3] != it[4]}
+    reference_data = sample_data
 }
 
 process refChooser{
