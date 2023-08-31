@@ -68,7 +68,7 @@ process refChooser{
     if [[ \$(wc -l <<< "\$column_data") -gt 1 ]]; then
         echo "\$column_data" | paste -sd ',' -
     else
-        echo "\$column_data"
+        echo -n "\$column_data"
     fi
     """
 }
