@@ -34,12 +34,17 @@ workflow runRefChooser{
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     
     ref_path = refChooser(hold_file,n_ref) | splitCsv
-    ref_path.subscribe{println("Raw_Ref: $it")}
 
-    ref_data = sample_data.combine(ref_path) 
-    ref_data.subscribe{println("Combined_Ref: $it")}
-    
-    reference_data= ref_data.filter{it[3] == it[4]}.map{it->tuple(it[0],it[1],it[2],it[3],it[4])}
+    sample_data.flatMap { sample ->
+        ref_paths.map { ref_path ->
+            tuple(sample[0], sample[1], sample[2], sample[3], ref_path)
+        }
+    } | filter { tuple ->
+        tuple[3] == tuple[4] // Filter based on your condition
+    } | map { tuple ->
+        tuple(tuple[0], tuple[1], tuple[2], tuple[3])
+    } into reference_data
+
     reference_data.subscribe{println("Final_Ref: $it")}
 }
 
