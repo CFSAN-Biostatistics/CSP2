@@ -61,10 +61,10 @@ process refChooser{
 
     column_data=\$(head -$head_count refchooser_results.txt | tail -$n_ref | cut -f7)
 
-    if [[ \$(wc -l <<< "$column_data") -gt 1 ]]; then
-        echo "$column_data" | paste -sd ',' -
+    if [[ \$(wc -l <<< "\$column_data") -gt 1 ]]; then
+        echo "\$column_data" | paste -sd ',' -
     else
-        echo "$column_data"
+        echo "\$column_data"
     fi
     """
 }
