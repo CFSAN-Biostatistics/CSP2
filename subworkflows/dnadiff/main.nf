@@ -17,6 +17,7 @@ mummer_processing_script = file("$projectDir/bin/filterMUmmer.py")
 
 // Set path to snp script
 snp_script = file("$projectDir/bin/mergeSNPs.py")
+ref_snp_script = file("$projectDir/bin/refSNPs.py")
 
 // Set modules if necessary
 if(params.mummer_module == ""){
@@ -104,12 +105,26 @@ workflow runSnpPipeline{
 
     // Move this to after merging?
     snp_log_file = prepSNPLog()
-    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise)
+    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise) | collect | flatten | first 
 
     // Run merging + tree building
-    //merged_snps = diff_results | collect | mergeSNPs
+    merged_snps = refSNPs(diff_results,reference_data)
 }
+process refSNPs{
 
+    input:
+    val(ready)
+    tuple val(ref_isolate),val(sample_type),val(read_location),val(assembly_location)
+    
+    output:
+    val(snp_directory)
+
+    script:
+    """
+    ${params.load_python_module}
+    python $ref_snp_script $output_directory $alignment_coverage $reference_identity $min_length $perc_max_n $ref_isolate
+    """
+}
 workflow runScreen{
     
     take:

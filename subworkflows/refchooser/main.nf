@@ -11,6 +11,8 @@ if(params.outroot == ""){
 assembly_directory = file("${output_directory}/Assemblies")
 assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
 
+n_ref = params.n_ref.toInteger()
+
 // Set modules if necessary
 params.refchooser_module = ""
 if(params.refchooser_module == ""){
@@ -29,8 +31,9 @@ workflow runRefChooser{
     main:
     
     // Get reference isolate
-    ref_path = sample_data | writeAssemblyPath | collect | flatten | first | refChooser
-    reference_data = sample_data.combine(ref_path) | filter{it[3] == it[4]} | map{it->tuple(it[0],it[1],it[2],it[3])}
+    hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
+    ref_path = refChooser(hold_file,n_ref) | splitCsv | flatten
+    reference_data = sample_data.combine(ref_path) | filter { tuple -> ref_path.contains(tuple[3])} | map{it->tuple(it[0],it[1],it[2],it[3])}
 }
 
 process refChooser{
@@ -41,15 +44,28 @@ process refChooser{
 
     input:
     val(assembly_file)
+    val(n_ref)
 
     output:
     stdout
 
     script:
+
+    head_count = n_ref + 1
+
     """
     $params.load_refchooser_module
     cd $assembly_directory
-    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt && echo -n \$(head -2 refchooser_results.txt | tail -1 | cut -f7)
+
+    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
+
+    column_data=\$(head -$head_count refchooser_results.txt | tail -$n_ref | cut -f7)
+
+    if [[ \$(wc -l <<< "$column_data") -gt 1 ]]; then
+        echo "$column_data" | paste -sd ',' -
+    else
+        echo "$column_data"
+    fi
     """
 }
 
