@@ -20,6 +20,10 @@ if(params.refchooser_module == ""){
 } else{
     params.load_refchooser_module = "module load -s ${params.refchooser_module}"
 }
+// Define a filter function
+def filterFunction(tuple, filterList) {
+        tuple[3] in filterList
+}
 
 workflow runRefChooser{
     take:
@@ -34,10 +38,6 @@ workflow runRefChooser{
     hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
     ref_path = refChooser(hold_file,n_ref) | splitCsv | collect | flatten
 
-    // Define a filter function
-    def filterFunction(tuple, filterList) {
-        tuple[3] in filterList
-    }
     filtered_data = sample_data.filter { tuple -> filterFunction(tuple, ref_path) }
     reference_data = filtered_data.map { tuple -> tuple(tuple[0], tuple[1], tuple[2], tuple[3]) }
 }
