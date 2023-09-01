@@ -81,6 +81,7 @@ def getPairwise(compare,alignment):
         return(pd.DataFrame([[compare[0],compare[1],compare_id,len(cols_with_base),len(identical_sites),float(len(identical_sites))/float(len(cols_with_base))]],columns=['Sample_A','Sample_B','Comparison','Cocalled_Sites','Identical_Sites','Prop_Identical']))
 
 def processLoc(loc_df,ref_loc):
+    print(loc,flush=True)
     snp_alignment = MultipleSeqAlignment([])
     ref_base = loc_df['Ref_Base'].iloc[0]
 
