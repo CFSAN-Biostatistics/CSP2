@@ -80,6 +80,7 @@ def getPairwise(compare,alignment):
     else:
         return(pd.DataFrame([[compare[0],compare[1],compare_id,len(cols_with_base),len(identical_sites),float(len(identical_sites))/float(len(cols_with_base))]],columns=['Sample_A','Sample_B','Comparison','Cocalled_Sites','Identical_Sites','Prop_Identical']))
 
+# NEED TO CHECK PURGED AND ADD N
 def processLoc(loc_df,ref_loc):
     snp_alignment = MultipleSeqAlignment([])
     ref_base = loc_df['Ref_Base'].iloc[0]
@@ -283,9 +284,10 @@ else:
                     log.write("Done!\n")
                 
                 if len(removed_locs) > 0:
-                        log.write("\t- Of "+str(yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
-                        log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
-                        log.write("\n-------------------------------------------------------\n\n")
+                        with open(log_file,"a+") as log:
+                            log.write("\t- Of "+str(yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
+                            log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
+                            log.write("\n-------------------------------------------------------\n\n")
                 else:
                     with open(log_file,"a+") as log:
                         log.write("\t- "+str(yenta_count) + " sites identified after merging.\n")
