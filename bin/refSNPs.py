@@ -116,11 +116,10 @@ def processLoc(loc_df, ref_loc):
             query_match = loc_df[loc_df['Query'] == isolate]
             if not query_match.empty:
                 snp_records.append(SeqRecord(Seq(query_match['Query_Base'].iloc[0]), id=str(isolate), description=""))
-            elif ref_loc in coords_dict.get(isolate, []):
-                if ref_loc in purged_dict.get(isolate, []):
-                    snp_records.append(SeqRecord(Seq("N"), id=str(isolate), description=""))
-                else:
-                    snp_records.append(SeqRecord(Seq(ref_base), id=str(isolate), description=""))
+            elif ref_loc in purged_dict[isolate]:
+                snp_records.append(SeqRecord(Seq("N"), id=str(isolate), description=""))
+            elif ref_loc in coords_dict[isolate]:
+                snp_records.append(SeqRecord(Seq(ref_base), id=str(isolate), description=""))
             else:
                 snp_records.append(SeqRecord(Seq("?"), id=str(isolate), description=""))
 
