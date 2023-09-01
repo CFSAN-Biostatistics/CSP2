@@ -249,22 +249,23 @@ else:
             with open(log_file,"a+") as log:
                 log.write("\t- Reference sequences should all be in the positive direction...\n")
             sys.exit("Reference sequences should all be in the positive direction...")
-
-        with open(log_file,"a+") as log:
-            log.write("Done!\n")
-        
-        if nonpurged_df.shape[0] == 0:
+        elif nonpurged_df.shape[0] == 0:
             with open(log_file,"a+") as log:
+                log.write("Done!\n")
                 log.write("\t- All SNPs purged...\n")
-        
         else:
+            with open(log_file,"a+") as log:
+                log.write("Done!\n")
+                log.write("\n-------------------------------------------------------\n\n")
+
+            with open(log_file,"a+") as log:
+                log.write("Step 5: Collecting Yenta SNPs...")  
 
             # Get Yenta sites
             yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
             yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
             orig_yenta_count = len(yenta_locs)
             removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
-            #yenta_locs = [loc for loc in yenta_locs if not loc in purged_locs]
                         
             if len(yenta_locs) == 0:
                 with open(log_file,"a+") as log:
@@ -273,7 +274,7 @@ else:
             else:
                 if len(removed_locs) > 0:
                     with open(log_file,"a+") as log:
-                        log.write("\t- Of "+str(orig_yenta_count) + "sites, "+str(len(removed_locs))+" were removed due to QC, " + str(len(yenta_locs))+" remain.\n")
+                        log.write("\t- Of "+str(orig_yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
                         log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
                         log.write("\n-------------------------------------------------------\n\n")
                 else:
@@ -281,12 +282,22 @@ else:
                         log.write("\t- "+str(len(yenta_locs)) + " sites identified after merging.\n")
                         log.write("\n-------------------------------------------------------\n\n")
 
+                with open(log_file,"a+") as log:
+                    log.write("Done!\n")
+                    log.write("\n-------------------------------------------------------\n\n")
+            
+                with open(log_file,"a+") as log:
+                    log.write("Step 6: Creating Yenta BED...") 
                 # Create BED file for Yenta locs
                 yenta_bed = makeBED(pd.DataFrame([item.split('/') for item in yenta_locs], columns=['Ref_Contig','Ref_End']))
 
+                with open(log_file,"a+") as log:
+                    log.write("Done!\n")
+                    log.write("\n-------------------------------------------------------\n\n")
+
                 # Read in coordinate files
                 with open(log_file,"a+") as log:
-                    log.write("Step 5: Processing coordinate files...")
+                    log.write("Step 7: Processing coordinate files...")
                 
                 try:
                     start_time = time.time()
@@ -308,7 +319,7 @@ else:
 
                 # Process loc data
                 with open(log_file,"a+") as log:
-                    log.write("Step 6: Processing "+str(len(yenta_locs))+" loc(s)...")
+                    log.write("Step 8: Processing "+str(len(yenta_locs))+" loc(s)...")
 
                 full_align_list = []
                 loc_list = []
