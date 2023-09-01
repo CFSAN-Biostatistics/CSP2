@@ -80,26 +80,52 @@ def getPairwise(compare,alignment):
     else:
         return(pd.DataFrame([[compare[0],compare[1],compare_id,len(cols_with_base),len(identical_sites),float(len(identical_sites))/float(len(cols_with_base))]],columns=['Sample_A','Sample_B','Comparison','Cocalled_Sites','Identical_Sites','Prop_Identical']))
 
-def processLoc(loc_df,ref_loc):
-    print(ref_loc,flush=True)
-    snp_alignment = MultipleSeqAlignment([])
+#def processLoc(loc_df,ref_loc):
+#    print(ref_loc,flush=True)
+#    snp_alignment = MultipleSeqAlignment([])
+#    ref_base = loc_df['Ref_Base'].iloc[0]
+
+#    for isolate in snp_isolates:
+#        if isolate == ref_isolate:
+#            snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
+#        elif isolate in loc_df['Query'].values:
+#            snp_alignment.append(SeqRecord(Seq(loc_df.loc[loc_df['Query'] == isolate, 'Query_Base'].values[0]), id=str(isolate),description=""))
+#        elif ref_loc in coords_dict[isolate]:
+#            if ref_loc in purged_dict[isolate]:
+#                snp_alignment.append(SeqRecord(Seq("N"), id=str(isolate),description=""))
+#            else:
+#                snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
+#        else:
+#            snp_alignment.append(SeqRecord(Seq("?"), id=str(isolate),description=""))
+
+#    # Query coords_dict to figure out which isolates have coverage
+#    return [snp_alignment,ref_loc]
+
+def processLoc(loc_df, ref_loc):
+    print(ref_loc, flush=True)
+    
     ref_base = loc_df['Ref_Base'].iloc[0]
+
+    # Create a list of SeqRecord objects
+    snp_records = []
 
     for isolate in snp_isolates:
         if isolate == ref_isolate:
-            snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
-        elif isolate in loc_df['Query'].values:
-            snp_alignment.append(SeqRecord(Seq(loc_df.loc[loc_df['Query'] == isolate, 'Query_Base'].values[0]), id=str(isolate),description=""))
-        elif ref_loc in coords_dict[isolate]:
-            if ref_loc in purged_dict[isolate]:
-                snp_alignment.append(SeqRecord(Seq("N"), id=str(isolate),description=""))
-            else:
-                snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
+            snp_records.append(SeqRecord(Seq(ref_base), id=str(isolate), description=""))
         else:
-            snp_alignment.append(SeqRecord(Seq("?"), id=str(isolate),description=""))
+            query_match = loc_df[loc_df['Query'] == isolate]
+            if not query_match.empty:
+                snp_records.append(SeqRecord(Seq(query_match['Query_Base'].iloc[0]), id=str(isolate), description=""))
+            elif ref_loc in coords_dict.get(isolate, []):
+                if ref_loc in purged_dict.get(isolate, []):
+                    snp_records.append(SeqRecord(Seq("N"), id=str(isolate), description=""))
+                else:
+                    snp_records.append(SeqRecord(Seq(ref_base), id=str(isolate), description=""))
+            else:
+                snp_records.append(SeqRecord(Seq("?"), id=str(isolate), description=""))
 
-    # Query coords_dict to figure out which isolates have coverage
-    return [snp_alignment,ref_loc]
+    snp_alignment = MultipleSeqAlignment(snp_records)
+    return [snp_alignment, ref_loc]
 
 def parseMUmmerCoords(yenta_bed,coords_dir,query_id,ref_id,perc_iden,min_len):
     coords_file = pd.read_csv(coords_dir+"/"+query_id+"_vs_"+ref_id+".1coords",sep="\t",index_col=False,
