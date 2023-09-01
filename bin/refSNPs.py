@@ -133,7 +133,7 @@ def parseMUmmerCoords(yenta_bed,coords_dir,query_id,ref_id,perc_iden,min_len):
     'Ref_Length','Query_Length','Ref_Cov',
     'Query_Cov','Ref_Contig','Query_Contig'])
 
-    coords_file = coords_file.loc[(coords_file['Ref_Aligned'] >= min_len) & (coords_file['Perc_Iden'] >= perc_iden) & (coords_file['Ref_Contig'] in yenta_contigs)]
+    coords_file = coords_file.loc[(coords_file['Ref_Aligned'] >= min_len) & (coords_file['Perc_Iden'] >= perc_iden) & (coords_file['Ref_Contig'].isin(yenta_contigs))]
     ref_bed = makeBED(coords_file[['Ref_Contig','Ref_Start','Ref_End']])
     try:
         yenta_intersect = ref_bed.intersect(yenta_bed,wa=True,wb=True,header=False).to_dataframe().iloc[:, 6].tolist()
