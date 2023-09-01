@@ -236,7 +236,7 @@ else:
         with open(log_file,"a+") as log:
             log.write("Step 4: Removing purged sites...")
         purged_df = raw_snp_df[raw_snp_df.Cat.str.startswith("Purged_")]
-        purged_locs = purged_df['Ref_Loc'].values
+        purged_locs = np.unique(purged_df['Ref_Loc'].values)
         if purged_df.shape[0] > 0:
             purged_counts = purged_df['Query'].value_counts()
             pd.DataFrame({'ID': purged_counts.index, 'Count': purged_counts.values}).sort_values(by='Count', ascending=False).to_csv(ref_directory+"/Purged_SNPs_by_Isolate.tsv",index=False,sep="\t")
@@ -263,9 +263,15 @@ else:
 
             # Get Yenta sites
             yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
+            with open(log_file,"a+") as log:
+                log.write("\n\t- Dataframe filtered...\n")
             yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
+            with open(log_file,"a+") as log:
+                log.write("\n\t- Locs extracted...\n")
             yenta_count = len(yenta_locs)
             removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
+            with open(log_file,"a+") as log:
+                log.write("\n\t- Removed locs classfied...\n")
                         
             if len(yenta_locs) == 0:
                 with open(log_file,"a+") as log:
