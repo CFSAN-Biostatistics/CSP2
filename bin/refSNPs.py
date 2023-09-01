@@ -264,144 +264,144 @@ else:
             # Get Yenta sites
             yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
             yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
-            orig_yenta_count = len(yenta_locs)
+            yenta_count = len(yenta_locs)
             removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
                         
             if len(yenta_locs) == 0:
                 with open(log_file,"a+") as log:
+                    log.write("Done!\n")
                     log.write("\t- SNP files located, but no Yenta SNPs present. Cannot proceed...\n")
 
             else:
+                with open(log_file,"a+") as log:
+                    log.write("Done!\n")
+                
                 if len(removed_locs) > 0:
-                    with open(log_file,"a+") as log:
-                        log.write("\t- Of "+str(orig_yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
+                        log.write("\t- Of "+str(yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
                         log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
                         log.write("\n-------------------------------------------------------\n\n")
                 else:
                     with open(log_file,"a+") as log:
-                        log.write("\t- "+str(len(yenta_locs)) + " sites identified after merging.\n")
+                        log.write("\t- "+str(yenta_count) + " sites identified after merging.\n")
                         log.write("\n-------------------------------------------------------\n\n")
-
-                with open(log_file,"a+") as log:
-                    log.write("Done!\n")
-                    log.write("\n-------------------------------------------------------\n\n")
             
-                with open(log_file,"a+") as log:
-                    log.write("Step 6: Creating Yenta BED...") 
-                # Create BED file for Yenta locs
-                yenta_bed = makeBED(pd.DataFrame([item.split('/') for item in yenta_locs], columns=['Ref_Contig','Ref_End']))
+                    with open(log_file,"a+") as log:
+                        log.write("Step 6: Creating Yenta BED...") 
+                    
+                    # Create BED file for Yenta locs
+                    yenta_bed = makeBED(pd.DataFrame([item.split('/') for item in yenta_locs], columns=['Ref_Contig','Ref_End']))
 
-                with open(log_file,"a+") as log:
-                    log.write("Done!\n")
-                    log.write("\n-------------------------------------------------------\n\n")
-
-                # Read in coordinate files
-                with open(log_file,"a+") as log:
-                    log.write("Step 7: Processing coordinate files...")
-                
-                try:
-                    start_time = time.time()
-
-                    global coords_dict
-                    coords_dict = defaultdict(lambda:[])
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        results = [executor.submit(parseMUmmerCoords,yenta_bed,coords_dir,isolate,ref_isolate,min_perc_iden,min_length) for isolate in query_isolates]
-                    end_time = time.time()
-                    coords_time = end_time - start_time
                     with open(log_file,"a+") as log:
                         log.write("Done!\n")
-                        log.write(f"\t- Read in "+str(len(query_isolates)) + f" 1coords files in {coords_time:.2f}s\n")
                         log.write("\n-------------------------------------------------------\n\n")
-                except:
+
+                    # Read in coordinate files
                     with open(log_file,"a+") as log:
-                        log.write("\n\t- ERROR: Cannot load coords files in "+coords_dir+"\n")
-                    sys.exit("Cannot load coords files in "+coords_dir)
+                        log.write("Step 7: Processing coordinate files...")
+                    
+                    try:
+                        start_time = time.time()
 
-                # Process loc data
-                with open(log_file,"a+") as log:
-                    log.write("Step 8: Processing "+str(len(yenta_locs))+" loc(s)...")
+                        global coords_dict
+                        coords_dict = defaultdict(lambda:[])
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            results = [executor.submit(parseMUmmerCoords,yenta_bed,coords_dir,isolate,ref_isolate,min_perc_iden,min_length) for isolate in query_isolates]
+                        end_time = time.time()
+                        coords_time = end_time - start_time
+                        with open(log_file,"a+") as log:
+                            log.write("Done!\n")
+                            log.write(f"\t- Read in "+str(len(query_isolates)) + f" 1coords files in {coords_time:.2f}s\n")
+                            log.write("\n-------------------------------------------------------\n\n")
+                    except:
+                        with open(log_file,"a+") as log:
+                            log.write("\n\t- ERROR: Cannot load coords files in "+coords_dir+"\n")
+                        sys.exit("Cannot load coords files in "+coords_dir)
 
-                full_align_list = []
-                loc_list = []
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
-
-                for future in concurrent.futures.as_completed(results):
-                    temp_align,loc = future.result()
-                    full_align_list.append(temp_align)
-                    loc_list.append(loc)
-                
-                # Create alignment
-                global final_full_alignment
-                final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*full_align_list)])
-
-                # Get pairwise distances
-                pairwise_combinations = list(combinations(snp_isolates, 2))
-                pairwise_list = [] 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    pairwise_results = [executor.submit(getPairwise, compare,final_full_alignment) for compare in pairwise_combinations]
-                
-                for future in concurrent.futures.as_completed(pairwise_results):
-                    pairwise_list.append(future.result())
-                
-                pairwise_results = pd.concat(pairwise_list)
-                pairwise_results['SNP_Difference'] = pairwise_results['Cocalled_Sites'] - pairwise_results['Identical_Sites']
-                pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Pairwise_SNP_Distances.tsv",sep="\t",index=False)
-                AlignIO.write(final_full_alignment, ref_directory+"/SNP_Alignment.fasta","fasta")
-
-                n_data = []
-                for record in final_full_alignment:
-                    sequence_id = record.id
-                    n_count = Counter(record.seq)['N']
-                    n_data.append((sequence_id, n_count))
-                
-                pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/SNP_Alignment_Ns.tsv",sep="\t",index=False)
-                
-                # Filter alignment based on <max_perc_n> per column
-                filtered_seqs = []
-                filtered_ids = []
-
-                for column in range(final_full_alignment.get_alignment_length()):
-                    n_count = final_full_alignment[:, column].count('N')
-                    if float(n_count)/len(snp_isolates) <= max_perc_n:
-                        filtered_seqs.append(final_full_alignment[:, column:column+1])
-                        filtered_ids = loc_list[column]
-
-                # Create a new alignment from the filtered sequences
-                if len(filtered_seqs) == final_full_alignment.get_alignment_length():
+                    # Process loc data
                     with open(log_file,"a+") as log:
-                        log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                        log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
-                elif len(filtered_seqs) == 0:
-                    with open(log_file,"a+") as log:
-                        log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                        log.write("\n\t- All sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
-                else:
-                    with open(ref_directory+"/Filtered_Locs.txt","w+") as filt:
-                        for id in filtered_ids:
-                            filt.write(id+"\n")
-                    filtered_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*filtered_seqs)])
+                        log.write("Step 8: Processing "+str(len(yenta_locs))+" loc(s)...")
+
+                    full_align_list = []
+                    loc_list = []
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
+
+                    for future in concurrent.futures.as_completed(results):
+                        temp_align,loc = future.result()
+                        full_align_list.append(temp_align)
+                        loc_list.append(loc)
+                    
+                    # Create alignment
+                    global final_full_alignment
+                    final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*full_align_list)])
+
+                    # Get pairwise distances
+                    pairwise_combinations = list(combinations(snp_isolates, 2))
                     pairwise_list = [] 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
-                        pairwise_results = [executor.submit(getPairwise, compare,filtered_alignment) for compare in pairwise_combinations]
-                
+                        pairwise_results = [executor.submit(getPairwise, compare,final_full_alignment) for compare in pairwise_combinations]
+                    
                     for future in concurrent.futures.as_completed(pairwise_results):
                         pairwise_list.append(future.result())
-                
-                    filtered_pairwise_results = pd.concat(pairwise_list)
-                    filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
-                    filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
-                    filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
+                    
+                    pairwise_results = pd.concat(pairwise_list)
+                    pairwise_results['SNP_Difference'] = pairwise_results['Cocalled_Sites'] - pairwise_results['Identical_Sites']
+                    pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+                    AlignIO.write(final_full_alignment, ref_directory+"/SNP_Alignment.fasta","fasta")
 
-                    AlignIO.write(filtered_alignment, ref_directory+"/Filtered_SNP_Alignment.fasta","fasta")
                     n_data = []
-                    for record in filtered_alignment:
+                    for record in final_full_alignment:
                         sequence_id = record.id
                         n_count = Counter(record.seq)['N']
                         n_data.append((sequence_id, n_count))
-                
-                    pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/Filtered_SNP_Alignment_Ns.tsv",sep="\t",index=False)
+                    
+                    pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/SNP_Alignment_Ns.tsv",sep="\t",index=False)
+                    
+                    # Filter alignment based on <max_perc_n> per column
+                    filtered_seqs = []
+                    filtered_ids = []
 
-                    with open(log_file,"a+") as log:
-                        log.write("\n- The raw SNP alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                        log.write("\n\t- "+str(final_full_alignment.get_alignment_length() - filtered_alignment.get_alignment_length()) +" sites contained more than " + str(max_perc_n) + "% Ns, so a filtered dataset containing " + str(filtered_alignment.get_alignment_length()) +" was generated at "+ref_directory+"/Filtered_SNP_Alignment.fasta\n")
+                    for column in range(final_full_alignment.get_alignment_length()):
+                        n_count = final_full_alignment[:, column].count('N')
+                        if float(n_count)/len(snp_isolates) <= max_perc_n:
+                            filtered_seqs.append(final_full_alignment[:, column:column+1])
+                            filtered_ids = loc_list[column]
+
+                    # Create a new alignment from the filtered sequences
+                    if len(filtered_seqs) == final_full_alignment.get_alignment_length():
+                        with open(log_file,"a+") as log:
+                            log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
+                            log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
+                    elif len(filtered_seqs) == 0:
+                        with open(log_file,"a+") as log:
+                            log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
+                            log.write("\n\t- All sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
+                    else:
+                        with open(ref_directory+"/Filtered_Locs.txt","w+") as filt:
+                            for id in filtered_ids:
+                                filt.write(id+"\n")
+                        filtered_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*filtered_seqs)])
+                        pairwise_list = [] 
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            pairwise_results = [executor.submit(getPairwise, compare,filtered_alignment) for compare in pairwise_combinations]
+                    
+                        for future in concurrent.futures.as_completed(pairwise_results):
+                            pairwise_list.append(future.result())
+                    
+                        filtered_pairwise_results = pd.concat(pairwise_list)
+                        filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
+                        filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+                        filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
+
+                        AlignIO.write(filtered_alignment, ref_directory+"/Filtered_SNP_Alignment.fasta","fasta")
+                        n_data = []
+                        for record in filtered_alignment:
+                            sequence_id = record.id
+                            n_count = Counter(record.seq)['N']
+                            n_data.append((sequence_id, n_count))
+                    
+                        pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/Filtered_SNP_Alignment_Ns.tsv",sep="\t",index=False)
+
+                        with open(log_file,"a+") as log:
+                            log.write("\n- The raw SNP alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
+                            log.write("\n\t- "+str(final_full_alignment.get_alignment_length() - filtered_alignment.get_alignment_length()) +" sites contained more than " + str(max_perc_n) + "% Ns, so a filtered dataset containing " + str(filtered_alignment.get_alignment_length()) +" was generated at "+ref_directory+"/Filtered_SNP_Alignment.fasta\n")
