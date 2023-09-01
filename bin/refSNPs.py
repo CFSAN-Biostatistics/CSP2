@@ -91,9 +91,12 @@ def processLoc(loc_df,ref_loc):
         elif isolate in loc_df['Query'].values:
             snp_alignment.append(SeqRecord(Seq(loc_df.loc[loc_df['Query'] == isolate, 'Query_Base'].values[0]), id=str(isolate),description=""))
         elif ref_loc in coords_dict[isolate]:
-            snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
+            if ref_loc in purged_dict[isolate]:
+                snp_alignment.append(SeqRecord(Seq("N"), id=str(isolate),description=""))
+            else:
+                snp_alignment.append(SeqRecord(Seq(ref_base), id=str(isolate),description=""))
         else:
-            snp_alignment.append(SeqRecord(Seq("N"), id=str(isolate),description=""))
+            snp_alignment.append(SeqRecord(Seq("?"), id=str(isolate),description=""))
 
     # Query coords_dict to figure out which isolates have coverage
     return [snp_alignment,ref_loc]
@@ -149,267 +152,236 @@ if len(snp_files) == 0:
         log.write("ERROR: No files ending in _vs_"+ref_isolate+"_MUmmer_SNPs.tsv in "+mummer_dir+"\n")
     sys.exit("No files ending in _vs_"+ref_isolate+"_MUmmer_SNPs.tsv in "+mummer_dir)
 
-else:
-    # Read in pairwise file
-    with open(log_file,"a+") as log:
-        log.write("Step 1: Reading in pairwise distance file...")
-    try:
-        pairwise_df = pd.read_table(output_dir+"/Raw_Pairwise_Distances.tsv",sep="\t")
-        pairwise_df = pairwise_df[pairwise_df["Reference_ID"] == ref_isolate]
-        full_isolate_list = sorted(list(set(pairwise_df.Query_ID) | set(pairwise_df.Reference_ID)))
-        with open(log_file,"a+") as log:
-            log.write("Done!\n")
-            log.write("\t- Found pairwise file ("+output_dir+"/Raw_Pairwise_Distances.tsv), which contains data on " + str(len(full_isolate_list)) + " isolates...\n")
-            log.write("\t- Pairwise file contains "+str(pairwise_df.shape[0])+" rows...\n")
-            log.write("\n-------------------------------------------------------\n\n")
-    except:
-        with open(log_file,"a+") as log:
-            log.write("ERROR: Cannot find pairwise file at "+output_dir+"/Raw_Pairwise_Distances.tsv\n")
-        sys.exit("Cannot find pairwise file at "+output_dir+"/Raw_Pairwise_Distances.tsv")
-
-    # Get median coverage stats
-    with open(log_file,"a+") as log:
-        log.write("Step 2: Removing isolates with a mean genome coverage < "+str(align_cov) + "% ...")
-    median_cov_df = pd.DataFrame({'ID':  pd.concat([pairwise_df['Query_ID'], pairwise_df['Reference_ID']]), 'Coverage': pd.concat([pairwise_df['Percent_Reference_Covered'], pairwise_df['Percent_Query_Covered']])}).groupby('ID')['Coverage'].median().reset_index()
-
-    # Extract isolates with a median percent coverage < min_median_coverage
-    low_cov_ids = median_cov_df[median_cov_df['Coverage'] < align_cov]['ID'].tolist()
-    
-    global snp_isolates
-    snp_isolates = median_cov_df[median_cov_df['Coverage'] >= align_cov]['ID'].tolist()
-    
-    if not ref_isolate in snp_isolates:
-        with open(log_file,"a+") as log:
-            log.write("Reference isolate "+ref_isolate+" has less than the required genomic coverage to proceed...\n")
-        sys.exit("Reference isolate "+ref_isolate+" has less than the required genomic coverage to proceed...")
-
-    query_isolates = [isolate for isolate in snp_isolates if not isolate == ref_isolate]
-
-    filtered_snp_files = [filename for filename in snp_files if not any(("/" + prefix + "_") in filename or ("_" + prefix + "_") in filename for prefix in low_cov_ids)]
+# Read in pairwise file
+with open(log_file,"a+") as log:
+    log.write("Step 1: Reading in pairwise distance file...")
+try:
+    pairwise_df = pd.read_table(output_dir+"/Raw_Pairwise_Distances.tsv",sep="\t")
+    pairwise_df = pairwise_df[pairwise_df["Reference_ID"] == ref_isolate]
+    full_isolate_list = sorted(list(set(pairwise_df.Query_ID) | set(pairwise_df.Reference_ID)))
     with open(log_file,"a+") as log:
         log.write("Done!\n")
-        
-    if len(snp_isolates) < 2:
-        with open(log_file,"a+") as log:
-            log.write("\t- Fewer than two isolates remain after filtering for low coverage.\n")
-        sys.exit()
-    elif len(snp_isolates) == 2:
-        with open(log_file,"a+") as log:
-            log.write("\t- Two isolates remain after filtering for low coverage, results from pairwise will not change.\n")
-            sys.exit()
-    else:
-        if len(low_cov_ids) > 0:
-            with open(log_file,"a+") as log:
-                log.write("\t- The median genome coverage for the following isolate(s) are below the level set via --align_cov ("+str(align_cov) + "):\n")
-                for low_cov in low_cov_ids:
-                    log.write("\t- "+low_cov+"\n")
-                    log.write("\n-------------------------------------------------------\n\n")
-        else:
-            with open(log_file,"a+") as log:
-                log.write("\t- No isolates were purged due to genomic coverage.\n")
-                log.write("\n-------------------------------------------------------\n\n")
+        log.write("\t- Found pairwise file ("+output_dir+"/Raw_Pairwise_Distances.tsv), which contains data on " + str(len(full_isolate_list)) + " isolates...\n")
+        log.write("\t- Pairwise file contains "+str(pairwise_df.shape[0])+" rows...\n")
+        log.write("\n-------------------------------------------------------\n\n")
+except:
+    with open(log_file,"a+") as log:
+        log.write("ERROR: Cannot find pairwise file at "+output_dir+"/Raw_Pairwise_Distances.tsv\n")
+    sys.exit("Cannot find pairwise file at "+output_dir+"/Raw_Pairwise_Distances.tsv")
 
-    # Read in filtered snp files
-    try:
-        start_time = time.time()
+# Get median coverage stats
+with open(log_file,"a+") as log:
+    log.write("Step 2: Removing isolates with a mean genome coverage < "+str(align_cov) + "% ...")
+median_cov_df = pd.DataFrame({'ID':  pd.concat([pairwise_df['Query_ID'], pairwise_df['Reference_ID']]), 'Coverage': pd.concat([pairwise_df['Percent_Reference_Covered'], pairwise_df['Percent_Query_Covered']])}).groupby('ID')['Coverage'].median().reset_index()
+
+# Extract isolates with a median percent coverage < min_median_coverage
+low_cov_ids = median_cov_df[median_cov_df['Coverage'] < align_cov]['ID'].tolist()
+
+global snp_isolates
+snp_isolates = median_cov_df[median_cov_df['Coverage'] >= align_cov]['ID'].tolist()
+
+if not ref_isolate in snp_isolates:
+    with open(log_file,"a+") as log:
+        log.write("Reference isolate "+ref_isolate+" has less than the required genomic coverage to proceed...\n")
+    sys.exit("Reference isolate "+ref_isolate+" has less than the required genomic coverage to proceed...")
+
+query_isolates = [isolate for isolate in snp_isolates if not isolate == ref_isolate]
+
+filtered_snp_files = [filename for filename in snp_files if not any(("/" + prefix + "_") in filename or ("_" + prefix + "_") in filename for prefix in low_cov_ids)]
+with open(log_file,"a+") as log:
+    log.write("Done!\n")
+    
+if len(snp_isolates) < 2:
+    with open(log_file,"a+") as log:
+        log.write("\t- Fewer than two isolates remain after filtering for low coverage.\n")
+    sys.exit(0)
+elif len(snp_isolates) == 2:
+    with open(log_file,"a+") as log:
+        log.write("\t- Two isolates remain after filtering for low coverage, results from pairwise will not change.\n")
+        sys.exit(0)
+else:
+    if len(low_cov_ids) > 0:
         with open(log_file,"a+") as log:
-            log.write("Step 3: Reading in SNP files...")
-        raw_snp_df = pd.concat((pd.read_table(filename,sep="\t") for filename in filtered_snp_files))
-        end_time = time.time()
-        snp_time = end_time - start_time
+            log.write("\t- The median genome coverage for the following isolate(s) are below the level set via --align_cov ("+str(align_cov) + "):\n")
+            for low_cov in low_cov_ids:
+                log.write("\t- "+low_cov+"\n")
+                log.write("\n-------------------------------------------------------\n\n")
+    else:
         with open(log_file,"a+") as log:
-            log.write("Done!\n")
-            log.write(f"\t- Read in "+str(len(filtered_snp_files)) + f" SNP files in {snp_time:.2f}s\n")
+            log.write("\t- No isolates were purged due to genomic coverage.\n")
             log.write("\n-------------------------------------------------------\n\n")
 
-    except:
-        with open(log_file,"a+") as log:
-            log.write("\n\t- ERROR: Cannot load SNP files in "+mummer_dir+"\n")
-        sys.exit("Cannot load SNP files in "+mummer_dir)     
+# Read in filtered snp files
+try:
+    start_time = time.time()
+    with open(log_file,"a+") as log:
+        log.write("Step 3: Reading in SNP files...")
+    raw_snp_df = pd.concat((pd.read_table(filename,sep="\t") for filename in filtered_snp_files))
+    end_time = time.time()
+    snp_time = end_time - start_time
+    with open(log_file,"a+") as log:
+        log.write("Done!\n")
+        log.write(f"\t- Read in "+str(len(filtered_snp_files)) + f" SNP files in {snp_time:.2f}s\n")
+        log.write("\n-------------------------------------------------------\n\n")
+
+except:
+    with open(log_file,"a+") as log:
+        log.write("\n\t- ERROR: Cannot load SNP files in "+mummer_dir+"\n")
+    sys.exit("Cannot load SNP files in "+mummer_dir)     
+
+if raw_snp_df.shape[0] == 0:
+    with open(log_file,"a+") as log:
+        log.write("\n\t- SNP files located, but no SNPs present. Cannot proceed...\n")
+    sys.exit(0)
+
+if -1 in raw_snp_df['Ref_Direction'].values:
+    with open(log_file,"a+") as log:
+        log.write("\t- Reference sequences should all be in the positive direction...\n")
+    sys.exit("Reference sequences should all be in the positive direction...")
     
-    if raw_snp_df.shape[0] == 0:
-        with open(log_file,"a+") as log:
-            log.write("\n\t- SNP files located, but no SNPs present. Cannot proceed...\n")
+with open(log_file,"a+") as log:
+    log.write("Step 4: Collecting Yenta SNPs...")  
 
-    else:    
-        
-        # Separate purged locs
-        with open(log_file,"a+") as log:
-            log.write("Step 4: Removing purged sites...")
-        purged_df = raw_snp_df[raw_snp_df.Cat.str.startswith("Purged_")]
-        purged_locs = np.unique(purged_df['Ref_Loc'].values)
-        if purged_df.shape[0] > 0:
-            purged_counts = purged_df['Query'].value_counts()
-            pd.DataFrame({'ID': purged_counts.index, 'Count': purged_counts.values}).sort_values(by='Count', ascending=False).to_csv(ref_directory+"/Purged_SNPs_by_Isolate.tsv",index=False,sep="\t")
-        
-        # Process non-purged locs
-        nonpurged_df = raw_snp_df[~raw_snp_df.Cat.str.startswith("Purged_")] 
-        
-        # Check that all ref directions are positive
-        if -1 in nonpurged_df['Ref_Direction'].values:
-            with open(log_file,"a+") as log:
-                log.write("\t- Reference sequences should all be in the positive direction...\n")
-            sys.exit("Reference sequences should all be in the positive direction...")
-        elif nonpurged_df.shape[0] == 0:
-            with open(log_file,"a+") as log:
-                log.write("Done!\n")
-                log.write("\t- All SNPs purged...\n")
+# Get Yenta sites
+yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
+yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
+yenta_count = len(yenta_locs)
+
+if len(yenta_locs) == 0:
+    with open(log_file,"a+") as log:
+        log.write("Done!\n")
+        log.write("\t- SNP files located, but no Yenta SNPs present. Cannot proceed...\n")
+    sys.exit(0)
+
+with open(log_file,"a+") as log:
+    log.write("Done!\n")
+    log.write("\t- "+str(yenta_count) + " SNP positions identified\n")
+    log.write("\n-------------------------------------------------------\n\n")
+
+# Separate purged locs
+with open(log_file,"a+") as log:
+    log.write("Step 5: Identifying purged sites...")
+
+global purged_dict
+purged_dict = defaultdict(lambda:[])
+
+purged_df = raw_snp_df[raw_snp_df.Cat.str.startswith("Purged_") & raw_snp_df['Ref_Loc'].isin(yenta_locs)]
+if purged_df.shape[0] > 0:
+    for query, ref_loc in zip(purged_df['Query'], purged_df['Ref_Loc']):
+        if query in purged_dict:
+            purged_dict[query].append(ref_loc)
         else:
-            with open(log_file,"a+") as log:
-                log.write("Done!\n")
-                log.write("\n-------------------------------------------------------\n\n")
+            purged_dict[query] = [ref_loc]
 
-            with open(log_file,"a+") as log:
-                log.write("Step 5: Collecting Yenta SNPs...")  
+with open(log_file,"a+") as log:
+    log.write("Done!\n")
+    log.write("\n-------------------------------------------------------\n\n")
 
-            # Get Yenta sites
-            yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
-            with open(log_file,"a+") as log:
-                log.write("\n\t- Dataframe filtered...\n")
-            yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
-            with open(log_file,"a+") as log:
-                log.write("\n\t- Locs extracted...\n")
-            yenta_count = len(yenta_locs)
-            removed_locs = [loc for loc in yenta_locs if loc in purged_locs]
-            with open(log_file,"a+") as log:
-                log.write("\n\t- Removed locs classfied...\n")
-                        
-            if len(yenta_locs) == 0:
-                with open(log_file,"a+") as log:
-                    log.write("Done!\n")
-                    log.write("\t- SNP files located, but no Yenta SNPs present. Cannot proceed...\n")
+with open(log_file,"a+") as log:
+    log.write("Step 6: Creating Yenta BED...") 
 
-            else:
-                with open(log_file,"a+") as log:
-                    log.write("Done!\n")
-                
-                if len(removed_locs) > 0:
-                        with open(log_file,"a+") as log:
-                            log.write("\t- Of "+str(yenta_count) + " sites, "+str(len(removed_locs))+" sites contain at least one purged SNP.\n")
-                            log.write("\t- Data regarding which isolates contributed to purged locs can be found in "+ref_directory+"/Purged_SNPs_by_Isolate.tsv\n")
-                            log.write("\n-------------------------------------------------------\n\n")
-                else:
-                    with open(log_file,"a+") as log:
-                        log.write("\t- "+str(yenta_count) + " sites identified after merging.\n")
-                        log.write("\n-------------------------------------------------------\n\n")
-            
-                    with open(log_file,"a+") as log:
-                        log.write("Step 6: Creating Yenta BED...") 
-                    
-                    # Create BED file for Yenta locs
-                    yenta_bed = makeBED(pd.DataFrame([item.split('/') for item in yenta_locs], columns=['Ref_Contig','Ref_End']))
+try:
+    # Create BED file for Yenta locs
+    yenta_bed = makeBED(pd.DataFrame([item.split('/') for item in yenta_locs], columns=['Ref_Contig','Ref_End']))
 
-                    with open(log_file,"a+") as log:
-                        log.write("Done!\n")
-                        log.write("\n-------------------------------------------------------\n\n")
+    with open(log_file,"a+") as log:
+        log.write("Done!\n")
+        log.write("\n-------------------------------------------------------\n\n")
+except:
+        with open(log_file,"a+") as log:
+            log.write("\n\t- Error: Cannot create Yenta BED file...\n")
+        sys.exit("Cannot create Yenta BED file")
 
-                    # Read in coordinate files
-                    with open(log_file,"a+") as log:
-                        log.write("Step 7: Processing coordinate files...")
-                    
-                    try:
-                        start_time = time.time()
+# Read in coordinate files
+with open(log_file,"a+") as log:
+    log.write("Step 7: Processing coordinate files...")
+try:
+    start_time = time.time()
 
-                        global coords_dict
-                        coords_dict = defaultdict(lambda:[])
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            results = [executor.submit(parseMUmmerCoords,yenta_bed,coords_dir,isolate,ref_isolate,min_perc_iden,min_length) for isolate in query_isolates]
-                        end_time = time.time()
-                        coords_time = end_time - start_time
-                        with open(log_file,"a+") as log:
-                            log.write("Done!\n")
-                            log.write(f"\t- Read in "+str(len(query_isolates)) + f" 1coords files in {coords_time:.2f}s\n")
-                            log.write("\n-------------------------------------------------------\n\n")
-                    except:
-                        with open(log_file,"a+") as log:
-                            log.write("\n\t- ERROR: Cannot load coords files in "+coords_dir+"\n")
-                        sys.exit("Cannot load coords files in "+coords_dir)
+    global coords_dict
+    coords_dict = defaultdict(lambda:[])
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = [executor.submit(parseMUmmerCoords,yenta_bed,coords_dir,isolate,ref_isolate,min_perc_iden,min_length) for isolate in query_isolates]
+    end_time = time.time()
+    coords_time = end_time - start_time
+    with open(log_file,"a+") as log:
+        log.write("Done!\n")
+        log.write(f"\t- Read in "+str(len(query_isolates)) + f" 1coords files in {coords_time:.2f}s\n")
+        log.write("\n-------------------------------------------------------\n\n")
+except:
+    with open(log_file,"a+") as log:
+        log.write("\n\t- ERROR: Cannot load coords files in "+coords_dir+"\n")
+    sys.exit("Cannot load coords files in "+coords_dir)
 
-                    # Process loc data
-                    with open(log_file,"a+") as log:
-                        log.write("Step 8: Processing "+str(len(yenta_locs))+" loc(s)...")
+# Process loc data
+with open(log_file,"a+") as log:
+    log.write("Step 8: Processing "+str(yenta_count)+" loc(s)...")
+start_time = time.time()
+full_align_list = []
+loc_list = []
+nonpurged_df = raw_snp_df[not raw_snp_df.Cat.str.startswith("Purged_") & raw_snp_df['Ref_Loc'].isin(yenta_locs)]
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
 
-                    full_align_list = []
-                    loc_list = []
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
+for future in concurrent.futures.as_completed(results):
+    temp_align,loc = future.result()
+    full_align_list.append(temp_align)
+    loc_list.append(loc)
 
-                    for future in concurrent.futures.as_completed(results):
-                        temp_align,loc = future.result()
-                        full_align_list.append(temp_align)
-                        loc_list.append(loc)
-                    
-                    # Create alignment
-                    global final_full_alignment
-                    final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*full_align_list)])
+# Create alignment
+global final_full_alignment
+final_full_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*full_align_list)])
 
-                    # Get pairwise distances
-                    pairwise_combinations = list(combinations(snp_isolates, 2))
-                    pairwise_list = [] 
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        pairwise_results = [executor.submit(getPairwise, compare,final_full_alignment) for compare in pairwise_combinations]
-                    
-                    for future in concurrent.futures.as_completed(pairwise_results):
-                        pairwise_list.append(future.result())
-                    
-                    pairwise_results = pd.concat(pairwise_list)
-                    pairwise_results['SNP_Difference'] = pairwise_results['Cocalled_Sites'] - pairwise_results['Identical_Sites']
-                    pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Pairwise_SNP_Distances.tsv",sep="\t",index=False)
-                    AlignIO.write(final_full_alignment, ref_directory+"/SNP_Alignment.fasta","fasta")
+# Get pairwise distances
+pairwise_combinations = list(combinations(snp_isolates, 2))
+pairwise_list = [] 
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    pairwise_results = [executor.submit(getPairwise, compare,final_full_alignment) for compare in pairwise_combinations]
 
-                    n_data = []
-                    for record in final_full_alignment:
-                        sequence_id = record.id
-                        n_count = Counter(record.seq)['N']
-                        n_data.append((sequence_id, n_count))
-                    
-                    pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/SNP_Alignment_Ns.tsv",sep="\t",index=False)
-                    
-                    # Filter alignment based on <max_perc_n> per column
-                    filtered_seqs = []
-                    filtered_ids = []
+for future in concurrent.futures.as_completed(pairwise_results):
+    pairwise_list.append(future.result())
 
-                    for column in range(final_full_alignment.get_alignment_length()):
-                        n_count = final_full_alignment[:, column].count('N')
-                        if float(n_count)/len(snp_isolates) <= max_perc_n:
-                            filtered_seqs.append(final_full_alignment[:, column:column+1])
-                            filtered_ids = loc_list[column]
+pairwise_results = pd.concat(pairwise_list)
+pairwise_results['SNP_Difference'] = pairwise_results['Cocalled_Sites'] - pairwise_results['Identical_Sites']
+pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Pairwise_SNP_Distances.tsv",sep="\t",index=False)
+AlignIO.write(final_full_alignment, ref_directory+"/SNP_Alignment.fasta","fasta")
+end_time = time.time()
+align_time = end_time - start_time
+with open(log_file,"a+") as log:
+    log.write("Done!\n")
+    log.write("\t- Generated the alignment file "+ref_directory+f"/SNP_Alignment.fasta in {align_time:.2f}s\n")
+    log.write("\n-------------------------------------------------------\n\n")
 
-                    # Create a new alignment from the filtered sequences
-                    if len(filtered_seqs) == final_full_alignment.get_alignment_length():
-                        with open(log_file,"a+") as log:
-                            log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                            log.write("\n\t- No sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
-                    elif len(filtered_seqs) == 0:
-                        with open(log_file,"a+") as log:
-                            log.write("\n\t- The final alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                            log.write("\n\t- All sites contained more than " + str(max_perc_n) + "% Ns, so no filtered dataset was generated.\n")
-                    else:
-                        with open(ref_directory+"/Filtered_Locs.txt","w+") as filt:
-                            for id in filtered_ids:
-                                filt.write(id+"\n")
-                        filtered_alignment = MultipleSeqAlignment([SeqRecord(Seq(''.join(str(record.seq) for record in records)), id=records[0].id,description="") for records in zip(*filtered_seqs)])
-                        pairwise_list = [] 
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            pairwise_results = [executor.submit(getPairwise, compare,filtered_alignment) for compare in pairwise_combinations]
-                    
-                        for future in concurrent.futures.as_completed(pairwise_results):
-                            pairwise_list.append(future.result())
-                    
-                        filtered_pairwise_results = pd.concat(pairwise_list)
-                        filtered_pairwise_results['SNP_Difference'] = filtered_pairwise_results['Cocalled_Sites'] - filtered_pairwise_results['Identical_Sites']
-                        filtered_pairwise_results[["Sample_A","Sample_B","SNP_Difference","Cocalled_Sites"]].to_csv(ref_directory+"/Filtered_Pairwise_SNP_Distances.tsv",sep="\t",index=False)
-                        filtered_pairwise_results['Combined'] = filtered_pairwise_results.apply(lambda row: tuple(sorted([row['Sample_A'], row['Sample_B']])), axis=1)
+# Process loc data
+with open(log_file,"a+") as log:
+    log.write("Step 9: Saving LocList and characterizing purged and missing data...")
 
-                        AlignIO.write(filtered_alignment, ref_directory+"/Filtered_SNP_Alignment.fasta","fasta")
-                        n_data = []
-                        for record in filtered_alignment:
-                            sequence_id = record.id
-                            n_count = Counter(record.seq)['N']
-                            n_data.append((sequence_id, n_count))
-                    
-                        pd.DataFrame(n_data, columns=['Sequence_ID', 'N_Count']).sort_values('N_Count',ascending=False).to_csv(ref_directory+"/Filtered_SNP_Alignment_Ns.tsv",sep="\t",index=False)
+with open(ref_directory+"/Loc_List.txt","w+") as loc_file:
+    for loc in loc_list:
+        loc_file.write(str(loc)+"\n")
 
-                        with open(log_file,"a+") as log:
-                            log.write("\n- The raw SNP alignment ("+ref_directory+"/SNP_Alignment.fasta) contains "+str(final_full_alignment.get_alignment_length()) + " sites.\n")
-                            log.write("\n\t- "+str(final_full_alignment.get_alignment_length() - filtered_alignment.get_alignment_length()) +" sites contained more than " + str(max_perc_n) + "% Ns, so a filtered dataset containing " + str(filtered_alignment.get_alignment_length()) +" was generated at "+ref_directory+"/Filtered_SNP_Alignment.fasta\n")
+n_data = []
+uncovered_data = []
+
+for record in final_full_alignment:
+    sequence_id = record.id
+    n_count = Counter(record.seq)['N']
+    q_count = Counter(record.seq)['?']
+    n_data.append((sequence_id, n_count))
+    uncovered_data.append((sequence_id, q_count))
+
+n_df = pd.DataFrame(n_data, columns=['Isolate', 'Purged_Count'])
+q_df = pd.DataFrame(uncovered_data, columns=['Isolate', 'Missing_Count'])
+
+pd.merge(n_df, q_df, on='Isolate', how='outer').sort_values('Missing_Count',ascending=False).to_csv(ref_directory+"/Missing_Purged_SNPs_by_Isolate.tsv",sep="\t",index=False)
+
+loc_data = []
+for column in range(final_full_alignment.get_alignment_length()):
+    n_count = final_full_alignment[:, column].count('N')
+    q_count = final_full_alignment[:, column].count('?')
+    loc_data.append((loc_list[column],n_count,q_count))
+
+site_df = pd.DataFrame(loc_data, columns=['SNP_Loc','Purged_Count','Missing_Count']).sort_values('Missing_Count',ascending=False).to_csv(ref_directory+"/Missing_Purged_SNPs_by_Loc.tsv",sep="\t",index=False)
+
+with open(log_file,"a+") as log:
+    log.write("Done!")
