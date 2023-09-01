@@ -80,7 +80,6 @@ def getPairwise(compare,alignment):
     else:
         return(pd.DataFrame([[compare[0],compare[1],compare_id,len(cols_with_base),len(identical_sites),float(len(identical_sites))/float(len(cols_with_base))]],columns=['Sample_A','Sample_B','Comparison','Cocalled_Sites','Identical_Sites','Prop_Identical']))
 
-# NEED TO CHECK PURGED AND ADD N
 def processLoc(loc_df,ref_loc):
     snp_alignment = MultipleSeqAlignment([])
     ref_base = loc_df['Ref_Base'].iloc[0]
@@ -108,7 +107,7 @@ def parseMUmmerCoords(yenta_bed,coords_dir,query_id,ref_id,perc_iden,min_len):
     'Ref_Length','Query_Length','Ref_Cov',
     'Query_Cov','Ref_Contig','Query_Contig'])
 
-    coords_file = coords_file.loc[(coords_file['Ref_Aligned'] >= min_len) & (coords_file['Perc_Iden'] >= perc_iden)]
+    coords_file = coords_file.loc[(coords_file['Ref_Aligned'] >= min_len) & (coords_file['Perc_Iden'] >= perc_iden) & (coords_file['Ref_Contig'] in yenta_contigs)]
     ref_bed = makeBED(coords_file[['Ref_Contig','Ref_Start','Ref_End']])
     try:
         yenta_intersect = ref_bed.intersect(yenta_bed,wa=True,wb=True,header=False).to_dataframe().iloc[:, 6].tolist()
@@ -245,6 +244,10 @@ with open(log_file,"a+") as log:
 # Get Yenta sites
 yenta_df = raw_snp_df[raw_snp_df.Cat == "Yenta_SNP"]
 yenta_locs = np.unique(yenta_df['Ref_Loc'].values)
+
+global yenta_contigs
+yenta_contigs = np.unique([item.split("/")[0] for item in yenta_locs])
+
 yenta_count = len(yenta_locs)
 
 if len(yenta_locs) == 0:
@@ -319,7 +322,7 @@ with open(log_file,"a+") as log:
 start_time = time.time()
 full_align_list = []
 loc_list = []
-nonpurged_df = raw_snp_df[not raw_snp_df.Cat.str.startswith("Purged_") & raw_snp_df['Ref_Loc'].isin(yenta_locs)]
+nonpurged_df = raw_snp_df[~(raw_snp_df.Cat.str.startswith("Purged_") & raw_snp_df['Ref_Loc'].isin(yenta_locs))]
 with concurrent.futures.ThreadPoolExecutor() as executor:
     results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
 
@@ -356,10 +359,6 @@ with open(log_file,"a+") as log:
 with open(log_file,"a+") as log:
     log.write("Step 9: Saving LocList and characterizing purged and missing data...")
 
-with open(ref_directory+"/Loc_List.txt","w+") as loc_file:
-    for loc in loc_list:
-        loc_file.write(str(loc)+"\n")
-
 n_data = []
 uncovered_data = []
 
@@ -376,10 +375,12 @@ q_df = pd.DataFrame(uncovered_data, columns=['Isolate', 'Missing_Count'])
 pd.merge(n_df, q_df, on='Isolate', how='outer').sort_values('Missing_Count',ascending=False).to_csv(ref_directory+"/Missing_Purged_SNPs_by_Isolate.tsv",sep="\t",index=False)
 
 loc_data = []
-for column in range(final_full_alignment.get_alignment_length()):
-    n_count = final_full_alignment[:, column].count('N')
-    q_count = final_full_alignment[:, column].count('?')
-    loc_data.append((loc_list[column],n_count,q_count))
+with open(ref_directory+"/Loc_List.txt","w+") as loc_file:
+    for column in range(final_full_alignment.get_alignment_length()):
+        n_count = final_full_alignment[:, column].count('N')
+        q_count = final_full_alignment[:, column].count('?')
+        loc_data.append((loc_list[column],n_count,q_count))
+        loc_file.write(loc_list[column]+"\n")
 
 site_df = pd.DataFrame(loc_data, columns=['SNP_Loc','Purged_Count','Missing_Count']).sort_values('Missing_Count',ascending=False).to_csv(ref_directory+"/Missing_Purged_SNPs_by_Loc.tsv",sep="\t",index=False)
 
