@@ -116,7 +116,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
     density_locs = []
     
     w_1000 = preserved_bed.window(preserved_bed,c=True, w=1000)
-    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 6")
+    w_1000_df = pd.read_table(w_1000.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 3")
     w_1000_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_1000_df.Ref_Contig, w_1000_df.Ref_End))]
     rejected_density_1000 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_1000_locs)]
 
@@ -126,7 +126,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
         rejected_density_1000['Cat'] = "Purged_Density_1000"
     
     w_125 = preserved_bed.window(preserved_bed,c=True, w=125)
-    w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 4")
+    w_125_df = pd.read_table(w_125.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
     w_125_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_125_df.Ref_Contig, w_125_df.Ref_End))]
     rejected_density_125 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_125_locs)]
 
@@ -136,7 +136,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
         rejected_density_125['Cat'] = "Purged_Density_125"
 
     w_15 = preserved_bed.window(preserved_bed,c=True, w=15)
-    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 2")
+    w_15_df = pd.read_table(w_15.fn, names=['Ref_Contig', 'Ref_Pos', 'Ref_End', 'Count']).query("`Count` > 1")
     w_15_locs = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(w_15_df.Ref_Contig, w_15_df.Ref_End))]
     rejected_density_15 = snps_pf_iden_dup[snps_pf_iden_dup.Ref_Loc.isin(w_15_locs)]
 
