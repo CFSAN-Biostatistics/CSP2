@@ -5,45 +5,61 @@ nextflow.enable.dsl=2
 // Params are read in from command line or from nextflow.config
 
 // Ensure sample data is provided
-params.reads = ""
-params.fasta = ""
 if(params.reads == "" && params.fasta == ""){
-    error "Must provide sample isolate data (--reads and/or --fasta)"
+    error "Must provide isolate data for SNP analysis or screening (--reads and/or --fasta)"
 }
-
-// Ensure reference data is provided
-params.ref_reads = ""
-params.ref_fasta = ""
-if(params.ref_reads == "" && params.ref_fasta == ""){
-    error "Must provide reference isolate data (--ref_reads and/or --ref_fasta)"
+// Set directory structure (--out for folder name; --outroot for parent dir)
+if(params.outroot == ""){
+    output_directory = file("${params.out}")
+} else{
+    output_directory = file("${file("${params.outroot}")}/${params.out}")
 }
-
-// Create directory structure
-params.outbase = "${projectDir}"
-params.out = "YENTA_${new java.util.Date().getTime()}"
-output_directory = file("${params.outbase}/${params.out}")
-outroot = output_directory.getParent()
 
 if(output_directory.isDirectory()){
-    error "${output_directory} (--out) already exists..."
-} else if(!outroot.isDirectory()){
-    error "$outroot (--outbase) is not a valid directory..."
+    error "${output_directory.getSimpleName()} (--out) already exists in ${output_directory.getParent()} (--outroot)..."
+} else if(!output_directory.getParent().isDirectory()){
+    error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
 } else{
     output_directory.mkdirs()
-    file("${output_directory}/Reference_Strain_Data").mkdirs()
-    file("${output_directory}/Screening_Results").mkdirs()
+    file("${output_directory}/Assemblies").mkdirs()
+    file("${output_directory}/MUmmer_Output").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/Reports").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/1coords").mkdirs()
+    file("${output_directory}/MUmmer_Output/Raw/SNPs").mkdirs()
+    if(params.ref_reads == "" && params.ref_fasta == ""){
+        file("${output_directory}/SNP_Analysis").mkdirs()
+    }
 }
 
 // Import modules
 include {fetchSampleData; fetchReferenceData} from "./subworkflows/fetchData/main.nf"
-include {dnaDiff} from "./subworkflows/dnadiff/main.nf"
+include {runSnpPipeline; runScreen; runAllvAll } from "./subworkflows/dnadiff/main.nf"
+include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
 
-    ////// 01: Collect paths to data and assemble read data if necessary ////// 
+    ////// Read in sample data ///////
     sample_data = fetchSampleData()
-    reference_data = fetchReferenceData() 
-
-    ////// 02: Run MUmmer dnadiff on all sample x reference combos //////
-    mummer_results = dnaDiff(sample_data,reference_data)
-} 
+     
+     // If --ref_reads/--ref_fasta are set, run in reference screener mode
+    if(params.ref_reads != "" || params.ref_fasta != ""){
+        reference_data = fetchReferenceData(params.ref_reads,params.ref_fasta)
+        runScreen(sample_data,reference_data)} 
+    
+    // If --snp_ref_reads/--snp_ref_fasta are set, run in SNP Pipeline mode with user-selected references
+    else if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){
+        reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)
+        runSnpPipeline(sample_data,reference_data)} 
+    
+    else{     
+        // If --all is set, run in reference-free SNP pipeline mode
+        if(params.all){ 
+            runAllvAll(sample_data)}
+        
+        // Run in SNP Pipeline mode using a refchooser reference
+        else{
+            reference_data = runRefChooser(sample_data)
+            runSnpPipeline(sample_data,reference_data)}
+    }
+}
