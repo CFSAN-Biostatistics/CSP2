@@ -64,7 +64,7 @@ workflow fetchReferenceData{
     ref_fasta
     
     emit:
-    return_data
+    reference_data
 
     main:
         
