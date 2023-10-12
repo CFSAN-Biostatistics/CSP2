@@ -20,7 +20,7 @@ if(params.skesa_module == ""){
     params.load_skesa_module = "module load -s ${params.skesa_module}"
 }
 
-// Workflows //
+// Major workflows //
 workflow fetchSampleData{
     
     emit:
@@ -28,11 +28,34 @@ workflow fetchSampleData{
 
     main:
 
-    // Collect paths to read/assembly data for samples
-    ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
+    // Ensure data is provided for at least one sample
+    if("${params.reads}" == "" && "${params.fasta}" == ""){
+        error "No sample data specified by --reads/--fasta..."
+    }
+
+    // Fetch sample assemblies
     ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
-    
-    sample_data = sample_read_data.concat(sample_assembly_data) | collect | flatten | collate(3) | mergeDuos | assembleIsolate
+
+    // Fetch sample reads
+    ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
+
+    // Group by sample ID and identify samples where reads and assemblies are given
+    grouped_data = sample_assembly_data.concat(sample_read_data) | collect | flatten | collate(3) | groupTuple |
+    branch{it ->
+        duo: it[1].size() == 2
+            return(tuple(it[0], "Duo_"+it[1][1], it[2][1], it[2][0]))
+        single: true
+            if("${it[1][0]}" == "Assembly"){
+                return tuple(it[0],it[1][0],"",it[2][0])
+            } else{
+                return tuple(it[0],it[1][0],it[2][0],"${assembly_directory}/${it[0]}.fasta")   
+            }
+    }
+
+    assembled_data = grouped_data.single.filter { it -> it[1] == "Assembly" }
+    unassembled_data = grouped_data.single.filter { it -> it[1] != "Assembly" } | skesaAssemble | splitCsv
+
+    sample_data = grouped_data.duo.concat(assembled_data).concat(unassembled_data) | collect | flatten | collate(4)
 }
 workflow fetchReferenceData{
 
@@ -52,7 +75,23 @@ workflow fetchReferenceData{
         ("${ref_reads}" != "" ? getReads(ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
         ("${ref_fasta}" != "" ? getAssemblies(ref_fasta) : Channel.empty()).set{reference_assembly_data}
 
-        reference_data = reference_read_data.concat(reference_assembly_data) | collect | flatten | collate(3) | mergeDuos | assembleIsolate
+        // Group by sample ID and identify samples where reads and assemblies are given
+        grouped_data = reference_assembly_data.concat(reference_read_data) | collect | flatten | collate(3) | groupTuple |
+        branch{it ->
+            duo: it[1].size() == 2
+                return(tuple(it[0], "Duo_"+it[1][1], it[2][1], it[2][0]))
+            single: true
+                if("${it[1][0]}" == "Assembly"){
+                    return tuple(it[0],it[1][0],"",it[2][0])
+                } else{
+                    return tuple(it[0],it[1][0],it[2][0],"${assembly_directory}/${it[0]}.fasta")   
+                }
+        }
+
+        assembled_data = grouped_data.single.filter { it -> it[1] == "Assembly" }
+        unassembled_data = grouped_data.single.filter { it -> it[1] != "Assembly" } | skesaAssemble | splitCsv
+
+        reference_data = grouped_data.duo.concat(assembled_data).concat(unassembled_data) | collect | flatten | collate(4)
     }
 }
 
@@ -129,11 +168,8 @@ workflow getAssemblies{
             error "$fasta_dir is not a valid directory or file..."
         }
 
-        // Check if the channel is empty and throw an error
-        //assert ch_fasta.isEmpty(), "Error: No FASTA files detected at $fasta_loc"
-
         fasta_data = ch_fasta
-        | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get the path and the name
+        | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get sample name from filename, return tuple of ID, 'Assembly',fasta location
     }
 }
 process fetchPairedReads{
@@ -162,91 +198,7 @@ process fetchPairedReads{
     """
 }
 
-// Merge samples with reads and assembly data //
-workflow mergeDuos{
-
-    // Workflow to merge data that are provided as both reads and assembly
-
-    take:
-    isolate_data
-    
-    emit:
-    merged_data
-   
-    main:
-
-    split_data = isolate_data
-    | branch{
-        assembly: "${it[1]}" == "Assembly"
-            return tuple(it[0],it[1],"",it[2])
-        read: true
-            return tuple(it[0],it[1],it[2],"${assembly_directory}/${it[0]}.fasta")} 
-
-    // For any references with both read and assembly data, merge and create a single entry      
-    split_data.read.join(split_data.assembly.map{it->tuple(it[0],it[3])},by:0).map{it-> tuple(it[0],"Duo_${it[1]}",it[2],it[4])}.ifEmpty{tuple("No_Duo","No_Duo","No_Duo","No_Duo")}.set{duo_data}
-    duo_isolates = duo_data.map{it -> it[0]}.collect()
-        
-    merged_data = pruneDuos(duo_data.concat(split_data.read).concat(split_data.assembly),duo_isolates) | splitCsv()
-}
-process pruneDuos{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-    val(duo_samples)
-
-    output:
-    stdout
-
-    script:
-
-    // If duo_data is "No_Duo", return nothing for first tuple
-    if(sample_name == "No_Duo"){
-        """
-        echo
-        """      
-    } else if(duo_samples[0] == "No_Duo"){
-        // If no duos exist, return sample data
-        """
-        echo -n "${sample_name},${data_type},${read_location},${assembly_location}"
-        """ 
-    } else{
-        if( (sample_name in duo_samples) && (!data_type.startsWith("Duo_")) ){
-            // Don't return individual data for duo samples
-            """
-            echo
-            """
-        } else{
-            // Return samples without duos
-            """
-            echo -n "${sample_name},${data_type},${read_location},${assembly_location}"
-            """
-        }
-    }
-}
-
 // Assembly //
-workflow assembleIsolate{
-    take:
-    sample_data
-
-    emit:
-    assembled_samples
-
-    main:
-    
-    split_data = sample_data
-    | branch{
-        single: "${it[1]}" == "Single"
-        paired: "${it[1]}" == "Paired"
-        assembled: true
-    }
-
-    assembled_samples = skesaAssemble(split_data.single.concat(split_data.paired)) | splitCsv | concat(split_data.assembled)
-}
 process skesaAssemble{
     
     input:
@@ -282,21 +234,4 @@ process skesaAssemble{
             error "read_type should be Paired or Single, not $read_type..."
         }
     }
-}
-
-process writeAssemblyPath{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    output:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    script:
-    """
-    echo "${assembly_location}\n" >> $assembly_file
-    """
 }
