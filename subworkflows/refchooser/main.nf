@@ -12,7 +12,6 @@ assembly_directory = file("${output_directory}/Assemblies")
 assembly_file = file("${output_directory}/Assemblies/Assemblies.txt")
 
 n_ref = params.n_ref.toInteger()
-collate_num = n_ref+4
 
 // Set modules if necessary
 params.refchooser_module = ""
@@ -32,9 +31,29 @@ workflow runRefChooser{
     main:
     
     // Get reference isolate
-    hold_file = sample_data | writeAssemblyPath | collect | flatten | first 
+    hold_file = sample_data | map{it -> it[3]} | collect | writeAssemblyPath
     ref_path = refChooser(hold_file,n_ref) | splitCsv | collect | flatten | collate(1)
-    reference_data = sample_data.combine(ref_path).filter{it[3] == it[4]}.map{it->tuple(it[0],it[1],it[2],it[3])}
+    
+    combo_data = sample_data.combine(ref_path) | collect | flatten | collate(5)
+    reference_data = combo_data.map{it -> tuple(it[0],it[1],it[2],it[3].toString(),it[4].toString())}.filter{it[3] == it[4]}.map{it->tuple(it[0],it[1],it[2],it[3])}
+}
+
+process writeAssemblyPath {
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(assemblies)
+
+    output:
+    stdout
+
+    script:
+    """
+    echo "${assemblies.join('\n')}" > $assembly_file
+    echo -n $assembly_file
+    """
 }
 
 process refChooser{
@@ -44,7 +63,7 @@ process refChooser{
     maxForks = 1
 
     input:
-    val(assembly_file)
+    val(hold_file)
     val(n_ref)
 
     output:
@@ -67,22 +86,5 @@ process refChooser{
     else
         echo -n "\$column_data"
     fi
-    """
-}
-
-process writeAssemblyPath{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    tuple val(sample_name),val(data_type),val(read_location),val(assembly_location)
-
-    output:
-    val(assembly_file)
-
-    script:
-    """
-    echo "${assembly_location}" >> $assembly_file
     """
 }
