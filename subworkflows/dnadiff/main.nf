@@ -93,20 +93,28 @@ workflow runSnpPipeline{
         .collect().flatten().collate(5).map{it -> tuple(it[2],it[3])}
     
     sample_pairwise = runMUmmer(comparisons) | splitCsv 
-    | collect | flatten | collate(17)
+    | collect | flatten | collate(18)
 
-    // Prep and save log files
-    sample_log_file = prepSampleLog()
+    // Save sample log
     log_data_a = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
     log_data_b = sample_data | join(sample_pairwise.map{it -> tuple(it[1],it[3],it[5])})
-    sample_log_data = log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | flatten | collate(6) | distinct
-    saveSampleLog(sample_log_file,sample_log_data)
+    
+    log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | collect | flatten | collate(6) | distinct
+    | map { it -> tuple(it[0].toString(),it[1].toString(),it[2].toString(),it[3].toString(),it[4].toString(),it[5].toString())}
+    | collect | flatten | collate(6)
+    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}")}
+    | collect
+    | saveSampleLog
 
-    // Move this to after merging?
-    snp_log_file = prepSNPLog()
-    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise) | collect | flatten | first 
+    // Save DNA diff results, return true when done
+    diff_results = sample_pairwise
+    | map { it -> tuple(it[0].toString(),it[1].toString(),it[6].toString(),it[7].toString(),it[8].toString(),it[9].toString(),it[10].toString(),it[11].toString(),it[12].toString(),it[13].toString(),it[14].toString(),it[15].toString(),it[16].toString(),it[17].toString())}
+    | collect | flatten | collate(14)
+    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}\t${it[6]}\t${it[7]}\t${it[8]}\t${it[9]}\t${it[10]}\t${it[11]}\t${it[12]}\t${it[13]}")}
+    | collect
+    | saveDNADiffLog | collect | flatten | first 
 
-    // Run merging + tree building
+    // Run merging + tree building after log is written
     merged_snps = refSNPs(diff_results,reference_data)
 }
 process refSNPs{
@@ -136,7 +144,8 @@ workflow runScreen{
     // Make the pairwise comparisons of samples with references
     comparisons = query_data | combine(reference_data)
     | map{tuple(it[0],it[4],it[1],it[2],it[3],it[5],it[6],it[7])}
-    // query,reference,query_datatype,query_data_location,query_fasta
+    // query,reference,
+    // query_datatype,query_data_location,query_fasta
     // reference_datatype,reference_data_location;reference_fasta
 
     // Run MUmmer jobs
@@ -240,20 +249,6 @@ process prepQueryLog{
     echo -n "${output_directory}/Query_Data.tsv"
     """
 }
-process prepSampleLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    output:
-    stdout
-
-    script:
-    """
-    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Isolate_Data.tsv"
-    echo -n "${output_directory}/Isolate_Data.tsv"
-    """
-}
 process prepRefLog{
     executor = 'local'
     cpus = 1
@@ -293,25 +288,15 @@ process saveSampleLog{
     maxForks = 1
     
     input:
-    val(sample_log_file)
-    tuple val(sample_id),val(data_type),val(read_data),val(assembly_data),val(assembly_contigs),val(assembly_bases)
+    val(log_data)
 
     script:
-
-    if(!file(sample_log_file).isFile()){
-        error "$sample_log_file doesn't exist..."
-    } else{
-        """
-        echo "Sample ID: ${sample_id}" > ${sample_id}.out
-        echo "Data Type: ${data_type}" >> ${sample_id}.out
-        echo "Read Data: ${read_data}" >> ${sample_id}.out
-        echo "Assembly Data: ${assembly_data}" >> ${sample_id}.out
-        echo "Assembly Contigs: ${assembly_contigs}" >> ${sample_id}.out
-        echo "Assembly Bases: ${assembly_bases}" >> ${sample_id}.out
-        echo "--------------------------" >> ${sample_id}.out
-        echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $sample_log_file
-        """
-    }
+ 
+    """
+    # Print header
+    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Isolate_Data.tsv"
+    echo "${log_data.join('\n')}" >> "${output_directory}/Isolate_Data.tsv"
+    """
 }
 process saveReferenceLog{
     executor = 'local'
@@ -331,20 +316,6 @@ process saveReferenceLog{
     echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $reference_log_file
     """
     }
-}
-process prepDNADiffLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    output:
-    stdout
-
-    script:
-    """
-    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Screening_Results.tsv"
-    echo -n "${output_directory}/Screening_Results.tsv"
-    """
 }
 process prepSNPLog{
     executor = 'local'
@@ -366,19 +337,15 @@ process saveDNADiffLog{
     maxForks = 1
 
     input:
-    val(diff_log)
-    tuple val(query),val(reference), val(query_seqs), val(ref_seqs), val(query_bases), val(ref_bases), val(percent_query_aligned_filtered), val(percent_ref_aligned_filtered), val(sample_category), val(final_snp_count), val(gsnps), val(rejected_snps_iden_count), val(rejected_snps_edge_count), val(rejected_snps_dup_count), val(rejected_snps_density1000_count), val(rejected_snps_density125_count), val(rejected_snps_density15_count)
+    val(diff_data)
 
     output:
     val(true)
 
     script:
 
-    if(!file(diff_log).isFile()){
-        error "$diff_log doesn't exist..."
-    } else{
     """
-    echo "${query}\t${reference}\t${percent_ref_aligned_filtered}\t${percent_query_aligned_filtered}\t${final_snp_count}\t${sample_category}\t${gsnps}\t${rejected_snps_edge_count}\t${rejected_snps_iden_count}\t${rejected_snps_dup_count}\t${rejected_snps_density1000_count}\t${rejected_snps_density125_count}\t${rejected_snps_density15_count}" >> $diff_log
+    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tMedian_SNP_Perc_Iden\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
+    echo "${diff_data.join('\n')}" >> "${output_directory}/Raw_Pairwise_Distances.tsv"
     """
-    }
 }

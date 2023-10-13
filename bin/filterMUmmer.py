@@ -54,7 +54,7 @@ def parseMUmmerCoords(mummer_dir,report_id,perc_iden,min_len):
 
     coords_file = coords_file[coords_file.Ref_Aligned >= min_len]
     coords_file = coords_file[coords_file.Perc_Iden >= perc_iden]
-    return coords_file[['Ref_Contig','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Contig','Query_Length','Query_Start','Query_End','Query_Aligned']]
+    return coords_file[['Ref_Contig','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Contig','Query_Length','Query_Start','Query_End','Query_Aligned','Perc_Iden']]
     
 def parseMUmmerSNPs(mummer_dir,report_id):
     
@@ -179,7 +179,16 @@ query_edge = int(sys.argv[8])
 min_len = int(sys.argv[9])
 
 # Create dummy columns
-final_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Direction','Query_Direction','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Length','Query_Start','Query_End','Query_Aligned','Cat','Ref','Query\n']
+final_columns = [
+    'Query','Ref',
+    'Cat','Perc_Iden',
+    'Query_Contig','Query_Pos','Query_Loc',
+    'Ref_Contig','Ref_Pos','Ref_Loc',
+    'Dist_to_Query_End','Dist_to_Ref_End',
+    'Query_Base','Ref_Base',
+    'Query_Direction','Ref_Direction',
+    'Query_Length','Query_Start','Query_End','Query_Aligned',
+    'Ref_Length','Ref_Start','Ref_End','Ref_Aligned']
 
 #### 02: Read in MUmmer report data ####
 report_data = parseMUmmerReport(mummer_dir,report_id)
@@ -207,6 +216,7 @@ if (percent_ref_aligned < align_cov) & (percent_query_aligned < align_cov):
     sample_category = "Purged_Filter_Coverage"
     percent_ref_aligned_filtered = "NA"
     percent_query_aligned_filtered = "NA"
+    median_snp_perc_iden = "NA"
     final_snp_count = "NA"
     rejected_snps_iden_count = "NA"
     rejected_snps_edge_count = "NA"
@@ -217,7 +227,7 @@ if (percent_ref_aligned < align_cov) & (percent_query_aligned < align_cov):
     
     # Save empty TSV
     with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
-        file.write("\t".join(final_columns))
+        file.write("\t".join(final_columns)+"\n")
 
 else:
 
@@ -229,6 +239,7 @@ else:
         sample_category = "Purged_Filter_Coverage"
         percent_ref_aligned_filtered = "NA"
         percent_query_aligned_filtered = "NA"
+        median_snp_perc_iden = "NA"
         final_snp_count = "NA"
         rejected_snps_iden_count = "NA"
         rejected_snps_edge_count = "NA"
@@ -239,7 +250,7 @@ else:
 
         # Save empty TSV
         with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
-            file.write("\t".join(final_columns))
+            file.write("\t".join(final_columns)+"\n")
     else:
         # Get information for filtered mappings
         filtered_ref_bases = sum(coords_file.Ref_Aligned)
@@ -251,6 +262,7 @@ else:
         # STOP if the reference or query is not covered by at least <align_cov>
         if (percent_ref_aligned_filtered < align_cov) & (percent_query_aligned_filtered < align_cov):
             sample_category = "Purged_Filter_Coverage"
+            median_snp_perc_iden = "NA"
             final_snp_count = "NA"
             rejected_snps_iden_count = "NA"
             rejected_snps_edge_count = "NA"
@@ -261,7 +273,7 @@ else:
 
             # Save empty TSV
             with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
-                file.write("\t".join(final_columns))
+                file.write("\t".join(final_columns)+"\n")
 
         else:
 
@@ -275,6 +287,7 @@ else:
 
             # STOP if no SNPs detected
             if snp_file.shape[0] == 0:
+                median_snp_perc_iden = "NA"
                 final_snp_count = 0
                 rejected_snps_iden_count = 0
                 rejected_snps_edge_count = 0
@@ -285,7 +298,7 @@ else:
 
                 # Save empty TSV
                 with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
-                    file.write("\t".join(final_columns))
+                    file.write("\t".join(final_columns)+"\n")
             
             else:
                 # Merge SNP data and coordinate data
@@ -296,6 +309,7 @@ else:
                 filtered_snps = filterSNPs(snp_coords,ref_edge,query_edge)
                 filtered_snps['Ref'] = reference
                 filtered_snps['Query'] = query
+                median_snp_perc_iden = filtered_snps[filtered_snps.Cat == "Yenta_SNP"]["Perc_Iden"].median()
                 final_snp_count = filtered_snps[filtered_snps.Cat == "Yenta_SNP"].shape[0]
                 rejected_snps_iden_count = filtered_snps[filtered_snps.Cat =="Purged_Identity_Length"].shape[0]
                 rejected_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
@@ -306,13 +320,13 @@ else:
 
                 # Save SNP data
                 if filtered_snps.shape[0] > 0:
-                    filtered_snps.to_csv(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv",sep="\t",index=False)
+                    filtered_snps[final_columns].to_csv(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv",sep="\t",index=False)
                     final_bed = makeBED(filtered_snps[['Ref_Contig','Ref_Pos','Cat']])
                     pd.read_table(final_bed.fn).to_csv(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.bed",sep="\t",index=False)
                 else:
                     # Save empty TSV
                     with open(mummer_parent_dir+"/"+report_id+"_MUmmer_SNPs.tsv","w+") as file:
-                        file.write("\t".join(final_columns))
+                        file.write("\t".join(final_columns)+"\n")
 
 # Print output for Nextflow
 print(",".join([
@@ -326,6 +340,7 @@ print(",".join([
     str(percent_ref_aligned_filtered),
     str(sample_category),
     str(final_snp_count),
+    str(median_snp_perc_iden),
     str(gsnps),
     str(rejected_snps_iden_count),
     str(rejected_snps_edge_count),
