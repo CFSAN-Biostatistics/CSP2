@@ -240,9 +240,6 @@ process saveScreeningLog{
     input:
     val(diff_data)
 
-    output:
-    val(true)
-
     script:
 
     """
