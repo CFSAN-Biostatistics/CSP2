@@ -34,7 +34,7 @@ if(output_directory.isDirectory()){
 
 // Import modules
 include {fetchSampleData; fetchReferenceData} from "./subworkflows/fetchData/main.nf"
-include {runSnpPipeline; runScreen; runAllvAll } from "./subworkflows/dnadiff/main.nf"
+include {runSnpPipeline; runScreen } from "./subworkflows/dnadiff/main.nf"
 include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{

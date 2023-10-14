@@ -146,7 +146,7 @@ workflow runScreen{
     | collect | flatten | collate(14)
     | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}\t${it[6]}\t${it[7]}\t${it[8]}\t${it[9]}\t${it[10]}\t${it[11]}\t${it[12]}\t${it[13]}")}
     | collect
-    | saveDNADiffLog
+    | saveScreeningLog
 }
 
 ///// MUMmer //////
@@ -228,8 +228,26 @@ process saveDNADiffLog{
     script:
 
     """
-    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tMedian_SNP_Perc_Iden\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
+    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tCategory\tYenta_SNPs\tMedian_SNP_Perc_Iden\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
     echo "${diff_data.join('\n')}" >> "${output_directory}/Raw_Pairwise_Distances.tsv"
+    """
+}
+process saveScreeningLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(diff_data)
+
+    output:
+    val(true)
+
+    script:
+
+    """
+    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tCategory\tYenta_SNPs\tMedian_SNP_Perc_Iden\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
+    echo "${diff_data.join('\n')}" >> "${output_directory}/Reference_Screening_Results.tsv"
     """
 }
 process saveQueryLog{
