@@ -43,41 +43,8 @@ reference_identity = params.ref_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 min_length = params.min_len.toInteger()
-perc_max_n = params.max_perc_n.toFloat()
 
-workflow runAllvAll{
-    take:
-    sample_data
-
-    main:
-
-    comparisons = sample_data.combine(sample_data).collect().flatten().collate(8)
-    .filter{it[0] != it[4]}
-    .map{
-        def lowerValue = "${it[0]}" < "${it[4]}" ? "${it[0]}" : "${it[4]}"
-        def higherValue = "${it[0]}" > "${it[4]}" ? "${it[0]}" : "${it[4]}" 
-        return tuple("${it[0]}","${it[4]}","${it[3]}","${it[7]}","${lowerValue};${higherValue}")}
-    .collect().flatten().collate(5)
-    .groupTuple(by:4).map{it -> tuple(it[2][0],it[2][1])}
-
-    sample_pairwise = runMUmmer(comparisons) | splitCsv 
-    | collect | flatten | collate(17)
-
-    // Prep and save log files
-    sample_log_file = prepSampleLog()
-    log_data_a = sample_data | join(sample_pairwise.map{it -> tuple(it[0],it[2],it[4])})
-    log_data_b = sample_data | join(sample_pairwise.map{it -> tuple(it[1],it[3],it[5])})
-    sample_log_data = log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | flatten | collate(6) | distinct
-    saveSampleLog(sample_log_file,sample_log_data)
-
-    // Move this to after merging?
-    snp_log_file = prepSNPLog()
-    diff_results = saveDNADiffLog(snp_log_file,sample_pairwise)
-
-    // Run merging + tree building
-    merged_snps = diff_results | collect | mergeSNPs
-}
-
+///// SNP PIPELINE //////
 workflow runSnpPipeline{
     take:
     sample_data
@@ -130,9 +97,11 @@ process refSNPs{
     """
     ${params.load_python_module}
     ${params.load_bedtools_module}
-    python $ref_snp_script $output_directory $alignment_coverage $reference_identity $min_length $perc_max_n $ref_isolate
+    python $ref_snp_script $output_directory $alignment_coverage $reference_identity $min_length $ref_isolate
     """
 }
+
+////// SCREENER //////
 workflow runScreen{
     
     take:
@@ -149,29 +118,38 @@ workflow runScreen{
     // reference_datatype,reference_data_location;reference_fasta
 
     // Run MUmmer jobs
-    raw_screening_results = comparisons | map{tuple(it[4],it[7])} | runMUmmer | splitCsv
+    raw_screening_results = comparisons | map{tuple(it[4],it[7])} | runMUmmer | splitCsv | collect | flatten | collate(18)
     // query,reference,query_seqs,ref_seqs,query_bases,
     // [5] ref_bases,percent_query_aligned_filtered,percent_ref_aligned_filtered,
     // [8] sample_category,final_snp_count,gsnps,rejected_snps_iden_count,
     // rejected_snps_edge_count,rejected_snps_dup_count,rejected_snps_density1000_count,
     // rejected_snps_density125_count,rejected_snps_density15_count
 
-    // Prep log files
-    query_log_file = prepQueryLog()
-    ref_log_file = prepRefLog()
-    dna_diff_log = prepDNADiffLog()
+    // Save log files for queries
+    query_data | join(raw_screening_results.map{it -> tuple(it[0],it[2],it[4])}) 
+    | map { it -> tuple(it[0].toString(),it[1].toString(),it[2].toString(),it[3].toString(),it[4].toString(),it[5].toString())}
+    | collect | flatten | collate(6)
+    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}")}
+    | collect
+    | saveQueryLog
 
-    // Save log files for isolates
-    query_log_data = query_data | join(raw_screening_results.map{it -> tuple(it[0],it[2],it[4])})
+    // Save log files for references    
     ref_log_data = reference_data | join(raw_screening_results.map{it -> tuple(it[1],it[3],it[5])})
-
-    saveQueryLog(query_log_file,query_log_data)
-    saveReferenceLog(ref_log_file,ref_log_data)
+    | map { it -> tuple(it[0].toString(),it[1].toString(),it[2].toString(),it[3].toString(),it[4].toString(),it[5].toString())}
+    | collect | flatten | collate(6)
+    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}")}
+    | collect
+    | saveReferenceLog
     
     // Save log files for DNADiff
-    saveDNADiffLog(dna_diff_log,raw_screening_results)
+    raw_screening_results | map { it -> tuple(it[0].toString(),it[1].toString(),it[6].toString(),it[7].toString(),it[8].toString(),it[9].toString(),it[10].toString(),it[11].toString(),it[12].toString(),it[13].toString(),it[14].toString(),it[15].toString(),it[16].toString(),it[17].toString())}
+    | collect | flatten | collate(14)
+    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}\t${it[6]}\t${it[7]}\t${it[8]}\t${it[9]}\t${it[10]}\t${it[11]}\t${it[12]}\t${it[13]}")}
+    | collect
+    | saveDNADiffLog
 }
 
+///// MUMmer //////
 process runMUmmer{
 
     newForks = "${params.cores}".toInteger() * "${params.maxForks}".toInteger()
@@ -219,69 +197,7 @@ process runMUmmer{
     }
 }
 
-process mergeSNPs{
-
-    input:
-    val(ready)
-    
-    output:
-    val(snp_directory)
-
-    script:
-    """
-    ${params.load_python_module}
-    python $snp_script $output_directory $mummer_directory $snp_directory $alignment_coverage $perc_max_n
-    """
-}
-
 // Log functions //
-process prepQueryLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    output:
-    stdout
-
-    script:
-    """
-    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Query_Data.tsv"
-    echo -n "${output_directory}/Query_Data.tsv"
-    """
-}
-process prepRefLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    output:
-    stdout
-
-    script:
-    """
-    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Reference_Data.tsv"
-    echo -n "${output_directory}/Reference_Data.tsv"
-    """
-}
-process saveQueryLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    val(query_log_file)
-    tuple val(sample_id),val(data_type),val(read_data),val(assembly_data),val(assembly_contigs),val(assembly_bases)
-
-    script:
-
-    if(!file(query_log_file).isFile()){
-        error "$query_log_file doesn't exist..."
-    } else{
-    """
-    echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $query_log_file
-    """
-    }
-}
 process saveSampleLog{
     executor = 'local'
     cpus = 1
@@ -296,39 +212,6 @@ process saveSampleLog{
     # Print header
     echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Isolate_Data.tsv"
     echo "${log_data.join('\n')}" >> "${output_directory}/Isolate_Data.tsv"
-    """
-}
-process saveReferenceLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    val(reference_log_file)
-    tuple val(sample_id),val(data_type),val(read_data),val(assembly_data),val(assembly_contigs),val(assembly_bases)
-
-    script:
-
-    if(!file(reference_log_file).isFile()){
-        error "$reference_log_file doesn't exist..."
-    } else{
-    """
-    echo "${sample_id}\t${data_type}\t${read_data}\t${assembly_data}\t${assembly_contigs}\t${assembly_bases}" >> $reference_log_file
-    """
-    }
-}
-process prepSNPLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    output:
-    stdout
-
-    script:
-    """
-    echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
-    echo -n "${output_directory}/Raw_Pairwise_Distances.tsv"
     """
 }
 process saveDNADiffLog{
@@ -347,5 +230,33 @@ process saveDNADiffLog{
     """
     echo "Query_ID\tReference_ID\tPercent_Reference_Covered\tPercent_Query_Covered\tYenta_SNPs\tMedian_SNP_Perc_Iden\tCategory\tgSNPs\tFiltered_Edge\tFiltered_Identity\tFiltered_Duplicated\tRejected_Density_1000\tRejected_Density_125\tRejected_Density_15" > "${output_directory}/Raw_Pairwise_Distances.tsv"
     echo "${diff_data.join('\n')}" >> "${output_directory}/Raw_Pairwise_Distances.tsv"
+    """
+}
+process saveQueryLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(log_data)
+
+    script:
+    """
+    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Query_Data.tsv"
+    echo "${log_data.join('\n')}" >> "${output_directory}/Query_Data.tsv"
+    """
+}
+process saveReferenceLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(log_data)
+
+    script:
+    """
+    echo "Isolate_ID\tData_Type\tRead_Data\tAssembly_Data\tAssembly_Contigs\tAssembly_Bases" > "${output_directory}/Reference_Data.tsv"
+    echo "${log_data.join('\n')}" >> "${output_directory}/Reference_Data.tsv"
     """
 }

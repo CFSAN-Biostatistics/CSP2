@@ -42,24 +42,17 @@ workflow{
     ////// Read in sample data ///////
     sample_data = fetchSampleData()
      
-     // If --ref_reads/--ref_fasta are set, run in reference screener mode
-    if(params.ref_reads != "" || params.ref_fasta != ""){
+    ////// Check run mode //////
+    if(params.ref_reads != "" || params.ref_fasta != ""){   // If --ref_reads/--ref_fasta are set, run in reference screener mode
         reference_data = fetchReferenceData(params.ref_reads,params.ref_fasta)
-        runScreen(sample_data,reference_data)} 
-    
-    // If --snp_ref_reads/--snp_ref_fasta are set, run in SNP Pipeline mode with user-selected references
-    else if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){
-        reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)
-        runSnpPipeline(sample_data,reference_data)} 
-    
-    else{     
-        // If --all is set, run in reference-free SNP pipeline mode
-        if(params.all){ 
-            runAllvAll(sample_data)}
+        runScreen(sample_data,reference_data)
+    } else{ // SNP Pipeline mode
         
-        // Run in SNP Pipeline mode using a refchooser reference
-        else{
-            reference_data = runRefChooser(sample_data)
-            runSnpPipeline(sample_data,reference_data)}
+        if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){    // If --snp_ref_reads/--snp_ref_fasta are set, fetch user-selected references
+            reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)} 
+        else{ // Get reference from RefChooser
+            reference_data = runRefChooser(sample_data)}
+
+        runSnpPipeline(sample_data,reference_data)
     }
 }

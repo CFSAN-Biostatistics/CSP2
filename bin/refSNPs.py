@@ -123,8 +123,7 @@ output_dir = os.path.abspath(sys.argv[1])
 align_cov = float(sys.argv[2])
 min_perc_iden = float(sys.argv[3])
 min_length = float(sys.argv[4])
-max_perc_n = float(sys.argv[5])
-ref_isolate = str(sys.argv[6])
+ref_isolate = str(sys.argv[5])
 
 # Set paths
 mummer_dir = output_dir + "/MUmmer_Output"
