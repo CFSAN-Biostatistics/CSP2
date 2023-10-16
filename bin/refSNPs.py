@@ -396,4 +396,4 @@ with open(ref_directory+"/Loc_List.txt","w+") as loc_file:
 site_df = pd.DataFrame(loc_data, columns=['SNP_Loc','Purged_Count','Missing_Count']).sort_values('Missing_Count',ascending=False).to_csv(ref_directory+"/Missing_Purged_SNPs_by_Loc.tsv",sep="\t",index=False)
 
 with open(log_file,"a+") as log:
-    log.write("Done!")
+    log.write("Done!\n")
