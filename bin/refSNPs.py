@@ -328,19 +328,10 @@ nonpurged_df = raw_snp_df[~(raw_snp_df.Cat.str.startswith("Purged_") & raw_snp_d
 with concurrent.futures.ThreadPoolExecutor() as executor:
     results = [executor.submit(processLoc, nonpurged_df[nonpurged_df.Ref_Loc == loc],loc) for loc in yenta_locs]
 
-iteration_counter = 0
 for future in concurrent.futures.as_completed(results):
     temp_align,loc = future.result()
     full_align_list.append(temp_align)
     loc_list.append(loc)
-    iteration_counter += 1
-
-    # Check if it's a multiple of 1000 and print a message
-    if iteration_counter % 1000 == 0:
-        iteration_counter = 0
-        temp_time = time.time()
-        thous_time = start_time - temp_time
-        print(f"- Processed {iteration_counter} in {thous_time:.2f}s\n")
 
 # Create alignment
 global final_full_alignment
