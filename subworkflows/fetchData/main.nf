@@ -199,8 +199,18 @@ process fetchPairedReads{
 }
 
 // Assembly //
+
 process skesaAssemble{
+
+    // Set SKESA cores to 5 or fewer
+    if("${params.cores}".toInteger() >= 5){
+        cpus = 5
+    } else{
+        cpus = "${params.cores}".toInteger()
+    }
     
+    memory '6 GB'
+
     input:
     tuple val(sample_name),val(read_type),val(read_location),val(assembly_out)
 
@@ -221,13 +231,13 @@ process skesaAssemble{
             forward_reverse = read_location.split(";")
             """
             $params.load_skesa_module
-            skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file} --cores ${params.cores}
+            skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
             echo "$sample_name,$read_type,$read_location,$assembly_out"
             """
         } else if(read_type == "Single"){
             """
             $params.load_skesa_module
-            skesa --fastq ${read_location} --contigs_out ${assembly_file} --cores ${params.cores}
+            skesa --fastq ${read_location} --contigs_out ${assembly_file}
             echo "$sample_name,$read_type,$read_location,$assembly_out"
             """
         } else{

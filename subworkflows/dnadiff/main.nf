@@ -152,10 +152,9 @@ workflow runScreen{
 ///// MUMmer //////
 process runMUmmer{
 
-    newForks = "${params.cores}".toInteger() * "${params.maxForks}".toInteger()
-    maxForks = newForks.toInteger()
     cpus = 1
-    
+    memory '4 GB'
+
     input:
     tuple val(query_fasta),val(ref_fasta)
     
