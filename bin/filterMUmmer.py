@@ -69,6 +69,7 @@ def parseMUmmerSNPs(mummer_dir,report_id):
     if indel_file.shape[0] > 0:
         indel_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(indel_file.Ref_Contig, indel_file.Ref_Pos))]
         indel_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(indel_file.Query_Contig, indel_file.Query_Pos))]
+        indel_file['Query'] = report_id.split("_vs_")[0]
         indel_file.to_csv(mummer_dir+"/"+report_id+"_Indels.tsv",sep="\t",index=False)
 
     # Remove indels
