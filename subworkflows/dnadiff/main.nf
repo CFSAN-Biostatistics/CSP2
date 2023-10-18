@@ -95,6 +95,7 @@ process refSNPs{
 
     script:
     """
+    module purge
     ${params.load_python_module}
     ${params.load_bedtools_module}
     python $ref_snp_script $output_directory $alignment_coverage $reference_identity $min_length $ref_isolate
@@ -174,6 +175,7 @@ process runMUmmer{
         error "$raw_mummer_directory does not exist..."
     } else{
         """
+        module purge
         $params.load_mummer_module
         $params.load_python_module
         $params.load_bedtools_module

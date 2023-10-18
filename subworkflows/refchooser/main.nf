@@ -74,6 +74,7 @@ process refChooser{
     head_count = n_ref + 1
 
     """
+    module purge
     $params.load_refchooser_module
     cd $assembly_directory
 

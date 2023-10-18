@@ -193,6 +193,7 @@ process fetchPairedReads{
     findPairedReads = file("${projectDir}/bin/fetchReads.py")
 
     """
+    module purge
     ${params.load_python_module}
     python ${findPairedReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix}
     """
@@ -230,12 +231,14 @@ process skesaAssemble{
         if(read_type == "Paired"){
             forward_reverse = read_location.split(";")
             """
+            module purge
             $params.load_skesa_module
             skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
             echo "$sample_name,$read_type,$read_location,$assembly_out"
             """
         } else if(read_type == "Single"){
             """
+            module purge
             $params.load_skesa_module
             skesa --fastq ${read_location} --contigs_out ${assembly_file}
             echo "$sample_name,$read_type,$read_location,$assembly_out"
