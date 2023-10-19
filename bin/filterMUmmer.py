@@ -106,7 +106,7 @@ def filterSNPs(snp_coords,ref_edge,query_edge):
 
     if len(duplicated_mask) > 0:
         longest_dup_df = rejected_snps_dup.loc[rejected_snps_dup.groupby('Ref_Loc')['Ref_Aligned'].idxmax()]
-        rejected_snps_dup = snps_pf_iden[~snps_pf_iden.index.isin(longest_dup_df.index) & ~snps_pf_iden.index.isin(snps_pf_iden_dup.index)]
+        rejected_snps_dup = snps_pf_iden[(~snps_pf_iden.index.isin(longest_dup_df.index)) & (~snps_pf_iden.index.isin(snps_pf_iden_dup.index))]
         rejected_snps_dup['Cat'] = "Purged_Dup"
         snps_pf_iden_dup = pd.concat([snps_pf_iden_dup, longest_dup_df])
 
