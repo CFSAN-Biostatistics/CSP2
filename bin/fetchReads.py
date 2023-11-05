@@ -15,6 +15,7 @@ if not read_filetype.startswith("."):
     read_filetype = "." + str(sys.argv[2])
 forward_suffix = str(sys.argv[3])
 reverse_suffix = str(sys.argv[4])
+trim_name = str(sys.argv[5])
 
 # Check if sequence files exist in directory, ignoring undetermined reads
 read_files = sorted(glob(read_dir+"/*"+read_filetype))
@@ -38,12 +39,12 @@ for pair in paired_files:
 single_end = [x for x in read_files if x not in left_pairs + right_pairs]
 
 for left in left_pairs:
-    base = str(os.path.basename(left).replace(forward_suffix,""))
+    base = str(os.path.basename(left).replace(forward_suffix,"").replace(trim_name,""))
     print(",".join([base,"Paired",";".join([left,left.replace(forward_suffix,reverse_suffix)])]))
 
 for single in single_end:
     if single.endswith(forward_suffix):
-        base = str(os.path.basename(single).replace(forward_suffix,""))
+        base = str(os.path.basename(single).replace(forward_suffix,"").replace(trim_name,""))
     else:
-        base = str(os.path.basename(single).replace(read_filetype,""))
+        base = str(os.path.basename(single).replace(read_filetype,"").replace(trim_name,""))
     print(",".join([base,"Single",single]))

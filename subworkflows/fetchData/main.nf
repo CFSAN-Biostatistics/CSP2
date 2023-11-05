@@ -1,102 +1,210 @@
-// Subworkflow to fetch sample and reference data, assembling reads into genomes using SKESA if necessary
-// Params are passed from Yenta.nf or from the command line if run directly
+// Subworkflow to fetch sample and reference data from --fasta/--reads/--ref_fasta/--ref_reads
 
-// Set output paths
-if(params.outroot == ""){
-    output_directory = file("${params.out}")
-} else{
-    output_directory = file("${file("${params.outroot}")}/${params.out}")
+// Set directory structure
+if(params.outroot == "") {
+    output_directory = file(params.out)
+} else {
+    output_directory = file("${file(params.outroot)}/${params.out}")
 }
+
+// Assess run mode
+if (params.runmode == "") {
+    if (params.snpdiffs != "") {
+        run_mode = "screen" // If .snpdiffs are provided, generate a summary of query/reference alignments
+    } else if((params.reads != "" || params.ref_reads != "") && (params.fasta == "" && params.ref_fasta == "")){
+        run_mode = "assemble" // If only reads are provided, generate assemblies
+    } else if(params.reads == "" && params.fasta == ""){
+        error "No query data provided via --reads/--fasta/--snpdiffs" // Exit if no data is provided
+    } else if (params.ref_fasta == "" && params.ref_reads == ""){
+        run_mode = "snp" // If query data is provided without reference data, run the SNP pipeline with RefChooser
+    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta == "")){
+        run_mode = "screen" // If query and reference data are provided, perform MUMmer alignment and generate a summary
+    } else if((params.fasta == "" && params.reads == "") && (params.ref_fasta != "" || params.ref_reads != "")){
+        error "Reference data provided via --ref_reads/--ref_fasta, but no query data provided by --reads/--fasta/--snpdiffs" // Exit if no query data is provided
+    } 
+} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+    run_mode = "${params.runmode}"
+} else {
+    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+}
+
+log_directory = file("${output_directory}/logs")
 assembly_directory = file("${output_directory}/Assemblies")
+assembly_log = file("${log_directory}/assembly.log")
+isolate_file = file("${output_directory}/Isolate_Data.tsv")
 
-if(params.python_module == ""){
-    params.load_python_module = ""
-} else{
-    params.load_python_module = "module load -s ${params.python_module}"
-}
-if(params.skesa_module == ""){
-    params.load_skesa_module = ""
-} else{
-    params.load_skesa_module = "module load -s ${params.skesa_module}"
-}
+// Set paths to accessory scripts
+findPairedReads = file("${projectDir}/bin/fetchReads.py")
+processFasta = file("${projectDir}/bin/processFasta.py")
 
-// Major workflows //
-workflow fetchSampleData{
-    
+// Set up modules if needed
+params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
+params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${params.skesa_module}"
+
+// Top-level workflow //
+workflow fetchData{
+
     emit:
-    sample_data
+    query_data
+    reference_data
+    snpdiffs_data
 
     main:
 
-    // Ensure data is provided for at least one sample
-    if("${params.reads}" == "" && "${params.fasta}" == ""){
-        error "No sample data specified by --reads/--fasta..."
-    }
+    // Read in data
+    ("${params.fasta}" != "" ? fetchQueryFasta() : Channel.empty()).set{query_fasta}
+    ("${params.ref_fasta}" != "" ? fetchRefFasta() : Channel.empty()).set{ref_fasta}
+    all_assembled = query_fasta.concat(ref_fasta).collect().flatten().collate(2).unique{it->it[0]}
+    
+    ("${params.reads}" != "" ? fetchQueryReads() : Channel.empty()).set{query_reads}
+    ("${params.ref_reads}" != "" ? fetchRefReads() : Channel.empty()).set{ref_reads}
+    all_reads =  query_reads.concat(ref_reads).collect().flatten().collate(3).unique{it->it[0]}
 
-    // Fetch sample assemblies
-    ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{sample_assembly_data}
-
-    // Fetch sample reads
-    ("${params.reads}" != "" ? getReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{sample_read_data}
-
-    // Group by sample ID and identify samples where reads and assemblies are given
-    grouped_data = sample_assembly_data.concat(sample_read_data) | collect | flatten | collate(3) | groupTuple |
+    ("${params.snpdiffs}" != "" ? getSNPDiffs() : Channel.empty()).set{snpdiffs_data}
+    
+    // Figure out if any assembly is necessary
+    fasta_read_combo = all_reads.join(all_assembled,by:0,remainder: true) |
     branch{it ->
-        duo: it[1].size() == 2
-            return(tuple(it[0], "Duo_"+it[1][1], it[2][1], it[2][0]))
-        single: true
-            if("${it[1][0]}" == "Assembly"){
-                return tuple(it[0],it[1][0],"",it[2][0])
-            } else{
-                return tuple(it[0],it[1][0],it[2][0],"${assembly_directory}/${it[0]}.fasta")   
-            }
-    }
+        assembly: it[1].toString() == "null"
+            return(tuple(it[0],it[2]))
+        read: it[3].toString() == "null"
+           return(tuple(it[0],it[1],it[2]))
+        combo: true
+           return(tuple(it[0],it[3]))}
 
-    assembled_data = grouped_data.single.filter { it -> it[1] == "Assembly" }
-    unassembled_data = grouped_data.single.filter { it -> it[1] != "Assembly" } | skesaAssemble | splitCsv
+    assembled_reads = fasta_read_combo.read.collect().flatten().collate(3).unique{it->it[0]} | assembleReads
+    assembled_isolates = all_assembled.concat(assembled_reads).collect().flatten().collate(2)
 
-    sample_data = grouped_data.duo.concat(assembled_data).concat(unassembled_data) | collect | flatten | collate(4)
+    query_data = query_fasta.map{it->it[0]}.concat(query_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
+    reference_data = ref_fasta.map{it->it[0]}.concat(ref_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
 }
-workflow fetchReferenceData{
+
+
+// Fetching preassembled data //
+workflow fetchQueryFasta{
+    
+    emit:
+    query_fasta
+
+    main:
+
+    // If --fasta is set, grab assembly paths and characterize assemblies
+    ("${params.fasta}" != "" ? getAssemblies(params.fasta) : Channel.empty()).set{query_fasta}
+}
+workflow fetchRefFasta{
+    
+    emit:
+    ref_fasta
+
+    main:
+
+    // If --fasta is set, grab assembly paths and characterize assemblies
+    ("${params.ref_fasta}" != "" ? getAssemblies(params.ref_fasta) : Channel.empty()).set{ref_fasta}
+}
+workflow getAssemblies{
 
     take:
-    ref_reads
-    ref_fasta
-    
+    fasta_loc
+
     emit:
-    reference_data
-
+    fasta_data
+    
     main:
-        
-    if(ref_reads == "" && ref_fasta == ""){
-        reference_data = Channel.empty()
-    } else{
-        // Collect paths to read/assembly data for references
-        ("${ref_reads}" != "" ? getReads(ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{reference_read_data}
-        ("${ref_fasta}" != "" ? getAssemblies(ref_fasta) : Channel.empty()).set{reference_assembly_data}
+    def trim_this = "${params.trim_name}"
 
-        // Group by sample ID and identify samples where reads and assemblies are given
-        grouped_data = reference_assembly_data.concat(reference_read_data) | collect | flatten | collate(3) | groupTuple |
-        branch{it ->
-            duo: it[1].size() == 2
-                return(tuple(it[0], "Duo_"+it[1][1], it[2][1], it[2][0]))
-            single: true
-                if("${it[1][0]}" == "Assembly"){
-                    return tuple(it[0],it[1][0],"",it[2][0])
-                } else{
-                    return tuple(it[0],it[1][0],it[2][0],"${assembly_directory}/${it[0]}.fasta")   
-                }
+    if(fasta_loc == ""){
+        error "No assembly data provided via --fasta/--ref_fasta"
+    } else{
+
+        fasta_dir = file(fasta_loc)
+
+        // If --fasta is a directory...
+        if(fasta_dir.isDirectory()){
+            ch_fasta = Channel.fromPath(["${fasta_dir}/*.fa","${fasta_dir}/*.fasta","${fasta_dir}/*.fna"])
+        } 
+        // If --fasta is a file...
+        else if(fasta_dir.isFile()){
+            
+            // Check if it is a single fasta file...
+            if(fasta_dir.getExtension() == "fa" || fasta_dir.getExtension() == "fna" || fasta_dir.getExtension() == "fasta"){
+                ch_fasta = Channel.from(fasta_dir).map{it-> file(it)}
+            } 
+            // Otherwise, assume a file with paths to FASTAs
+            else{
+                ch_fasta = Channel.from(fasta_dir.readLines()).filter{ file -> file =~ /\.(fa|fasta|fna)$/}.map{it-> file(it)}
+            }
+        } else{
+            error "$fasta_dir is not a valid directory or file..."
+        }
+        fasta_data = ch_fasta
+        .map { filePath ->
+            def fileName = file(filePath).getBaseName()
+            def sampleName = fileName.replaceAll(trim_this, "")
+            tuple(sampleName,filePath)}
+    }
+}
+workflow getSNPDiffs{
+
+    emit:
+    snpdiffs_data
+    
+    main:
+
+    if("${params.snpdiffs}" == ""){
+        error "No assembly data provided via --snpdiffs"
+    } else{
+
+        snpdiffs_dir = file("${params.snpdiffs}")
+
+        // If --fasta is a directory...
+        if(snpdiffs_dir.isDirectory()){
+            ch_snpdiffs = Channel.fromPath("${snpdiffs_dir}/*.snpdiffs")
+        } 
+        // If --fasta is a file...
+        else if(snpdiffs_dir.isFile()){
+            
+            // Check if it is a single fasta file...
+            if(snpdiffs_dir.getExtension() == "snpdiffs"){
+                ch_snpdiffs = Channel.from(snpdiffs_dir)
+            } 
+            // Otherwise, assume a file with paths to SNPDiffs
+            else{
+                ch_snpdiffs = Channel.from(snpdiffs_dir.readLines()).filter{it->it.endsWith('.snpdiffs') }
+            }
+        } else{
+            error "$snpdiffs_dir is not a valid directory or file..."
         }
 
-        assembled_data = grouped_data.single.filter { it -> it[1] == "Assembly" }
-        unassembled_data = grouped_data.single.filter { it -> it[1] != "Assembly" } | skesaAssemble | splitCsv
-
-        reference_data = grouped_data.duo.concat(assembled_data).concat(unassembled_data) | collect | flatten | collate(4)
+        snpdiffs_data = ch_snpdiffs.map { filePath ->
+        def fileName = filePath.getBaseName()
+        def query = fileName.tokenize('__vs')[0]
+        def reference = fileName.tokenize('vs__')[1].tokenize('.')[0]
+        tuple(query,reference,filePath)} | view
     }
 }
 
-// Fetch workflows //
-workflow getReads{
+// Fetching read data //
+workflow fetchQueryReads{
+    
+    emit:
+    query_reads
+
+    main:
+
+    // If --fasta is set, grab assembly paths and characterize assemblies
+    ("${params.reads}" != "" ? processReads(params.reads,params.readext,params.forward,params.reverse) : Channel.empty()).set{query_reads}
+}
+workflow fetchRefReads{
+    
+    emit:
+    ref_reads
+
+    main:
+
+    // If --fasta is set, grab assembly paths and characterize assemblies
+    ("${params.ref_reads}" != "" ? processReads(params.ref_reads,params.ref_readext,params.ref_forward,params.ref_reverse) : Channel.empty()).set{ref_reads}
+}
+workflow processReads{
 
     take:
     read_loc
@@ -112,65 +220,23 @@ workflow getReads{
     if(read_loc == ""){
         error "No data provided to --reads/--ref_reads"
     } else{
+
         read_dir = file(read_loc)
 
         // If --reads is a single directory, get all reads from that directory
         if(read_dir.isDirectory()){
-            read_info = fetchPairedReads(read_dir,read_ext,forward,reverse) 
-            | splitCsv 
-            | map{tuple(it[0].toString(),it[1].toString(),it[2].toString())}
+            read_info = fetchPairedReads(read_dir,read_ext,forward,reverse) | splitCsv
         } 
 
         // If --reads is a file including paths to many directories, process reads from all directories
         else if(read_dir.isFile()){
-            read_info = fetchPairedReads(Channel.from(read_dir.readLines()),read_ext,forward,reverse) 
-            | splitCsv 
-            | map{tuple(it[0].toString(),it[1].toString(),it[2].toString())}
-
+            read_info = fetchPairedReads(Channel.from(read_dir.readLines()),read_ext,forward,reverse) | splitCsv
         }
         // Error if --reads doesn't point to a valid file or directory
         else{
             error "$read_dir is neither a valid file or directory..."
         }
     }      
-}
-workflow getAssemblies{
-
-    take:
-    fasta_loc
-
-    emit:
-    fasta_data
-    
-    main:
-
-    if(fasta_loc == ""){
-        error "No assembly data provided via --fasta"
-    } else{
-        fasta_dir = file(fasta_loc)
-
-        // If --fasta is a directory...
-        if(fasta_dir.isDirectory()){
-            ch_fasta = Channel.fromPath(["${fasta_dir}/*.fa","${fasta_dir}/*.fasta","${fasta_dir}/*.fna"])
-        } 
-        // If --fasta is a file...
-        else if(fasta_dir.isFile()){
-            // Check if it is a single fasta file...
-            if(fasta_dir.getExtension() == "fa" || fasta_dir.getExtension() == "fna" || fasta_dir.getExtension() == "fasta"){
-                ch_fasta = Channel.from(fasta_dir)
-            } 
-            // Otherwise, assume a file with paths to FASTAs
-            else{
-                ch_fasta = Channel.from(fasta_dir.readLines())
-            }
-        }
-        else{
-            error "$fasta_dir is not a valid directory or file..."
-        }
-
-        fasta_data = ch_fasta
-        | map{tuple(file("$it").getBaseName(),"Assembly",file("$it"))} // Get sample name from filename, return tuple of ID, 'Assembly',fasta location
-    }
 }
 process fetchPairedReads{
 
@@ -188,19 +254,38 @@ process fetchPairedReads{
     stdout
 
     script:
-    
-    // Set path to accessory script
-    findPairedReads = file("${projectDir}/bin/fetchReads.py")
 
+    if(!file(dir).isDirectory()){
+        error "$dir is not a valid directory..."
+    } else{
     """
-    module purge
     ${params.load_python_module}
-    python ${findPairedReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix}
+    python ${findPairedReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix} ${params.trim_name}
     """
+    }
 }
 
-// Assembly //
 
+// Assembly //
+workflow assembleReads{
+
+    take:
+    to_assemble
+    
+    emit:
+    assembled_data
+
+    main:
+    
+    // Run SKESA on each entry
+    assembly_output = skesaAssemble(to_assemble).splitCsv().collect().flatten().collate(7) 
+
+    // Print log of assemblies
+    assembly_output.map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}\t${it[6]}")}.collect() | saveAssemblyLog
+
+    // Return assembly data
+    assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
+}
 process skesaAssemble{
 
     // Set SKESA cores to 5 or fewer
@@ -213,38 +298,76 @@ process skesaAssemble{
     memory '6 GB'
 
     input:
-    tuple val(sample_name),val(read_type),val(read_location),val(assembly_out)
+    tuple val(sample_name),val(read_type),val(read_location)
 
     output:
     stdout
+ 
+    script:
+    assembly_file = file("${assembly_directory}/${sample_name}.fasta")
+    
+    if(assembly_directory.isDirectory()){
+        if(assembly_file.isFile()){
+            error "$assembly_file already exists..."
+        }     
+    } else{
+        assembly_directory.mkdirs()
+    }
+        
+    if(read_type == "Paired"){
+        forward_reverse = read_location.split(";")
+        """
+        $params.load_python_module
+        $params.load_skesa_module
+        skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
+        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        """
+    } else if(read_type == "Single"){
+        """
+        $params.load_python_module
+        $params.load_skesa_module
+        skesa --fastq ${read_location} --contigs_out ${assembly_file}
+        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        """
+    } else{
+        error "read_type should be Paired or Single, not $read_type..."
+    }
+}
+
+// Logging //
+workflow saveIsolateData{
+    take:
+    isolate_data
+
+    main:
+     isolate_data | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}")} | collect | saveIsolateLog
+}
+process saveIsolateLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(isolate_data)
 
     script:
+    """
+    echo "Isolate_ID\tAssembly\tContig_Count\tAssembly_Length\tSHA256" > "${isolate_file}"
+    echo "${isolate_data.join('\n')}" >> "${isolate_file}"
+    """
+}
+process saveAssemblyLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(assembly_data)
 
-    assembly_file = file(assembly_out)
-    assembly_dir = assembly_file.getParent()
-
-    if(assembly_file.isFile()){
-        error "$assembly_out already exists..."
-    } else if(!assembly_dir.isDirectory()){
-        error "$assembly_dir does not exist..."
-    } else{
-        if(read_type == "Paired"){
-            forward_reverse = read_location.split(";")
-            """
-            module purge
-            $params.load_skesa_module
-            skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
-            echo "$sample_name,$read_type,$read_location,$assembly_out"
-            """
-        } else if(read_type == "Single"){
-            """
-            module purge
-            $params.load_skesa_module
-            skesa --fastq ${read_location} --contigs_out ${assembly_file}
-            echo "$sample_name,$read_type,$read_location,$assembly_out"
-            """
-        } else{
-            error "read_type should be Paired or Single, not $read_type..."
-        }
-    }
+    script:
+ 
+    """
+    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tSHA256" > "${assembly_log}"
+    echo "${assembly_data.join('\n')}" >> "${assembly_log}"
+    """
 }
