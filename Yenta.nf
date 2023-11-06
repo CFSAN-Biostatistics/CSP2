@@ -22,7 +22,7 @@ if (params.runmode == "") {
 } else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be assemble, align, screen, or snp, not ${params.runmode}..."
+    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
 
@@ -52,14 +52,17 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
     } else if(!output_directory.getParent().isDirectory()){
         error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
     } else{
-        log_directory = file("${output_directory}/logs")
         output_directory.mkdirs()
-        log_directory.mkdirs()
+        if(run_mode != "assemble"){
+            log_directory = file("${output_directory}/logs")
+            log_directory.mkdirs()
+        }
     }
 }
 
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
+include {saveIsolateLog} from "./subworkflows/logging/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
 //include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
@@ -72,17 +75,16 @@ workflow{
     reference_data = input_data.reference_data
     snpdiffs_data = input_data.snpdiffs_data
     
-    isolate_data = query_data.concat(reference_data).collect().flatten().collate(2).unique{it->it[0]}
+    if(run_mode == "align"){
+        
+        // Ensure there is query and reference data
+        if(ensureQuery(query_data.collect().ifEmpty("No_Data")) && ensureReference(reference_data.collect().ifEmpty("No_Data"))){ 
+            
+            // Align all queries against each reference and generate snpdiffs
+            mummer_results = alignGenomes(query_data,reference_data)
 
-    if(run_mode == "fasta"){
-        if(ensureData(isolate_data.collect().ifEmpty("No_Data"))){
-            print("fasta")
-        }
-    } else if(run_mode == "align"){
-        if(ensureData(isolate_data.collect().ifEmpty("No_Data"))){
-            if(countQuery(query_data.collect().ifEmpty("No_Data")) && countReference(reference_data.collect().ifEmpty("No_Data"))){
-                mummer_output = alignGenomes(query_data,reference_data)
-            }
+            // Save isolate data
+            mummer_results.map{it -> it.join("\t")}.collect() | saveIsolateLog
         }
     } else if(run_mode == "screen"){
         print("screen")
@@ -92,7 +94,7 @@ workflow{
 }
 
 // Counting + Checks //
-process countQuery {
+process ensureQuery {
     executor = 'local'
     cpus = 1
     maxForks = 1
@@ -112,7 +114,7 @@ process countQuery {
     fi
     """
 }
-process countReference {
+process ensureReference {
     executor = 'local'
     cpus = 1
     maxForks = 1
@@ -129,26 +131,6 @@ process countReference {
         exit 1
     else
         echo \$(echo "${tupleData.join('\n')}" | wc -l)
-    fi
-    """
-}
-process ensureData{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    input:
-    val(tupleData)
-
-    output:
-    stdout
-
-    script:
-    """
-    if [ \$(echo "${tupleData.join('\n')}" | wc -l) -eq 1 ] && [ "\$(echo "${tupleData}" | grep -c 'No_Data')" -eq 1 ]; then
-        exit 1
-    else
-        echo "true"
     fi
     """
 }

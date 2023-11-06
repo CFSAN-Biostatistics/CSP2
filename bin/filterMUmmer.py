@@ -341,31 +341,35 @@ reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assem
 report_id = query + "__vs__" + reference
 
 # Get directories
-mummer_dir = os.path.normpath(sys.argv[5])
+output_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
+
+mummer_dir = output_dir + "/MUMmer_Output"
 mum_snps_dir = mummer_dir + "/snps"
 mum_report_dir = mummer_dir + "/report"
 mum_coords_dir = mummer_dir + "/1coords"
 
-snpdiffs_dir = os.path.normpath(sys.argv[6])
+log_dir = output_dir + "/logs"
+
+snpdiffs_dir = output_dir + "/snpdiffs"
 snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
 
-log_dir = os.path.normpath(sys.argv[7])
-
 # Set filtering criteria
-min_cov = float(sys.argv[8])
-min_iden = float(sys.argv[9])
-min_len = int(sys.argv[10])
+min_cov = float(sys.argv[6])
+min_iden = float(sys.argv[7])
+min_len = int(sys.argv[8])
 
-density_windows = [int(x) for x in sys.argv[11].split(",")]
-max_snps = [int(x) for x in sys.argv[12].split(",")]
+density_windows = [int(x) for x in sys.argv[9].split(",")]
+max_snps = [int(x) for x in sys.argv[10].split(",")]
 
 qc_density =  ",".join([str(x) for x in density_windows])
 qc_maxsnps =  ",".join([str(x) for x in max_snps])
 
 assert len(density_windows) == len(max_snps)
 
-ref_edge = int(sys.argv[13])
-query_edge = int(sys.argv[14])
+ref_edge = int(sys.argv[11])
+query_edge = int(sys.argv[12])
+
+run_mode = str(sys.argv[13])
 
 # Create QC String
 qc_string = "_".join([str(x) for x in [min_cov,min_iden,min_len,ref_edge,query_edge,qc_density,qc_maxsnps]]) 
@@ -507,4 +511,8 @@ if str(reject_snps_alignment_count) != "NA":
         filtered_snps['Reference'] = reference
         filtered_snps[["Query","Reference","Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
 
-print(",".join([query,reference,snpdiffs_file]))
+if run_mode == "align":
+    print(",".join([str(x) for x in query_data]))
+    print(",".join([str(x) for x in reference_data]))
+else:
+    print(",".join([query_data,reference,snpdiffs_file]))

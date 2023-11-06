@@ -28,10 +28,17 @@ if (params.runmode == "") {
     error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
-log_directory = file("${output_directory}/logs")
-assembly_directory = file("${output_directory}/Assemblies")
-assembly_log = file("${log_directory}/assembly.log")
-isolate_file = file("${output_directory}/Isolate_Data.tsv")
+// Save assembly data in the main directory if --runmode is 'assemble'
+if(run_mode == "assemble"){
+    assembly_directory = file("${output_directory}")
+    assembly_log = file("${output_directory}/Isolate_Data.tsv")
+} else{
+    log_directory = file("${output_directory}/logs")
+    assembly_log = file("${log_directory}/assembly.log")
+    isolate_file = file("${output_directory}/Isolate_Data.tsv")
+    assembly_directory = file("${output_directory}/Assemblies")
+}
+
 
 // Set paths to accessory scripts
 findPairedReads = file("${projectDir}/bin/fetchReads.py")
@@ -40,6 +47,8 @@ processFasta = file("${projectDir}/bin/processFasta.py")
 // Set up modules if needed
 params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
 params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${params.skesa_module}"
+
+include {saveAssemblyLog} from "../logging/main.nf"
 
 // Top-level workflow //
 workflow fetchData{
@@ -179,9 +188,10 @@ workflow getSNPDiffs{
         def fileName = filePath.getBaseName()
         def query = fileName.tokenize('__vs')[0]
         def reference = fileName.tokenize('vs__')[1].tokenize('.')[0]
-        tuple(query,reference,filePath)} | view
+        tuple(query,reference,filePath)}
     }
 }
+
 
 // Fetching read data //
 workflow fetchQueryReads{
@@ -278,10 +288,10 @@ workflow assembleReads{
     main:
     
     // Run SKESA on each entry
-    assembly_output = skesaAssemble(to_assemble).splitCsv().collect().flatten().collate(7) 
+    assembly_output = skesaAssemble(to_assemble).splitCsv()
 
     // Print log of assemblies
-    assembly_output.map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}\t${it[6]}")}.collect() | saveAssemblyLog
+    assembly_output.map {it -> it.join("\t")}.collect() | saveAssemblyLog
 
     // Return assembly data
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
@@ -332,42 +342,4 @@ process skesaAssemble{
     } else{
         error "read_type should be Paired or Single, not $read_type..."
     }
-}
-
-// Logging //
-workflow saveIsolateData{
-    take:
-    isolate_data
-
-    main:
-     isolate_data | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}")} | collect | saveIsolateLog
-}
-process saveIsolateLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    val(isolate_data)
-
-    script:
-    """
-    echo "Isolate_ID\tAssembly\tContig_Count\tAssembly_Length\tSHA256" > "${isolate_file}"
-    echo "${isolate_data.join('\n')}" >> "${isolate_file}"
-    """
-}
-process saveAssemblyLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    val(assembly_data)
-
-    script:
- 
-    """
-    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tSHA256" > "${assembly_log}"
-    echo "${assembly_data.join('\n')}" >> "${assembly_log}"
-    """
 }

@@ -56,7 +56,11 @@ workflow alignGenomes{
     sample_data
     reference_data
 
+    emit:
+    return_mummer
+
     main:
+    
     if(!mummer_directory.isDirectory()){
         snpdiffs_directory.mkdirs()
         mummer_directory.mkdirs()
@@ -66,9 +70,18 @@ workflow alignGenomes{
     } 
 
     sample_pairwise = sample_data.combine(reference_data)
-    .collect().flatten().collate(4)
     .filter{"${it[0]}" != "${it[3]}"} // Don't map things to themselves
-    | runMUMmer | splitCsv | view
+    | runMUMmer | splitCsv
+    
+    // If just aligning, return unique isolate data for the log (use SHA256 in case names are not unique)
+    if(run_mode == "align"){
+        return_mummer = sample_pairwise.collect().flatten().collate(5).unique{it[4]} 
+    } 
+    
+    // For SNP/screen, return the query ID,reference ID, and snpdiffs file
+    else{
+        return_mummer = sample_pairwise.collect().flatten().collate(3)
+    }
 }
 
 process runMUMmer{
@@ -111,7 +124,7 @@ process runMUMmer{
         mv ${mummer_directory}/${report_id}.snps ${mum_snps_directory}
         mv ${mummer_directory}/${report_id}.report ${mum_report_directory}
         mv ${mummer_directory}/${report_id}.1coords ${mum_coords_directory}
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${log_directory}" "${min_cov}" "${min_iden}" "${min_length}" "${params.dwindows}" "${params.wsnps}" "${reference_edge}" "${query_edge}"        
+        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${output_directory}" "${min_cov}" "${min_iden}" "${min_length}" "${params.dwin}" "${params.wsnps}" "${reference_edge}" "${query_edge}" "${run_mode}"       
         """
     }
 }
@@ -182,7 +195,7 @@ workflow runSnpPipeline{
     log_data_a.concat(log_data_b) | toSortedList({ a, b -> a[0] <=> b[0] }) | collect | flatten | collate(6) | distinct
     | map { it -> tuple(it[0].toString(),it[1].toString(),it[2].toString(),it[3].toString(),it[4].toString(),it[5].toString())}
     | collect | flatten | collate(6)
-    | map { it -> tuple("${it[0]}\t${it[1]}\t${it[2]}\t${it[3]}\t${it[4]}\t${it[5]}")}
+    | map { it -> it.join("\t")}
     | collect
     | saveSampleLog
 
