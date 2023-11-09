@@ -70,26 +70,37 @@ workflow{
     
     // Read in data
     input_data = fetchData()
-
-    query_data = input_data.query_data
-    reference_data = input_data.reference_data
-    snpdiffs_data = input_data.snpdiffs_data
     
-    if(run_mode == "align"){
-        
-        // Ensure there is query and reference data
-        if(ensureQuery(query_data.collect().ifEmpty("No_Data")) && ensureReference(reference_data.collect().ifEmpty("No_Data"))){ 
-            
-            // Align all queries against each reference and generate snpdiffs
-            mummer_results = alignGenomes(query_data,reference_data)
+    // All relevant tasks for 'assemble' run mode are completed during data fetching
+    if(run_mode != "assemble"){
 
-            // Save isolate data
-            mummer_results.map{it -> it.join("\t")}.collect() | saveIsolateLog
-        }
-    } else if(run_mode == "screen"){
-        print("screen")
-    } else if(run_mode == "snp"){
-        print("snp")
+        // Get query and reference data if provided
+        query_data = input_data.query_data
+        reference_data = input_data.reference_data
+    
+        if(run_mode == "align"){
+            
+            // Ensure there is query and reference data
+            if(ensureQuery(query_data.collect().ifEmpty("No_Data")) && ensureReference(reference_data.collect().ifEmpty("No_Data"))){     
+                
+                mummer_results = alignGenomes(query_data,reference_data) // Align all queries against each reference and generate snpdiffs
+                mummer_results.map{it -> it.join("\t")}.collect() | saveIsolateLog // Save isolate data
+            }
+        } 
+        
+        else{
+            
+            // Fetch snpdiffs input if provided
+            snpdiffs_data = input_data.snpdiffs_data
+
+            if(run_mode == "screen"){
+                print("screen")
+            } else if(run_mode == "snp"){
+                print("snp")
+            }
+        
+        
+        } 
     }
 }
 
@@ -109,8 +120,6 @@ process ensureQuery {
     """
     if [ \$(echo "${tupleData.join('\n')}" | wc -l) -eq 1 ] && [ "\$(echo "${tupleData}" | grep -c 'No_Data')" -eq 1 ]; then
         exit 1
-    else
-        echo \$(echo "${tupleData.join('\n')}" | wc -l)
     fi
     """
 }
@@ -129,8 +138,6 @@ process ensureReference {
     """
     if [ \$(echo "${tupleData.join('\n')}" | wc -l) -eq 1 ] && [ "\$(echo "${tupleData}" | grep -c 'No_Data')" -eq 1 ]; then
         exit 1
-    else
-        echo \$(echo "${tupleData.join('\n')}" | wc -l)
     fi
     """
 }

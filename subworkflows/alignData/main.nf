@@ -73,9 +73,9 @@ workflow alignGenomes{
     .filter{"${it[0]}" != "${it[3]}"} // Don't map things to themselves
     | runMUMmer | splitCsv
     
-    // If just aligning, return unique isolate data for the log (use SHA256 in case names are not unique)
+    // If just aligning, return unique isolate data for the log
     if(run_mode == "align"){
-        return_mummer = sample_pairwise.collect().flatten().collate(5).unique{it[4]} 
+        return_mummer = sample_pairwise.collect().flatten().collate(5).unique{it[0]} 
     } 
     
     // For SNP/screen, return the query ID,reference ID, and snpdiffs file
