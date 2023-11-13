@@ -53,8 +53,7 @@ query_edge = params.query_edge.toInteger()
 
 workflow alignGenomes{
     take:
-    sample_data
-    reference_data
+    combined_data
 
     emit:
     return_mummer
@@ -69,7 +68,7 @@ workflow alignGenomes{
         mum_snps_directory.mkdirs()
     } 
 
-    sample_pairwise = sample_data.combine(reference_data)
+    sample_pairwise = combined_data
     .filter{"${it[0]}" != "${it[3]}"} // Don't map things to themselves
     | runMUMmer | splitCsv
     
