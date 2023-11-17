@@ -1,6 +1,3 @@
-// Subworkflow to run RefChooser for list of queries
-// Params are passed from Yenta.nf or from the command line if run directly
-
 // Set directory structure
 if(params.outroot == "") {
     output_directory = file(params.out)
@@ -8,8 +5,8 @@ if(params.outroot == "") {
     output_directory = file("${file(params.outroot)}/${params.out}")
 }
 
-assembly_directory = file("${output_directory}/logs")
-assembly_file = file("${assembly_directory}/Query_Assemblies.txt")
+log_directory = file("${output_directory}/logs")
+snp_diffs_file = file("${log_directory}/SNPDiffs.txt")
 
 // Assess run mode
 if (params.runmode == "") {
@@ -32,63 +29,74 @@ if (params.runmode == "") {
     error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
-// Get number of references
-n_ref = "${params.n_ref}".toInteger()
+// Set paths to accessory scripts
+screenDiffs = file("${projectDir}/bin/screenSNPDiffs.py")
+runSNP = file("${projectDir}/bin/runSNPPipeline.py")
 
-// Set modules if necessary
-params.load_refchooser_module = params.refchooser_module == "" ? "" : "module load -s ${params.refchooser_module}"
+// Set modules
+params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
+params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
 
-workflow runRefChooser{
+
+workflow runScreen{
     take:
-    query_data
+    snp_diff_data
 
-    emit:
-    reference_data
+    main:
+
+    snp_diff_data.collect{it[2]} | screenSNPDiffs
+}
+
+workflow runSNPPipeline{
+    take:
+    snp_diff_data
 
     main:
     
-    // Get reversed query
-    reversed_query = query_data.map{it->tuple(it[1].toString(),it[0])}
+    by_reference = snp_diff_data.map{tuple(it[1],it[2])}
+    .groupTuple(by:0)
+    .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
+    | runSnpPipeline
 
-    // Get reference isolate
-    ref_path = refChooser(reversed_query.collect{it[0]},n_ref).splitCsv().collect().flatten().collate(1).map{tuple(it[0],null)}
-    
-    reference_data = ref_path
-    .join(reversed_query, by:0)
-    .map{tuple(it[2],it[0])}
-    .collect().flatten().collate(2)
+    by_reference.subscribe{println("$it")}
+
+
 }
 
-process refChooser{
-    
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
+process runSnpPipeline{
 
     input:
-    val(assembly_paths)
-    val(n_ref)
+    tuple val(reference_id),val(diff_files)
 
     output:
     stdout
 
     script:
 
-    head_count = n_ref + 1
-
+    out_dir = file(output_directory+"/SNP_${reference_id}")
+    out_assembly = file(out_dir+"/SNPDiffs.txt")
+    
     """
-    $params.load_refchooser_module
-    cd $assembly_directory
-
-    echo "${assembly_paths.join('\n')}" > $assembly_file
-    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
-
-    column_data=\$(head -$head_count refchooser_results.txt | tail -$n_ref | cut -f7)
-    head -$head_count refchooser_results.txt | tail -$n_ref | cut -f2,3,6,7,8 | grep -v Mean_Distance > refchooser.tsv
-    if [[ \$(wc -l <<< "\$column_data") -gt 1 ]]; then
-        echo "\$column_data" | paste -sd ',' -
-    else
-        echo -n "\$column_data"
-    fi
+    $params.load_python_module
+    $params.load_bedtools_module
+    mkdir ${out_dir}
+    cd ${out_dir}
+    echo "${diff_files.join('\n')}" > $out_assembly
+    python ${runSNP} "${reference_id}" "${out_assembly}" "${output_directory}"
     """
 }
+
+process screenSNPDiffs{
+
+    input:
+    val(snp_diffs)
+
+    script:
+    
+    """
+    $params.load_python_module
+    echo "${snp_diffs.join('\n')}" > $snp_diffs_file
+    python ${screenDiffs} "${snp_diffs_file}" "${output_directory}"
+    """
+}
+

@@ -46,6 +46,9 @@ process saveIsolateLog{
     input:
     val(isolate_data)
 
+    output:
+    val(isolate_data)
+
     script:
     """
     echo "Isolate_ID\tAssembly\tContig_Count\tAssembly_Length\tSHA256" > "${isolate_file}"

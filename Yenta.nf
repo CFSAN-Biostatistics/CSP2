@@ -1,6 +1,8 @@
 #! /usr/bin/env nextflow
 nextflow.enable.dsl=2
 
+//test2
+
 // Main script for running Yenta
 // Params are read in from command line or from nextflow.config
 
@@ -64,105 +66,37 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
 include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {saveIsolateLog} from "./subworkflows/logging/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
-//include {runRefChooser} from "./subworkflows/refchooser/main.nf"
+include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
+include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
     
     // Read in data
     input_data = fetchData()
-    
-    // All relevant tasks for 'assemble' run mode are completed during data fetching
-    if(run_mode != "assemble"){
 
-        // Get query and reference data if provided
-        query_data = input_data.query_data
-        reference_data = input_data.reference_data
-    
-        if(run_mode == "align"){
-            
-            // Ensure there is query and reference data
-            if(ensureQuery(query_data.collect().ifEmpty("No_Data")) && ensureReference(reference_data.collect().ifEmpty("No_Data"))){     
-                
-                mummer_results = alignGenomes(query_data,reference_data) // Align all queries against each reference and generate snpdiffs
-                mummer_results.map{it -> it.join("\t")}.collect() | saveIsolateLog // Save isolate data
+    // If run mode is 'assemble', tasks are complete
+    if(run_mode != "assemble"){        
+         if(run_mode == "align"){
+            input_data.query_data.combine(input_data.reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
+        } else{
+            if(params.ref_reads == "" && params.ref_fasta == ""){ 
+                if(params.snpdiffs == ""){
+                    reference_data = runRefChooser(input_data.query_data)
+                    mummer_results = input_data.query_data.combine(reference_data) | alignGenomes
+                }else{
+                    mummer_results = Channel.empty()
+                }   
+            } else{
+                reference_data = input_data.reference_data
+                mummer_results = input_data.query_data.combine(reference_data) | alignGenomes
             }
-        } 
-        
-        else{
-            
-            // Fetch snpdiffs input if provided
-            snpdiffs_data = input_data.snpdiffs_data
 
             if(run_mode == "screen"){
-                print("screen")
-            } else if(run_mode == "snp"){
-                print("snp")
+                input_data.snpdiffs_data.concat(mummer_results) | runScreen
             }
-        
-        
+            else if(run_mode == "snp"){
+                input_data.snpdiffs_data.concat(mummer_results) | runSNPPipeline
+            }
         } 
     }
 }
-
-// Counting + Checks //
-process ensureQuery {
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    input:
-    val(tupleData)
-
-    output:
-    stdout
-
-    script:
-    """
-    if [ \$(echo "${tupleData.join('\n')}" | wc -l) -eq 1 ] && [ "\$(echo "${tupleData}" | grep -c 'No_Data')" -eq 1 ]; then
-        exit 1
-    fi
-    """
-}
-process ensureReference {
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-
-    input:
-    val(tupleData)
-
-    output:
-    stdout
-
-    script:
-    """
-    if [ \$(echo "${tupleData.join('\n')}" | wc -l) -eq 1 ] && [ "\$(echo "${tupleData}" | grep -c 'No_Data')" -eq 1 ]; then
-        exit 1
-    fi
-    """
-}
-
-
-"""
-
-
-
-}
-
-    ////// Read in sample data ///////
-    sample_data = fetchSampleData()
-     
-    ////// Check run mode //////
-    if(params.ref_reads != "" || params.ref_fasta != ""){   // If --ref_reads/--ref_fasta are set, run in reference screener mode
-        reference_data = fetchReferenceData(params.ref_reads,params.ref_fasta)
-        runScreen(sample_data,reference_data)
-    } else{ // SNP Pipeline mode
-        
-        if(params.snp_ref_reads != "" || params.snp_ref_fasta != ""){    // If --snp_ref_reads/--snp_ref_fasta are set, fetch user-selected references
-            reference_data = fetchReferenceData(params.snp_ref_reads,params.snp_ref_fasta)} 
-        else{ // Get reference from RefChooser
-            reference_data = runRefChooser(sample_data)}
-
-        runSnpPipeline(sample_data,reference_data)
-    }
-"""
