@@ -27,11 +27,6 @@ def makeBED(bed_df):
         sys.exit("bed_df should have 2 or 3 columns")
     return bed_file
 
-    bed_df.columns = ['Ref_Contig','Ref_Start','Ref_End']
-    bed_df['Ref_Start'] = bed_df['Ref_Start'] - 1
-    bed_file = BedTool.from_dataframe(bed_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
-    return bed_file
-
 def parseMUmmerReport(mum_report_dir,report_id):
     report_data = []
     with open(mum_report_dir+"/"+report_id+".report", 'r') as report_file:
@@ -75,12 +70,12 @@ def parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len):
     'Query_Cov','Ref_Contig','Query_Contig'])
     
     bad_coords_file = coords_file[(coords_file.Ref_Aligned < min_len) | (coords_file.Perc_Iden < min_iden)]
-    coords_file = coords_file[(coords_file.Ref_Aligned >= min_len) & (coords_file.Perc_Iden >= min_iden)]
-
+    good_coords_file = coords_file[(coords_file.Ref_Aligned >= min_len) & (coords_file.Perc_Iden >= min_iden)]
+    
     # Fix start coordinates and create a BED file
-    if coords_file.shape[0] > 0:
-        coords_file['Ref_Start'] = (coords_file['Ref_Start'].astype(int) - 1)
-        coords_file['Query_Start'] = (coords_file['Query_Start'].astype(int) - 1)
+    if good_coords_file.shape[0] > 0:
+        good_coords_file['Ref_Start'] = (good_coords_file['Ref_Start'].astype(int) - 1)
+        good_coords_file['Query_Start'] = (good_coords_file['Query_Start'].astype(int) - 1)
         ref_bed = BedTool.from_dataframe(coords_file[['Ref_Contig','Ref_Start','Ref_End']]).sort().merge()
     else:
         ref_bed = BedTool([])
@@ -90,7 +85,7 @@ def parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len):
         bad_coords_file['Ref_Start'] = (bad_coords_file['Ref_Start'].astype(int) - 1)
         bad_coords_file['Query_Start'] = (bad_coords_file['Query_Start'].astype(int) - 1)
 
-    return [coords_file[return_columns],bad_coords_file[return_columns],ref_bed]
+    return [good_coords_file[return_columns],bad_coords_file[return_columns],ref_bed]
     
 def parseMUmmerSNPs(mum_snps_dir,report_id):
 
@@ -128,7 +123,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
     snps_fail_idenlen = bad_snp_coords[~bad_snp_coords.isnull().any(1)]
     snps_fail_idenlen = snps_fail_idenlen[snps_fail_idenlen.apply(lambda x: x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End'], axis=1)]
     snps_fail_idenlen['Cat'] = "Purged_Alignment"
-
+    
     # Process duplicate locs from bad coords
     loc_tally = snps_fail_idenlen['Ref_Loc'].value_counts()
     solo_locs = loc_tally[loc_tally == 1].index.tolist()
@@ -211,7 +206,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
                     # Add worse matches to fail list
                     lower_df = sorted_df.tail(dup_snp_count - 1)
                     lower_df['Cat'] = "Purged_Dup" 
-                    snps_fail_dup = snps_fail_dup.append(purged_dup_df).reset_index(drop=True)
+                    snps_fail_dup = snps_fail_dup.append(lower_df).reset_index(drop=True)
                 
                 # If there are different SNPs:
                 else:
@@ -289,31 +284,38 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
             if snps_pass_edge.shape[0] > 0:
                 snps_pass_edge['Cat'] = "SNP"
                 processed_snps = processed_snps.append(snps_pass_edge).reset_index(drop=True)
+    
+    # Check for identical SNPs that are present in bad and good alignments and merge if all identical
+    passed_alignment = processed_snps[processed_snps['Cat'] != "Purged_Alignment"]
+    key_columns = ['Ref_Loc', 'Query_Loc', 'Ref_Base', 'Query_Base']
+    rows_to_add = dup_fail_idenlen.merge(passed_alignment[key_columns], on=key_columns, how='left', indicator=True).query('_merge == "left_only"').drop('_merge', axis=1)
+    processed_snps = pd.concat([passed_alignment, rows_to_add], ignore_index=True)
 
-    assert (processed_snps[processed_snps['Cat'] == "Unchecked"].shape[0] == 0) & (processed_snps.shape[0] == raw_snp_count)
+    assert processed_snps[processed_snps['Cat'] == "Unchecked"].shape[0] == 0
+    assert processed_snps.shape[0] == raw_snp_count
     return processed_snps
 
 def density_filter(locs,density_windows,max_snps):
 
-    if len(density_windows) == 0:
-        return []
-    elif len(density_windows) != len(max_snps):
+    density_locs = []
+    if len(density_windows) != len(max_snps):
         sys.exit("density_windows must be the same length as max_snps")
-    elif len(locs) == 0:
-        return []
-    else:
+
+    elif len(density_windows) > 0 and len(locs) > 0:
         density_df = pd.DataFrame([item.split('/') for item in locs], columns=['Ref_Contig','Ref_End'])
-        density_df['Ref_Loc'] = locs
+        if density_df.shape[0] > 0:
+            density_df['Ref_Loc'] = locs
+            density_bed = makeBED(density_df[['Ref_Contig','Ref_End']])
         
-        density_locs = []
-        density_bed = makeBED(density_df[['Ref_Contig','Ref_End']])
-        
-        for i in range(0,len(density_windows)):
-            window_bed = density_bed.window(density_bed,c=True, w=density_windows[i]).to_dataframe()
-            window_df = window_bed[window_bed['name'] > max_snps[i]]
-            if window_df.shape[0] > 0:
-                density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
-                density_bed = makeBED(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_End']])
+            if len(density_bed):
+                for i in range(0,len(density_windows)):
+                    window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
+                    if len(window_bed) > 0:
+                        window_df = window_bed.to_dataframe()
+                        window_df = window_df[window_df['name'] > max_snps[i]]
+                        if window_df.shape[0] > 0:
+                            density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
+                            density_bed = makeBED(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_End']])
     
     return density_locs
 
@@ -500,19 +502,17 @@ if len(merged_ref_bed) > 0:
     bed_df = merged_ref_bed.to_dataframe()
     with open(snpdiffs_file,"a") as file:
         for index, row in bed_df.iterrows():
-            file.write("##\t" + "\t".join([query,reference]) + "\t" + "\t".join(map(str, row))+"\n")
+            file.write("##\t" + "\t".join(map(str, row))+"\n")
 
 if str(reject_snps_alignment_count) != "NA":
         het_snps = filtered_snps[filtered_snps['Ref_Aligned'] == "Multiple"]
         non_het_snps = filtered_snps[filtered_snps['Ref_Aligned'] != "Multiple"]
         non_het_snps['Ref_Aligned'] = non_het_snps['Ref_Aligned'].apply(lambda x: f'{x:.0f}')
         filtered_snps = non_het_snps.append(het_snps)
-        filtered_snps['Query'] = query
-        filtered_snps['Reference'] = reference
-        filtered_snps[["Query","Reference","Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
+        filtered_snps[["Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
 
 if run_mode == "align":
     print(",".join([str(x) for x in query_data]))
     print(",".join([str(x) for x in reference_data]))
 else:
-    print(",".join([query_data,reference,snpdiffs_file]))
+    print(",".join([query,reference,snpdiffs_file]))

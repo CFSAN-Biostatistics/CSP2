@@ -146,6 +146,7 @@ workflow getAssemblies{
             error "$fasta_dir is not a valid directory or file..."
         }
         fasta_data = ch_fasta
+        .filter { file(it).exists() }
         .map { filePath ->
             def fileName = file(filePath).getBaseName()
             def sampleName = fileName.replaceAll(trim_this, "")

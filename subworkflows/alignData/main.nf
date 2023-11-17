@@ -16,7 +16,6 @@ mum_snps_directory = file("${mummer_directory}/snps")
 
 // Set path to accessory scripts
 mummerScript = file("$projectDir/bin/filterMUmmer.py")
-snpScript = file("$projectDir/bin/refSNPs.py")
 
 // Set up modules if needed
 params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
@@ -51,6 +50,8 @@ min_iden = params.min_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 
+include {saveIsolateLog} from "../logging/main.nf"
+
 workflow alignGenomes{
     take:
     combined_data
@@ -69,12 +70,12 @@ workflow alignGenomes{
     } 
 
     sample_pairwise = combined_data
-    .filter{"${it[0]}" != "${it[3]}"} // Don't map things to themselves
+    .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
     | runMUMmer | splitCsv
     
-    // If just aligning, return unique isolate data for the log
+    // If just aligning, save the log
     if(run_mode == "align"){
-        return_mummer = sample_pairwise.collect().flatten().collate(5).unique{it[0]} 
+        return_mummer = sample_pairwise.collect().flatten().collate(5).unique{it[0]}.map{it -> it.join("\t")}.collect() | saveIsolateLog // Save isolate data
     } 
     
     // For SNP/screen, return the query ID,reference ID, and snpdiffs file
