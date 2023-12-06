@@ -306,7 +306,7 @@ process skesaAssemble{
         cpus = "${params.cores}".toInteger()
     }
     
-    memory '6 GB'
+    memory '12 GB'
 
     input:
     tuple val(sample_name),val(read_type),val(read_location)

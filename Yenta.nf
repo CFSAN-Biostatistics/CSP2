@@ -1,8 +1,6 @@
 #! /usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-//test2
-
 // Main script for running Yenta
 // Params are read in from command line or from nextflow.config
 
@@ -16,7 +14,7 @@ if (params.runmode == "") {
         error "No query data provided via --reads/--fasta/--snpdiffs" // Exit if no data is provided
     } else if (params.ref_fasta == "" && params.ref_reads == ""){
         run_mode = "snp" // If query data is provided without reference data, run the SNP pipeline with RefChooser
-    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta == "")){
+    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta != "")){
         run_mode = "screen" // If query and reference data are provided, perform MUMmer alignment and generate a summary
     } else if((params.fasta == "" && params.reads == "") && (params.ref_fasta != "" || params.ref_reads != "")){
         error "Reference data provided via --ref_reads/--ref_fasta, but no query data provided by --reads/--fasta/--snpdiffs" // Exit if no query data is provided
