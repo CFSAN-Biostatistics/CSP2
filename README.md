@@ -22,7 +22,7 @@ Given a set of reference isolates provided by the user, screen query assemblies 
    4) Provide a report with alignment overlap statistics and SNP distances for each query/reference combination. 
 
 #### 2) "SNP Pipeline Mode" (--runmode snp)
-Generate the pairwise SNP distances for a cluster of isolates using either user-provided references or reference isolates automatically identified by RefChooser. 
+Generate the pairwise SNP distances and alignments for a cluster of isolates using either user-provided references or reference isolates automatically identified by RefChooser. 
 
 **Note:** Testing is underway to determine how the underlying cluster diversity impacts distances estimates. Current comparisons are based on SNP clusters with densities in the 0 ~ 100 SNP range.  
 
