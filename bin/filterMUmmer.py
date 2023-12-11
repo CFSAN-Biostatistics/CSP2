@@ -380,10 +380,10 @@ merged_ref_bed = BedTool([])
 #### 02: Read in MUmmer report data ####
 [ref_bases,percent_ref_aligned,query_bases,percent_query_aligned] = parseMUmmerReport(mum_report_dir,report_id)
 
-if (percent_ref_aligned < min_cov) | (percent_query_aligned < min_cov):
+if percent_ref_aligned < min_cov:
     sample_category = "Purged_Min_Coverage"
-    percent_ref_aligned_filtered = "NA"
-    percent_query_aligned_filtered = "NA"
+    percent_ref_aligned_filtered = percent_ref_aligned
+    percent_query_aligned_filtered = percent_query_aligned
     median_percent_identity = "NA"
     final_snp_count = "NA"
     median_snp_perc_iden = "NA"
@@ -402,8 +402,8 @@ else:
     # STOP if the coordinates file is empty after filtering based on <perc_iden>
     if coords_file.shape[0] == 0:
         sample_category = "Purged_Filter_Coverage"
-        percent_ref_aligned_filtered = "NA"
-        percent_query_aligned_filtered = "NA"
+        percent_ref_aligned_filtered = percent_ref_aligned
+        percent_query_aligned_filtered = percent_query_aligned
         median_percent_identity = "NA"
         final_snp_count = "NA"
         median_snp_perc_iden = "NA"
@@ -423,9 +423,8 @@ else:
         percent_ref_aligned_filtered = 100*(filtered_ref_covered/ref_bases)
         percent_query_aligned_filtered = 100*(filtered_ref_covered/query_bases)
         
-        # STOP if the reference or query is not covered by at least <min_cov>
-        if (percent_ref_aligned_filtered < min_cov) & (percent_query_aligned_filtered < min_cov):
-
+        # STOP if the reference is not covered by at least <min_cov>
+        if percent_ref_aligned_filtered < min_cov:
             percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
             percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"
             sample_category = "Purged_Filter_Coverage"
@@ -457,13 +456,13 @@ else:
                 median_snp_perc_iden = "NA"
                 final_snp_count = 0
                 median_snp_perc_iden = "NA"
-                reject_snps_alignment_count = "NA"
-                reject_snps_n_count = "NA"
-                reject_snps_indel_count = "NA"
-                reject_snps_dup_count = "NA"
-                reject_snps_het_count = "NA"
-                reject_snps_density_count = "NA"
-                reject_snps_edge_count = "NA"
+                reject_snps_alignment_count = 0
+                reject_snps_n_count = 0
+                reject_snps_indel_count = 0
+                reject_snps_dup_count = 0
+                reject_snps_het_count = 0
+                reject_snps_density_count = 0
+                reject_snps_edge_count = 0
             
             else:
 

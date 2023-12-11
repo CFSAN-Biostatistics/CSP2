@@ -62,7 +62,7 @@ The following software are required to run CSP2. Software version used during CS
 CSP2 can be installed by cloning the GitHub repo.  
 
 ```
-git clone https://github.com/CFSAN-Biostatistics/Yenta.git
+git clone https://github.com/CFSAN-Biostatistics/CSP2.git
 ```
 ---
 ## Tips for configuring CSP2  
@@ -241,15 +241,15 @@ profiles {
 
 
 ## Example Runs
-Here are a few examples of how you can run Yenta:  
+Here are a few examples of how you can run CSP2:  
 
 ```
 module load nextflow
-git clone https://github.com/CFSAN-Biostatistics/Yenta.git
-cd Yenta
+git clone https://github.com/CFSAN-Biostatistics/CSP2.git
+cd CSP2
 
 # Assemble reads for queries and compare to single reference fasta using 20 CPUs, output to ./Tiny_Test
-nextflow run Yenta.nf                           // Run Yenta  
+nextflow run CSP2.nf                           // Run CSP2  
 --reads assets/test_reads                       // Use all reads from this folder  
 --readtype srazip                               // Reads are zipped SRA (_1/2.fastq.gz)  
 --ref_fasta assets/test_ref/SRR10831135.fasta   // Compare query to single reference  
@@ -257,7 +257,7 @@ nextflow run Yenta.nf                           // Run Yenta
 --out Tiny_Test                                 // Save to ./Tiny_Test  
 
 # Compare assembled queries to multiple references fasta using 20 CPUs, output to ./Tiny_Test_2, use specific python module
-nextflow run Yenta.nf                           // Run Yenta  
+nextflow run CSP2.nf                           // Run CSP2  
 --fasta assets/test_fasta                       // Use all assemblies from this folder  
 --ref_fasta assets/test_ref                     // Compare queries to this assembled reference and...  
 --ref_reads assets/test_ref                     // Assemble and use this reference too  
@@ -267,7 +267,7 @@ nextflow run Yenta.nf                           // Run Yenta
 --python_module python/3.8.1                    // run 'module load python/3.8.1' in scripts using Python 
 
 # Adjust filtering criteria  
-nextflow run Yenta.nf                           // Run Yenta  
+nextflow run CSP2.nf                           // Run CSP2  
 --reads assets/test_reads                       // Use all reads from this folder  
 --readtype srazip                               // Reads are zipped SRA (_1/2.fastq.gz)  
 --ref_fasta assets/test_ref/SRR10831135.fasta   // Compare query to single reference  
@@ -281,7 +281,7 @@ nextflow run Yenta.nf                           // Run Yenta
 
 ---
 ## Output
-Yenta outputs basic information about reference and query isolates (contig counts, base counts, data location), as well as detailed alignment and SNP information about each query/reference pair. For example, this is the output from the top command above.  
+CSP2 outputs basic information about reference and query isolates (contig counts, base counts, data location), as well as detailed alignment and SNP information about each query/reference pair. For example, this is the output from the top command above.  
 
 ### /your/out/dir/Sample_Data.tsv
 | Sample_ID  | Data_Type | Read_Data                                                                                                                                                                                                             | Assembly_Data                                                                                                        | Assembly_Contigs | Assembly_Bases |
@@ -294,7 +294,7 @@ Yenta outputs basic information about reference and query isolates (contig count
 | SRR10831135  | Assembly  | NA        | assets/test_ref/SRR10831135.fasta | 47               | 2914526        |
 
 ### /your/out/dir/Screening_Results/MUmmer_DNADiff_Results.tsv
-| Sample_ID  | Reference_ID | Percent_Reference_Covered | Percent_Query_Covered | Category | Yenta_SNPs | gSNPs | Filtered_Identity | Filtered_Edge | Filtered_Duplicated | Rejected_Density_1000 | Rejected_Density_125 | Rejected_Density_15 |
+| Sample_ID  | Reference_ID | Percent_Reference_Covered | Percent_Query_Covered | Category | CSP2_SNPs | gSNPs | Filtered_Identity | Filtered_Edge | Filtered_Duplicated | Rejected_Density_1000 | Rejected_Density_125 | Rejected_Density_15 |
 |------------|--------------|---------------------------|-----------------------|----------|------------|-------|-------------------|---------------|---------------------|-----------------------|----------------------|---------------------|
 | SRR1849356 | SRR10831135  | 99.78137096735455         | 99.91287292261528     | PASS     | 3          | 1     | 1                 | 0             | 0                   | 0                     | 0                    | 0                   |
 
