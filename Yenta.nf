@@ -81,21 +81,21 @@ workflow{
         } else{
             if(params.ref_reads == "" && params.ref_fasta == ""){ 
                 if(params.snpdiffs == ""){
-                    reference_data = runRefChooser(input_data.query_data)
-                    mummer_results = input_data.query_data.combine(reference_data) | alignGenomes
+                    reference_data = runRefChooser(input_data.query_data) // Run RefChooser to generate references if none provided
+                    mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
                 }else{
-                    mummer_results = Channel.empty()
+                    mummer_results = Channel.empty() // If snpdiffs are provided without other references, skip alignment
                 }   
             } else{
                 reference_data = input_data.reference_data
-                mummer_results = input_data.query_data.combine(reference_data) | alignGenomes
+                mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
             }
 
             if(run_mode == "screen"){
-                input_data.snpdiffs_data.concat(mummer_results) | runScreen
+                input_data.snpdiffs_data.concat(mummer_results) | runScreen // Compare snpdiffs to generate a summary
             }
             else if(run_mode == "snp"){
-                input_data.snpdiffs_data.concat(mummer_results) | runSNPPipeline
+                input_data.snpdiffs_data.concat(mummer_results) | runSNPPipeline // Generate pairwise SNP distances and alignments against each reference
             }
         } 
     }
