@@ -1,6 +1,8 @@
 #! /usr/bin/env nextflow
 nextflow.enable.dsl=2
 
+// Push test
+
 // Main script for running Yenta
 // Params are read in from command line or from nextflow.config
 
