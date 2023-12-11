@@ -12,7 +12,7 @@ Given a set of reference isolates provided by the user, screen query assemblies 
    *e.g.* Screen incoming NGS results against a database of known lab controls to quickly identify potential contamination. 
 
    ```
-   nextflow run CSP2.nf --runmode screen --ref_fasta /path/to/lab/control/assemblies --query_reads /path/to/sequencing/run/fastq --out contam_check
+   nextflow run CSP2.nf --runmode screen --ref_fasta /path/to/lab/control/assemblies --reads /path/to/sequencing/run/fastq --out contam_check
    ```
 
    This command will:
@@ -29,7 +29,7 @@ Generate the pairwise SNP distances for a cluster of isolates using either user-
    *e.g.* Get the pairwise distances for a group of isolates all found in the same soil sample
 
    ```
-   nextflow run CSP2.nf --runmode snp --query_fasta /path/to/soil/isolate/assemblies
+   nextflow run CSP2.nf --runmode snp --fasta /path/to/soil/isolate/assemblies
    ```
    This command will:
    1) Detect query assemblies
@@ -39,7 +39,7 @@ Generate the pairwise SNP distances for a cluster of isolates using either user-
 
 OR 
    ```
-   nextflow run CSP2.nf --runmode snp --query_fasta /path/to/soil/isolate/assemblies --ref_fasta /path/to/favorite/soil/assembly.fa
+   nextflow run CSP2.nf --runmode snp --fasta /path/to/soil/isolate/assemblies --ref_fasta /path/to/favorite/soil/assembly.fa
    ```
    This command will:
    1) Detect query assemblies
@@ -64,60 +64,21 @@ CSP2 can be installed by cloning the GitHub repo.
 ```
 git clone https://github.com/CFSAN-Biostatistics/Yenta.git
 ```
-
 ---
-## Configuration  
-CSP2 options can be specified on the command line, or through the Nextflow configuration files detailed in the next section.  
+## Tips for configuring CSP2  
+CSP2 options can be specified on the command line, or through the Nextflow configuration files detailed in the next section. Feel free to skip this section if you're familiar with editing Nextflow configuration files.  
 
-**Options with defaults include**:  
-| Parameter    | Description                                                                                                               | Default                                   |
-|--------------|---------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| cores        | CPUs per node                                                                                                             | 1                                         |
-| align_cov    | Only consider queries where either the query or reference genome are covered by at least <align_cov>%                     | 85                                        |
-| ref_iden     | Only consider SNPs from contig alignments with <ref_iden>% identity                                                       | 99                                        |
-| ref_edge     | Remove SNPs that occur within <ref_edge>bp from the end of the reference contig                                           | 500                                       |
-| query_edge   | Remove SNPs that occur within <query_edge>bp from the end of the query contig                                             | 500                                       |
-| outbase      | Root path for output folder (Must exist)                                                                                  | $projectDir (Yenta directory)             |
-| out          | Path to output folder (Must not exist)                                                                                    | YENTA_${new java.util.Date().getTime()}   |
-| forward      | Suffix for forward query reads                                                                                            | _1.fastq.gz                               |
-| ref_forward  | Suffix for forward reference reads                                                                                        | _1.fastq.gz                               |
-| reverse      | Suffix for reverse query reads                                                                                            | _2.fastq.gz                               |
-| ref_reverse  | Suffix for reverse reference reads                                                                                        | _2.fastq.gz                               |
-| readext      | Extension for query reads                                                                                                 | fastq.gz                                  |
-| ref_readext  | Extension for reference reads                                                                                             | fastq.gz                                  |
-| readtype     | Query read naming convention. Options include srazip (_1/2.fastq.gz), illumina (_R1/2_001.fastq.gz), sra (_1/2.fastq)     | srazip                                    |
-| ref_readtype | Reference read naming convention. Options include srazip (_1/2.fastq.gz), illumina (_R1/2_001.fastq.gz), sra (_1/2.fastq) | srazip                                    |
-
-
-**Options without defaults include**:  
-| Parameter       | Description                                                                                                       | Default |
-|-----------------|-------------------------------------------------------------------------------------------------------------------|---------|
-| reads           | Location of query read data (Path to directory, or path to file with multiple directories)                        | USER    |
-| fasta           | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)     | USER    |
-| ref_reads       | Location of reference read data (Path to directory, or path to file with multiple directories)                    | USER    |
-| ref_fasta       | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs) | USER    |
-| python_module   | Name of Python module if 'module load PYTHON' statement is required.                                                      | USER    |
-| mummer_module   | Name of MUmmer module if 'module load MUMMER' statement is required.                                                      | USER    |
-| skesa_module    | Name of SKESA module if 'module load SKESA' statement is required.                                                        | USER    |
-| bedtools_module | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                                  | USER    |
-
----
-
-## Tips for configuring Nextflow  
-
-Feel free to skip this section if you're familiar with editing Nextflow configuration files.  
-
-There are two main configuration files associated wtih Yenta:  
+There are two main configuration files associated with CSP2:  
 - [nextflow.config](nextflow.config)  
 - [profiles.config](conf/profiles.config)
-- Any options set in either of these files are overruled by options set on the command line  
+- **Note:** Any options set in either of these files are overruled by options set on the command line  
 
-The [nextflow.config](nextflow.config) file shown below can be edited to include 'hard-set' parameters you want to be used for every Yenta run.   
+The [nextflow.config](nextflow.config) file shown below can be edited to include 'hard-set' parameters you want to be used for every CSP2 run.   
 
 ```
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    YENTA Nextflow config file
+    CSP2 Nextflow config file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Default config options for all compute environments
 ----------------------------------------------------------------------------------------
@@ -128,27 +89,72 @@ includeConfig "${projectDir}/conf/profiles.config"
 
 // Global default params
 params {
+
+    // Setting output directory 
+
+    // Set name for output folder/file prefixes
+    out = "CSP2_${new java.util.Date().getTime()}"
+
+    // Set output parent directory [Default: CWD; Set this to have all output go to the same parent folder, with unique IDs set by --out]
+    outroot = ""
+
     
-    // Output directory [Default: Yenta directory]
-    outbase = "${projectDir}"
+    // CSP2 can run in the following run-modes:
 
-    // QUERY FILTERING
+    // assemble: Assemble read data (--reads/--ref_reads) into FASTA via SKESA (ignores --fasta/--ref_fasta/--snpdiffs)
+    // align: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta), run MUMmer alignment analysis for each query/ref combination (ignores --snpdiffs)
+    // screen: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta) and/or MUMmer output (.snpdiffs), create a report for raw SNP distances between each query and reference assembly
+    // snp: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta) and/or MUMmer output (.snpdiffs), generate alignments and pairwise distances for all queries based on each reference dataset
+    
+    runmode = ""
 
-    // Only consider queries where either the query or reference genome are covered by at least <align_cov>% [Default: 85]
-    align_cov = 85
+    // Location for isolate sequence data
+    reads = ""
+    fasta = ""
 
-    // CONTIG FILTERING
+    // Location for reference sequence data
+    ref_reads = ""
+    ref_fasta = ""
 
-    // Only consider SNPs from contig alignments with <ref_iden>% identity [Default: 99]
-    ref_iden = 99
+    // Location for snpdiffs files
+    snpdiffs = ""
+    
+    // Read read_info
+    readext = "fastq.gz"
+    forward = "_1.fastq.gz"
+    reverse = "_2.fastq.gz"
 
-    // SNP FILTERING
+    ref_readext = "fastq.gz"
+    ref_forward = "_1.fastq.gz"
+    ref_reverse = "_2.fastq.gz"
 
-    // Remove SNPs that occur within <ref_edge>bp from the end of the reference contig [Default: 500]
-    ref_edge = 500
+    // Analytical variables
 
-    // Remove SNPs that occur within <query_edge>bp from the end of the query contig [Default: 500]
-    query_edge = 500
+    // Only consider queries if the reference genome is covered by at least <min_cov>% [Default: 85]
+    min_cov = 85
+
+    // Only consider SNPs from contig alignments longer than <min_len> bp [Default: 500]
+    min_len = 500
+
+    // Only consider SNPs from contig alignments with <min_iden>% identity [Default: 99]
+    min_iden = 99
+
+    // Remove SNPs that occur within <ref_edge>bp from the end of the reference contig [Default: 250]
+    ref_edge = 250
+
+    // Remove SNPs that occur within <query_edge>bp from the end of the query contig [Default: 250]
+    query_edge = 250
+
+    // SNP density filters: Given density windows provided by dwin, purge windows where more than the allowable window SNPs (wsnps) are found
+    // Default: 3 max per 1000bp, 2 max per 125bp, 1 max per 15bp, filtered from biggest window to smallest
+    dwin = "1000,125,15"
+    wsnps = "3,2,1"
+
+    // If running refchooser in snp mode, compare queries to the top X references [Default: 1]
+    n_ref = 1
+
+    // If the assembly file contains the string <trim_name>, remove it from the sample name (e.g. '_contigs_skesa')
+    trim_name = '""'
 }
 ```
 
@@ -195,6 +201,44 @@ profiles {
 }
 ```
 ---
+
+
+**Options with defaults include**:  
+| Parameter     | Description                                                                                                | Default Value                          |
+|---------------|------------------------------------------------------------------------------------------------------------|----------------------------------------|
+| --outroot         | Base directory to create output folder                                                       | $CWD |
+| --out         | Name of the output folder to create (must not exist)                                                       | CSP2_${new java.util.Date().getTime()} |
+| --forward     | Full file extension for forward/left reads of query                                                        | _1.fastq.gz                            |
+| --reverse     | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                            |
+| --ref_forward | Full file extension for forward/left reads of reference                                                    | _1.fastq.gz                            |
+| --ref_reverse | Full file extension for reverse/right reads of reference                                                       | _2.fastq.gz                            |
+| --readext     | Extension for single-end reads for query                                                                   | fastq.gz                               |
+| --ref_readext | Extension for single-end reads for reference                                                               | fastq.gz                               |
+| --min_cov     | Do not analyze queries that cover less than <min_cov>% of the reference assembly                           | 85                                     |
+| --min_iden    | Only consider alignments where the percent identity is at least <min_iden>%                                | 99                                     |
+| --min_len     | Only consider alignments that span at least <min_len>bp                                                    | 500                                    |
+| --dwin        | A comma-separated list of windows to check SNP densities                                                   | 1000,125,15                            |
+| --wsnps       | The maximum number of SNPs allowed in the corresponding window from --dwin                                 | 3,2,1                                  |
+| --query_edge  | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 250                                    |
+| --ref_edge    | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 250                                    |
+| --n_ref       | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                      |
+
+**Options without defaults include**:  
+| Parameter           | Description                                                                                                       |
+|---------------------|-------------------------------------------------------------------------------------------------------------------|
+| --reads             | Location of query read data (Path to directory, or path to file with multiple directories)                        |
+| --fasta             | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)     |
+| --ref_reads         | Location of reference read data (Path to directory, or path to file with multiple directories)                    |
+| --ref_fasta         | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs) |
+| --python_module     | Name of Python module if 'module load PYTHON' statement is required.                                              |
+| --mummer_module     | Name of MUmmer module if 'module load MUMMER' statement is required.                                              |
+| --skesa_module      | Name of SKESA module if 'module load SKESA' statement is required.                                                |
+| --refchooser_module | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                      |
+| --bedtools_module   | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                          |
+| --trim_name         | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                    |
+
+---
+
 
 ## Example Runs
 Here are a few examples of how you can run Yenta:  
