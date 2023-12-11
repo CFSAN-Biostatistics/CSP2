@@ -499,7 +499,6 @@ pairwise_records = [{'Comparison': key, 'Cocalled_Sites': loc[0], 'SNP_Differenc
 
 
 pairwise_df = pd.DataFrame(pairwise_records)
-print(pairwise_df)
 pairwise_df[['Query_1', 'Query_2']] = pairwise_df['Comparison'].str.split(';', 1, expand=True)
 pairwise_df[['Query_1','Query_2','SNP_Differences','Cocalled_Sites']].to_csv(ref_directory+"/distance_pairwise.tsv",sep="\t",index=False)
 
