@@ -375,7 +375,6 @@ run_mode = str(sys.argv[13])
 
 # Create QC String
 qc_string = "_".join([str(x) for x in [min_cov,min_iden,min_len,ref_edge,query_edge,qc_density,qc_maxsnps]]) 
-merged_ref_bed = BedTool([])
 
 #### 02: Read in MUmmer report data ####
 [ref_bases,percent_ref_aligned,query_bases,percent_query_aligned] = parseMUmmerReport(mum_report_dir,report_id)
@@ -497,18 +496,22 @@ snpdiffs_header.append("#\t" + "\t".join(query_string) + "\t" + "\t".join(refere
 with open(snpdiffs_file,"w") as file:
     file.write("\n".join(snpdiffs_header) + "\n")
 
-if len(merged_ref_bed) > 0:
+try:
     bed_df = merged_ref_bed.to_dataframe()
     with open(snpdiffs_file,"a") as file:
         for index, row in bed_df.iterrows():
             file.write("##\t" + "\t".join(map(str, row))+"\n")
+except:
+    pass
 
-if str(reject_snps_alignment_count) != "NA":
-        het_snps = filtered_snps[filtered_snps['Ref_Aligned'] == "Multiple"]
-        non_het_snps = filtered_snps[filtered_snps['Ref_Aligned'] != "Multiple"]
-        non_het_snps['Ref_Aligned'] = non_het_snps['Ref_Aligned'].apply(lambda x: f'{x:.0f}')
-        filtered_snps = non_het_snps.append(het_snps)
-        filtered_snps[["Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
+try:
+    het_snps = filtered_snps[filtered_snps['Ref_Aligned'] == "Multiple"]
+    non_het_snps = filtered_snps[filtered_snps['Ref_Aligned'] != "Multiple"]
+    non_het_snps['Ref_Aligned'] = non_het_snps['Ref_Aligned'].apply(lambda x: f'{x:.0f}')
+    filtered_snps = non_het_snps.append(het_snps)
+    filtered_snps[["Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
+except:
+    pass
 
 if run_mode == "align":
     print(",".join([str(x) for x in query_data]))

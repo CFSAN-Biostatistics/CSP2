@@ -57,10 +57,6 @@ workflow runSNPPipeline{
     .groupTuple(by:0)
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | runSnpPipeline
-
-    by_reference.subscribe{println("$it")}
-
-
 }
 
 process runSnpPipeline{
