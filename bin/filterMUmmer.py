@@ -404,6 +404,9 @@ else:
     
     if raw_snp_count > 500:
         sample_category = "Purged_Filter_SNP_Count"
+        percent_ref_aligned_filtered = percent_ref_aligned
+        percent_query_aligned_filtered = percent_query_aligned
+        median_percent_identity = "NA"
         final_snp_count = "NA"
         median_snp_perc_iden = "NA"
         reject_snps_alignment_count = "NA"

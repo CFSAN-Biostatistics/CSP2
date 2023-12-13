@@ -22,47 +22,63 @@ warnings.filterwarnings("ignore")
 
 def getPairwise(compare_id):
     
-    query_1 = base_df.loc[compare_id.split(";")[0]]
-    if isinstance(query_1, pd.Series):
-        query_1_df = query_1.to_frame().T
-        query_1_df.index.name = 'Query_ID'
-    else:
-        query_1_df = query_1
-        
-    query_2 = base_df.loc[compare_id.split(";")[1]]
-    if isinstance(query_2, pd.Series):
-        query_2_df = query_2.to_frame().T
-        query_2_df.index.name = 'Query_ID'
-    else:
-        query_2_df = query_2
-
-    joined_df = query_1_df.merge(query_2_df, on='Ref_Loc', how='inner')
-    if joined_df.shape[0] == 0:
+    query_1_id = compare_id.split(";")[0]
+    query_2_id = compare_id.split(";")[1]
+    
+    # Check if query_1_id and query_2_id are in base_df index
+    if not (query_1_id in base_df.index and query_2_id in base_df.index):
         return {compare_id:(0,0)}
+
     else:
-        return {compare_id:(joined_df.shape[0],(joined_df['Base_x'] != joined_df['Base_y']).sum())}
+        query_1 = base_df.loc[query_1_id]
+        if isinstance(query_1, pd.Series):
+            query_1_df = query_1.to_frame().T
+            query_1_df.index.name = 'Query_ID'
+        else:
+            query_1_df = query_1
+            
+        query_2 = base_df.loc[query_2_id]
+        if isinstance(query_2, pd.Series):
+            query_2_df = query_2.to_frame().T
+            query_2_df.index.name = 'Query_ID'
+        else:
+            query_2_df = query_2
+
+        joined_df = query_1_df.merge(query_2_df, on='Ref_Loc', how='inner')
+        if joined_df.shape[0] == 0:
+            return {compare_id:(0,0)}
+        else:
+            return {compare_id:(joined_df.shape[0],(joined_df['Base_x'] != joined_df['Base_y']).sum())}
 
 def getPrunedPairwise(compare_id):
     
-    query_1 = pruned_base_df.loc[compare_id.split(";")[0]]
-    if isinstance(query_1, pd.Series):
-        query_1_df = query_1.to_frame().T
-        query_1_df.index.name = 'Query_ID'
-    else:
-        query_1_df = query_1
-        
-    query_2 = pruned_base_df.loc[compare_id.split(";")[1]]
-    if isinstance(query_2, pd.Series):
-        query_2_df = query_2.to_frame().T
-        query_2_df.index.name = 'Query_ID'
-    else:
-        query_2_df = query_2
-
-    joined_df = pruned_base_df.loc[compare_id.split(";")[0]].merge(pruned_base_df.loc[compare_id.split(";")[1]], on='Ref_Loc', how='inner')
-    if joined_df.shape[0] == 0:
+    query_1_id = compare_id.split(";")[0]
+    query_2_id = compare_id.split(";")[1]
+    
+    # Check if query_1_id and query_2_id are in base_df index
+    if not (query_1_id in pruned_base_df.index and query_2_id in pruned_base_df.index):
         return {compare_id:(0,0)}
+    
     else:
-        return {compare_id:(joined_df.shape[0],(joined_df['Base_x'] != joined_df['Base_y']).sum())}
+        query_1 = pruned_base_df.loc[compare_id.split(";")[0]]
+        if isinstance(query_1, pd.Series):
+            query_1_df = query_1.to_frame().T
+            query_1_df.index.name = 'Query_ID'
+        else:
+            query_1_df = query_1
+            
+        query_2 = pruned_base_df.loc[compare_id.split(";")[1]]
+        if isinstance(query_2, pd.Series):
+            query_2_df = query_2.to_frame().T
+            query_2_df.index.name = 'Query_ID'
+        else:
+            query_2_df = query_2
+
+        joined_df = pruned_base_df.loc[compare_id.split(";")[0]].merge(pruned_base_df.loc[compare_id.split(";")[1]], on='Ref_Loc', how='inner')
+        if joined_df.shape[0] == 0:
+            return {compare_id:(0,0)}
+        else:
+            return {compare_id:(joined_df.shape[0],(joined_df['Base_x'] != joined_df['Base_y']).sum())}
     
 def makeBED(bed_df):
     bed_df = bed_df.copy() 
@@ -537,10 +553,12 @@ with open(log_file,"a+") as log:
 
 start_time = time.time()
 pairwise_combinations = [";".join(sorted(x)) for x in list(combinations(snp_isolates, 2))]
+
 if csp2_count > 0:
     
     if len(pairwise_combinations) == 1:
         pairwise_dict = getPairwise(pairwise_combinations[0])
+    
     else:
         pairwise_dict = dict()
         with concurrent.futures.ProcessPoolExecutor() as executor:
