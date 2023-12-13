@@ -13,12 +13,9 @@ from Bio.Align import MultipleSeqAlignment
 from Bio import AlignIO
 import concurrent.futures
 import time
-from collections import Counter
 import datetime
 from pybedtools import BedTool
 import warnings
-import ast
-import math
 from scipy.spatial.distance import pdist, squareform
 
 warnings.filterwarnings("ignore")
@@ -189,7 +186,7 @@ results = [future.result() for future in concurrent.futures.as_completed(results
 alignment_info_dfs, bed_dfs, snp_dfs = zip(*results)
 
 # Concatenate the DataFrames along a specific axis
-alignment_info = pd.concat(alignment_info_dfs, axis=0)  # Assuming axis=0 for concatenating rows
+alignment_info = pd.concat(alignment_info_dfs, axis=0)
 bed_df = pd.concat(bed_dfs, axis=0)
 snp_df = pd.concat(snp_dfs, axis=0)
 
@@ -222,15 +219,6 @@ if not alignment_info['Query_ID'].nunique() == len(alignment_info['Query_ID']):
 if not alignment_info['QC_String'].nunique() == 1:
     sys.exit("The snpdiffs files provided were generated using different QC parameters")
 
-query_data = alignment_info.drop_duplicates('Query_ID')[['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases','Query_SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned']]
-reference_data = alignment_info.drop_duplicates('Reference_ID')[['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases','Reference_SHA256']]
-reference_data['Category'] = "Reference_Isolate"
-reference_data['Percent_Reference_Aligned'] = "NA"
-reference_data['Percent_Query_Aligned'] = "NA"
-query_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned']
-reference_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned']
-isolate_data = pd.concat([query_data,reference_data]).reset_index(drop=True)
-
 with open(log_file,"a+") as log:
     log.write("Done!\n")
     log.write("\n-------------------------------------------------------\n\n")
@@ -242,9 +230,12 @@ with open(log_file,"a+") as log:
 
 alignments_pass_qc = alignment_info[alignment_info['Category'] == "PASS"]
 alignments_fail_qc = alignment_info[alignment_info['Category'] != "PASS"]
+
 snp_isolates = alignments_pass_qc['Query_ID'].astype(str).tolist()
+
 if not ref_isolate in snp_isolates:
     snp_isolates.append(ref_isolate)
+
 query_isolates = [isolate for isolate in snp_isolates if not isolate == ref_isolate]
 queries_fail_qc = alignments_fail_qc['Query_ID'].astype(str).tolist()
 
@@ -262,6 +253,21 @@ with open(log_file,"a+") as log:
         log.write("\n-------------------------------------------------------\n\n")
 
 ###########################################
+
+query_data = alignment_info.drop_duplicates('Query_ID')[['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases','Query_SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']]
+query_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
+
+reference_data = alignment_info.drop_duplicates('Reference_ID')[['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases','Reference_SHA256']]
+reference_data['Category'] = "Reference_Isolate"
+na_cols = ['Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
+reference_data = reference_data.assign(**{col: pd.NA for col in na_cols})
+reference_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
+
+isolate_data = pd.concat([query_data,reference_data]).reset_index(drop=True)
+int_cols = ['SNP','Ref_Base','Purged_Uncovered','Purged_Alignment','Purged_N','Purged_Indel','Purged_Het','Purged_Density']
+isolate_data[int_cols] = isolate_data[int_cols].applymap(lambda x: f'{x:.0f}' if isinstance(x, (float, int)) and x.is_integer() else x)
+
+isolate_data.to_csv(ref_directory+"/Isolate_Data.tsv",sep="\t",index=False)
 
 with open(log_file,"a+") as log:
     log.write("Step 4: Collecting SNPs from all queries...")
@@ -414,10 +420,6 @@ if csp2_count > 0:
     prune_locs = to_purge['Ref_Loc'].to_list()
     purge_count = to_purge.shape[0]
     query_category_df = all_snp_data.groupby('Query')['Cat'].value_counts().unstack(fill_value=0).reindex(columns=snp_categories, fill_value=0).reset_index().rename(columns={"Query":"Isolate_ID"})
-    isolate_data = pd.merge(isolate_data,query_category_df,on='Isolate_ID',how="left").fillna("NA")
-    int_cols = ['SNP','Ref_Base','Purged_Uncovered','Purged_Alignment','Purged_N','Purged_Indel','Purged_Het','Purged_Density']
-    isolate_data[int_cols] = isolate_data[int_cols].applymap(lambda x: f'{x:.0f}' if isinstance(x, (float, int)) and x.is_integer() else x)
-    isolate_data.to_csv(ref_directory+"/Isolate_Data.tsv",sep="\t",index=False)
 
     with open(log_file,"a+") as log:
         log.write("Done!\n") 
