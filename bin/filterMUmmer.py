@@ -444,45 +444,58 @@ else:
 
             #### 04: Process MUmmer SNPs file ####
 
-            # Sample passed coverage QC
-            sample_category = "PASS"
-
             # Read in SNP file
             snp_file = parseMUmmerSNPs(mum_snps_dir,report_id)
-            
-            # STOP if no SNPs detected
-            if snp_file.shape[0] == 0:
+
+            if snp_file.shape[0] > 200:
+                sample_category = "Purged_Filter_SNP_Count"
+                final_snp_count = "NA"
                 median_snp_perc_iden = "NA"
-                final_snp_count = 0
-                median_snp_perc_iden = "NA"
-                reject_snps_alignment_count = 0
-                reject_snps_n_count = 0
-                reject_snps_indel_count = 0
-                reject_snps_dup_count = 0
-                reject_snps_het_count = 0
-                reject_snps_density_count = 0
-                reject_snps_edge_count = 0
-            
+                reject_snps_alignment_count = "NA"
+                reject_snps_n_count = "NA"
+                reject_snps_indel_count = "NA"
+                reject_snps_dup_count = "NA"
+                reject_snps_het_count = "NA"
+                reject_snps_density_count = "NA"
+                reject_snps_edge_count = "NA"
             else:
+                            
+                # Sample passed coverage QC
+                sample_category = "PASS"
 
-                # Characterize and filter SNPs based on user criteria (perc_iden,query_edge/ref_edge,density)
-                filtered_snps = filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref_edge,query_edge)
-                
-                final_snp_df = filtered_snps[filtered_snps.Cat == "SNP"]
-                final_snp_count = final_snp_df.shape[0]
-
-                if final_snp_count == 0:
+                # STOP if no SNPs detected
+                if snp_file.shape[0] == 0:
                     median_snp_perc_iden = "NA"
-                else:
-                    median_snp_perc_iden = f"{final_snp_df.Perc_Iden.median():.2f}"
+                    final_snp_count = 0
+                    median_snp_perc_iden = "NA"
+                    reject_snps_alignment_count = 0
+                    reject_snps_n_count = 0
+                    reject_snps_indel_count = 0
+                    reject_snps_dup_count = 0
+                    reject_snps_het_count = 0
+                    reject_snps_density_count = 0
+                    reject_snps_edge_count = 0
                 
-                reject_snps_alignment_count = filtered_snps[filtered_snps.Cat =="Purged_Alignment"].shape[0]
-                reject_snps_n_count = filtered_snps[filtered_snps.Cat =="Purged_N"].shape[0]
-                reject_snps_indel_count = filtered_snps[filtered_snps.Cat =="Purged_Indel"].shape[0]
-                reject_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
-                reject_snps_het_count = filtered_snps[filtered_snps.Cat =="Purged_Het"].shape[0]
-                reject_snps_density_count = filtered_snps[filtered_snps.Cat =="Purged_Density"].shape[0]
-                reject_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
+                else:
+
+                    # Characterize and filter SNPs based on user criteria (perc_iden,query_edge/ref_edge,density)
+                    filtered_snps = filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref_edge,query_edge)
+                    
+                    final_snp_df = filtered_snps[filtered_snps.Cat == "SNP"]
+                    final_snp_count = final_snp_df.shape[0]
+
+                    if final_snp_count == 0:
+                        median_snp_perc_iden = "NA"
+                    else:
+                        median_snp_perc_iden = f"{final_snp_df.Perc_Iden.median():.2f}"
+                    
+                    reject_snps_alignment_count = filtered_snps[filtered_snps.Cat =="Purged_Alignment"].shape[0]
+                    reject_snps_n_count = filtered_snps[filtered_snps.Cat =="Purged_N"].shape[0]
+                    reject_snps_indel_count = filtered_snps[filtered_snps.Cat =="Purged_Indel"].shape[0]
+                    reject_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
+                    reject_snps_het_count = filtered_snps[filtered_snps.Cat =="Purged_Het"].shape[0]
+                    reject_snps_density_count = filtered_snps[filtered_snps.Cat =="Purged_Density"].shape[0]
+                    reject_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
 
 # Create header
 snpdiffs_header=[]
