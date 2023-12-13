@@ -12,6 +12,10 @@ import hashlib
 from Bio import SeqIO
 warnings.filterwarnings("ignore")
 
+def count_lines(filename):
+    with open(filename, 'r') as f:
+        return sum(1 for line in f)
+    
 def makeBED(bed_df):
     if bed_df.shape[1] == 2:
         bed_df.columns = ['Ref_Contig','Ref_End']
@@ -395,15 +399,11 @@ if percent_ref_aligned < min_cov:
     reject_snps_edge_count = "NA"
 
 else:
-    #### 03: Process MUmmer coords file ####
-    [coords_file,bad_coords_file,merged_ref_bed] = parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len)
-
-    # STOP if the coordinates file is empty after filtering based on <perc_iden>
-    if coords_file.shape[0] == 0:
-        sample_category = "Purged_Filter_Coverage"
-        percent_ref_aligned_filtered = percent_ref_aligned
-        percent_query_aligned_filtered = percent_query_aligned
-        median_percent_identity = "NA"
+    
+    raw_snp_count = count_lines(f"{mum_snps_dir}/{report_id}.snps")
+    
+    if raw_snp_count > 500:
+        sample_category = "Purged_Filter_SNP_Count"
         final_snp_count = "NA"
         median_snp_perc_iden = "NA"
         reject_snps_alignment_count = "NA"
@@ -415,18 +415,16 @@ else:
         reject_snps_edge_count = "NA"
     
     else:
-
-        # Get information for filtered mappings
-        median_percent_identity = f"{ coords_file.Perc_Iden.median():.2f}"
-        filtered_ref_covered = sum(int(interval.length) for interval in merged_ref_bed)
-        percent_ref_aligned_filtered = 100*(filtered_ref_covered/ref_bases)
-        percent_query_aligned_filtered = 100*(filtered_ref_covered/query_bases)
         
-        # STOP if the reference is not covered by at least <min_cov>
-        if percent_ref_aligned_filtered < min_cov:
-            percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
-            percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"
+        #### 03: Process MUmmer coords file ####
+        [coords_file,bad_coords_file,merged_ref_bed] = parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len)
+
+        # STOP if the coordinates file is empty after filtering based on <perc_iden>
+        if coords_file.shape[0] == 0:
             sample_category = "Purged_Filter_Coverage"
+            percent_ref_aligned_filtered = percent_ref_aligned
+            percent_query_aligned_filtered = percent_query_aligned
+            median_percent_identity = "NA"
             final_snp_count = "NA"
             median_snp_perc_iden = "NA"
             reject_snps_alignment_count = "NA"
@@ -439,16 +437,17 @@ else:
         
         else:
 
-            percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
-            percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"            
-
-            #### 04: Process MUmmer SNPs file ####
-
-            # Read in SNP file
-            snp_file = parseMUmmerSNPs(mum_snps_dir,report_id)
-
-            if snp_file.shape[0] > 200:
-                sample_category = "Purged_Filter_SNP_Count"
+            # Get information for filtered mappings
+            median_percent_identity = f"{ coords_file.Perc_Iden.median():.2f}"
+            filtered_ref_covered = sum(int(interval.length) for interval in merged_ref_bed)
+            percent_ref_aligned_filtered = 100*(filtered_ref_covered/ref_bases)
+            percent_query_aligned_filtered = 100*(filtered_ref_covered/query_bases)
+            
+            # STOP if the reference is not covered by at least <min_cov>
+            if percent_ref_aligned_filtered < min_cov:
+                percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
+                percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"
+                sample_category = "Purged_Filter_Coverage"
                 final_snp_count = "NA"
                 median_snp_perc_iden = "NA"
                 reject_snps_alignment_count = "NA"
@@ -458,9 +457,17 @@ else:
                 reject_snps_het_count = "NA"
                 reject_snps_density_count = "NA"
                 reject_snps_edge_count = "NA"
+            
             else:
-                            
-                # Sample passed coverage QC
+
+                percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
+                percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"            
+
+                #### 04: Process MUmmer SNPs file ####
+
+                # Read in SNP file
+                snp_file = parseMUmmerSNPs(mum_snps_dir,report_id)
+                
                 sample_category = "PASS"
 
                 # STOP if no SNPs detected
@@ -475,7 +482,7 @@ else:
                     reject_snps_het_count = 0
                     reject_snps_density_count = 0
                     reject_snps_edge_count = 0
-                
+                    
                 else:
 
                     # Characterize and filter SNPs based on user criteria (perc_iden,query_edge/ref_edge,density)
