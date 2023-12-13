@@ -21,14 +21,42 @@ from scipy.spatial.distance import pdist, squareform
 warnings.filterwarnings("ignore")
 
 def getPairwise(compare_id):
+    
+    query_1 = base_df.loc[compare_id.split(";")[0]]
+    if isinstance(query_1, pd.Series):
+        query_1_df = query_1.to_frame().T
+        query_1_df.index.name = 'Query_ID'
+    else:
+        query_1_df = query_1
+        
+    query_2 = base_df.loc[compare_id.split(";")[1]]
+    if isinstance(query_2, pd.Series):
+        query_2_df = query_2.to_frame().T
+        query_2_df.index.name = 'Query_ID'
+    else:
+        query_2_df = query_2
 
-    joined_df = base_df.loc[compare_id.split(";")[0]].merge(base_df.loc[compare_id.split(";")[1]], on='Ref_Loc', how='inner')
+    joined_df = query_1_df.merge(query_2_df, on='Ref_Loc', how='inner')
     if joined_df.shape[0] == 0:
         return {compare_id:(0,0)}
     else:
         return {compare_id:(joined_df.shape[0],(joined_df['Base_x'] != joined_df['Base_y']).sum())}
 
 def getPrunedPairwise(compare_id):
+    
+    query_1 = pruned_base_df.loc[compare_id.split(";")[0]]
+    if isinstance(query_1, pd.Series):
+        query_1_df = query_1.to_frame().T
+        query_1_df.index.name = 'Query_ID'
+    else:
+        query_1_df = query_1
+        
+    query_2 = pruned_base_df.loc[compare_id.split(";")[1]]
+    if isinstance(query_2, pd.Series):
+        query_2_df = query_2.to_frame().T
+        query_2_df.index.name = 'Query_ID'
+    else:
+        query_2_df = query_2
 
     joined_df = pruned_base_df.loc[compare_id.split(";")[0]].merge(pruned_base_df.loc[compare_id.split(";")[1]], on='Ref_Loc', how='inner')
     if joined_df.shape[0] == 0:
@@ -254,19 +282,19 @@ with open(log_file,"a+") as log:
 
 ###########################################
 
-query_data = alignment_info.drop_duplicates('Query_ID')[['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases','Query_SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']]
-query_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
+query_data = alignment_info.drop_duplicates('Query_ID')[['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases','Query_SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Indel','Purged_Density','Filtered_Edge']]
 
 reference_data = alignment_info.drop_duplicates('Reference_ID')[['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases','Reference_SHA256']]
 reference_data['Category'] = "Reference_Isolate"
-na_cols = ['Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
+na_cols = ['Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Indel','Purged_Density','Filtered_Edge']
 reference_data = reference_data.assign(**{col: pd.NA for col in na_cols})
-reference_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Density','Filtered_Edge']
 
+query_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Indel','Purged_Density','Filtered_Edge']
+int_cols = ['Purged_Alignment','Purged_N','Purged_Indel','Purged_Het','Purged_Density']
+query_data[int_cols] = query_data[int_cols].applymap(lambda x: f'{x:.0f}' if isinstance(x, (float, int)) and x.is_integer() else x)
+
+reference_data.columns = ['Isolate_ID','Assembly','Contig_Count','Assembly_Bases','SHA256','Category','Percent_Reference_Aligned','Percent_Query_Aligned','SNPs','Purged_Alignment','Purged_N','Purged_Het','Purged_Indel','Purged_Density','Filtered_Edge']
 isolate_data = pd.concat([query_data,reference_data]).reset_index(drop=True)
-int_cols = ['SNP','Ref_Base','Purged_Uncovered','Purged_Alignment','Purged_N','Purged_Indel','Purged_Het','Purged_Density']
-isolate_data[int_cols] = isolate_data[int_cols].applymap(lambda x: f'{x:.0f}' if isinstance(x, (float, int)) and x.is_integer() else x)
-
 isolate_data.to_csv(ref_directory+"/Isolate_Data.tsv",sep="\t",index=False)
 
 with open(log_file,"a+") as log:
@@ -509,17 +537,19 @@ with open(log_file,"a+") as log:
 
 start_time = time.time()
 pairwise_combinations = [";".join(sorted(x)) for x in list(combinations(snp_isolates, 2))]
-
 if csp2_count > 0:
     
-    pairwise_dict = dict()
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = [executor.submit(getPairwise,combo) for combo in pairwise_combinations]
+    if len(pairwise_combinations) == 1:
+        pairwise_dict = getPairwise(pairwise_combinations[0])
+    else:
+        pairwise_dict = dict()
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = [executor.submit(getPairwise,combo) for combo in pairwise_combinations]
 
-    for result in results:
-        pairwise_dict.update(result.result())
-    pairwise_records = [{'Comparison': key, 'Cocalled_Sites': loc[0], 'SNP_Differences':loc[1]} for key, loc in pairwise_dict.items()]
+        for result in results:
+            pairwise_dict.update(result.result())
     
+    pairwise_records = [{'Comparison': key, 'Cocalled_Sites': loc[0], 'SNP_Differences':loc[1]} for key, loc in pairwise_dict.items()]
     pairwise_df = pd.DataFrame(pairwise_records)
     pairwise_df[['Query_1', 'Query_2']] = pairwise_df['Comparison'].str.split(';', 1, expand=True)
     pairwise_df[['Query_1','Query_2','SNP_Differences','Cocalled_Sites']].to_csv(ref_directory+"/distance_pairwise.tsv",sep="\t",index=False)
