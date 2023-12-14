@@ -402,7 +402,7 @@ else:
     
     raw_snp_count = count_lines(f"{mum_snps_dir}/{report_id}.snps")
     
-    if raw_snp_count > 500:
+    if raw_snp_count > 5000:
         sample_category = "Purged_Filter_SNP_Count"
         percent_ref_aligned_filtered = percent_ref_aligned
         percent_query_aligned_filtered = percent_query_aligned
