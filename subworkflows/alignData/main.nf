@@ -87,7 +87,7 @@ workflow alignGenomes{
 process runMUMmer{
 
     cpus = 1
-    memory '4 GB'
+    memory '8 GB'
 
     input:
     tuple val(query_name),val(query_fasta),val(ref_name),val(ref_fasta)
