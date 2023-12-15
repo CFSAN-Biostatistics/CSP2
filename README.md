@@ -240,16 +240,17 @@ profiles {
 ---
 
 
-## Example Runs
-Here are a few examples of how you can run CSP2:  
+## Examples
+
+Here are a few examples of how you can use CSP2: 
+
+1. You want to know whether incoming read data is actually from the lab control strain. 
 
 ```
-module load nextflow
-git clone https://github.com/CFSAN-Biostatistics/CSP2.git
-cd CSP2
+
 
 # Assemble reads for queries and compare to single reference fasta using 20 CPUs, output to ./Tiny_Test
-nextflow run CSP2.nf                           // Run CSP2  
+nextflow run /path/to/CSP2.nf                   // Run CSP2  
 --reads assets/test_reads                       // Use all reads from this folder  
 --readtype srazip                               // Reads are zipped SRA (_1/2.fastq.gz)  
 --ref_fasta assets/test_ref/SRR10831135.fasta   // Compare query to single reference  
