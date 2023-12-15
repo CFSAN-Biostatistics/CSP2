@@ -46,25 +46,12 @@ CSP2 can be installed by cloning the GitHub repo and configuring the [nextflow.c
 git clone https://github.com/CFSAN-Biostatistics/CSP2.git
 ```
 
-
-
 ## Tips for configuring CSP2  
 CSP2 options can be specified on the command line, or through the Nextflow configuration files detailed in the next section. Feel free to skip this section if you're familiar with editing Nextflow configuration files.  
 
 There are two main configuration files associated with CSP2:  
-- [nextflow.config](nextflow.config)  
-- [profiles.config](conf/profiles.config)
-- **Note:** Any options set in either of these files are overruled by options set on the command line  
 
-The [nextflow.config](nextflow.config) file shown below can be edited to include 'hard-set' parameters you want to be used for every CSP2 run.   
-
-The [profiles.config](conf/profiles.config) file shown below can be edited to add information about your computing environment. These include:  
-
-- Number of cores per cpu (cores)  
-- Names of modules to load for Python, MUmmer, SKESA, and BEDTools (if required)  
-  - If modules are specified, they are loaded automatically by Nextflow via  ```module load -s <MODULE>```
-
-An example configuration setup (slurmHPC) is provided as a model.  
+- The profiles.config file is where you add custom information about your computing environment. An example configuration setup (slurmHPC) is provided as a model.
 
 ```
 profiles {
@@ -88,8 +75,17 @@ profiles {
     }
 }
 ```
----
+- If you add your own profile, be sure to note it on the command line (one hypen)
+```
+nextflow run CSP2.nf -profile myNewProfile <args>
+```
+- To save an HTML report from the Nextflow run:
+```
+nextflow run CSP2.nf -with-report myReport.html <args>
+```
 
+
+- The nextflow.config file is where you can change other aspects of the CSP2 run, including data location, QC parameters, and all the options listed below:
 
 **Options with defaults include**:  
 | Parameter     | Description                                                                                                | Default Value                          |
