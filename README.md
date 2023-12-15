@@ -1,8 +1,8 @@
-# CFSAN SNP Pipeline v2 (CSP2)  
+# CFSAN SNP Pipeline 2 (CSP2)  
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
-## CSP2 is a Nextflow pipeline for rapid, accurate microbial SNP distance estimation from assembly data  
+## CSP2 is a Nextflow pipeline for rapid, accurate SNP distance estimation from assembly data  
 
 All CSP2 sequence comparisons happen at the assembly level, but if reads are provided CSP2 will perform a genome assembly using *SKESA*. CSP2 has two main run modes:  
 
