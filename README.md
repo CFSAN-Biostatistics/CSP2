@@ -1,5 +1,8 @@
+<p align="center">
+  <img src="CSP2_Logo_B.jpg" alt="drawing" width="250"/>
+</p>
+
 # CFSAN SNP Pipeline 2 (CSP2)  
-<img src="CSP2_Logo_B.jpg" alt="drawing" width="200"/>
 
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
