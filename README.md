@@ -139,23 +139,32 @@ nextflow run CSP2.nf -with-report myReport.html <args>
 
 The repo contains small test datasets to ensure things are running as expected. Here are a few examples of how you can use CSP2 in screening mode or in SNP pipeline mode. 
 
-**Screening Mode**
+**Screening Mode**  
 
-**SNP Pipeline Mode**
-
+*Situation*: You want to screen incoming sequence data against the lab control strain used by the sequencing facility to ensure data integrity.
+  
+The data:  
+- Read data (assets/Screen/Reads)
+  - Read_Set_A, Read_Set_B (Paired-end)  
+  - Read_Set_C (Single-end)
+- Assembled control strain (assets/Screen/Assembly/Lab_Control.fasta)
 
 ```
-nextflow run /path/to/CSP2.nf                   // Run CSP2  
--profile myHPC                                  // Choose run profile
--with-report Contamination.html                 // Save an HTML report
---runmode screen                                // Compare each query to the reference (Don't need pairwise between queries)
---forward _1.fq.gz                              // Forward reads don't match the default '_1.fastq.gz'
---reverse _2.fq.gz                              // Reverse reads don't match the default '_2.fastq.gz'
---readext fq.gz                                 // Single-end reads don't match the default 'fastq.gz'
---ref_fasta assets/test_ref/SRR10831135.fasta   // Compare query to single reference  
---cores 20                                      // Use 20 CPUs per node  
---out Tiny_Test                                 // Save to ./Tiny_Test  
+# Load Nextflow module if necessary
+module load nextflow
+
+nextflow run /path/to/CSP2.nf -profile slurmHPC -with-report Contamination.html --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz --out Contamination_Screen
+
+nextflow run /path/to/CSP2.nf                           // Run CSP2  
+-profile slurmHPC                                       // Choose run profile
+-with-report Contamination.html                         // Save an HTML report
+--runmode screen                                        // Compare each query to the reference (Don't perform pairwise between queries)
+--ref_fasta assets/Screen/Assembly/Lab_Control.fasta    // Compare all queries to this reference  
+--reads assets/Screen/Reads                             // Gather all query read datasets from this directory
+--forward _1.fq.gz                                      // Forward reads don't match the default '_1.fastq.gz'
+--reverse _2.fq.gz                                      // Reverse reads don't match the default '_2.fastq.gz'
+--readext fq.gz                                         // Single-end reads don't match the default 'fastq.gz'
+--out Contamination_Screen                              // Save to ./Contamination_Screen  
 ```
 
----
 ## Output
