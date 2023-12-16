@@ -1,4 +1,6 @@
 # CFSAN SNP Pipeline 2 (CSP2)  
+![CSP2_Logo](CSP2_Logo_B.png)
+
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
