@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="CSP2_Logo_B.jpg" alt="drawing" width="250"/>
-</p>
-
 # CFSAN SNP Pipeline 2 (CSP2)  
 
 
