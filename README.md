@@ -156,15 +156,15 @@ module load nextflow
 
 nextflow run CSP2.nf -profile slurmHPC --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
 
-nextflow run CSP2.nf                                                // Run CSP2  
--profile slurmHPC                                                   // Choose run profile (**note single hyphen**)
---out Test_Output/Contamination_Screen                              // Save results to ./Test_Output/Contamination_Screen  
---runmode screen                                                    // Compare each query to the reference
---ref_fasta assets/Screen/Assembly/Lab_Control.fasta                // Compare all queries to this reference  
---reads assets/Screen/Reads                                         // Gather all query read datasets from this directory
---forward _1.fq.gz                                                  // Forward reads don't match the default '_1.fastq.gz'
---reverse _2.fq.gz                                                  // Reverse reads don't match the default '_2.fastq.gz'
---readext fq.gz                                                     // Reads don't match the default 'fastq.gz'
+nextflow run CSP2.nf                                    // Run CSP2  
+-profile slurmHPC                                       // Choose run profile (**note single hyphen**)
+--out Test_Output/Contamination_Screen                  // Save results to ./Test_Output/Contamination_Screen  
+--runmode screen                                        // Compare each query to the reference
+--ref_fasta assets/Screen/Assembly/Lab_Control.fasta    // Compare all queries to this reference  
+--reads assets/Screen/Reads                             // Gather all query read datasets from this directory
+--forward _1.fq.gz                                      // Forward reads don't match the default '_1.fastq.gz'
+--reverse _2.fq.gz                                      // Reverse reads don't match the default '_2.fastq.gz'
+--readext fq.gz                                         // Reads don't match the default 'fastq.gz'
 ```
 
 ### Output
@@ -208,8 +208,8 @@ snpdiffs/
 
     | Query_ID   | Query_Assembly                                                                                                                  | Query_SHA256                                                     | Query_Contigs | Query_Length |
     |------------|---------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|---------------|--------------|
-    | Read_Set_A | /flash/storage/scratch/Robert.Literman/NextFlow/YENTA/GitHub/Yenta/Test_Output/Contamination_Screen/Assemblies/Read_Set_A.fasta | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 | 747           | 4473771      |
-    | Read_Set_B | /flash/storage/scratch/Robert.Literman/NextFlow/YENTA/GitHub/Yenta/Test_Output/Contamination_Screen/Assemblies/Read_Set_B.fasta | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 | 372           | 4561747      |
+    | Read_Set_A | Test_Output/Contamination_Screen/Assemblies/Read_Set_A.fasta | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 | 747           | 4473771      |
+    | Read_Set_B | Test_Output/Contamination_Screen/Assemblies/Read_Set_B.fasta | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 | 372           | 4561747      |
 
 
  
@@ -218,7 +218,7 @@ snpdiffs/
 
     | Reference_ID    | Reference_Assembly                                                                                              | Reference_SHA256                                                     | Reference_Contigs | Reference_Length |
     |-------------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|---------------|--------------|
-    | Lab_Control | /flash/storage/scratch/Robert.Literman/NextFlow/YENTA/GitHub/Yenta/assets/Screen/Assembly/Lab_Control.fasta | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | 254           | 4584986      |
+    | Lab_Control | assets/Screen/Assembly/Lab_Control.fasta | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | 254           | 4584986      |
 
 - *Screening_Results_PassQC.tsv*: A TSV file with screening results for all queries that made it through QC  
 
