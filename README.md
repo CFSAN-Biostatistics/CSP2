@@ -149,7 +149,7 @@ The data:
   In this case, we want to use *--runmode screen*, because we only care if each dataset matches a reference strain, and we **do not** care about how Read_Set_A and Read_Set_B may relate to each other.
   - **Note**: By default, CSP2 expects read data as zipped fastqs (fastq.gz), with paired-end reads denoted as _1.fastq.gz and _2.fastg.gz. These settings can be changed: 
     - Permanently in the nextflow.config file
-    - Situationally in profiles.conf 
+    - Situationally in profiles.config 
     - Directly on the command line, as in the example below:
       - **Query Reads**: *--readext*; *--forward*; *--reverse*  
       - **Reference Reads**: *--ref_readext*; *--ref_forward*; *--ref_reverse*
