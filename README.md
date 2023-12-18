@@ -1,5 +1,8 @@
-# CFSAN SNP Pipeline 2 (CSP2)  
+<p align="center">
+  <img src="img/Temp_Logo.jpg" alt="drawing" width="300"/>
+</p>
 
+# CFSAN SNP Pipeline 2 (CSP2)  
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
@@ -572,4 +575,14 @@ GGAGCCTGCATCACGACGACAATTAGATAAGTGGCGAGCACCGCCCGCCGCGTAGGCAAC
 GACGTACCGCGCACACATTAAAGCGTGGCACGCGCTGCGTCGTGCTCACGAGGGCTTTCG
 GACGTGACCCTATTGAGCCGACTAGGGAGCCGCCGTGAGGGTC
 
+```
+
+To see if the reference genome has an impact on SNP distance estimation, you can test one or more via *--ref_fasta* / *--ref_reads* or have RefChooser choose *--n_ref* isolates
+```
+nextflow run CSP2.nf              // Run CSP2  
+-profile slurmHPC                 // Choose run profile (**note single hyphen**)
+--out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
+--runmode snp                     // Compare all queries to each other
+--fasta assets/SNP                // Gather query assemblies from this directory
+--n_ref 3                         // Perform independent SNP Pipeline runs using the top 3 reference isolates via RefChooser
 ```
