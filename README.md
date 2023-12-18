@@ -93,38 +93,39 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 - The nextflow.config file is where you can change other aspects of the CSP2 run, including data location, QC parameters, and all the options listed below:
 
 **Options with defaults include**:  
-| Parameter     | Description                                                                                                | Default Value                          |
-|---------------|------------------------------------------------------------------------------------------------------------|----------------------------------------|
-| --outroot         | Base directory to create output folder                                                       | $CWD |
-| --out         | Name of the output folder to create (must not exist)                                                       | CSP2_${new java.util.Date().getTime()} |
-| --forward     | Full file extension for forward/left reads of query                                                        | _1.fastq.gz                            |
-| --reverse     | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                            |
-| --ref_forward | Full file extension for forward/left reads of reference                                                    | _1.fastq.gz                            |
-| --ref_reverse | Full file extension for reverse/right reads of reference                                                       | _2.fastq.gz                            |
-| --readext     | Extension for single-end reads for query                                                                   | fastq.gz                               |
-| --ref_readext | Extension for single-end reads for reference                                                               | fastq.gz                               |
-| --min_cov     | Do not analyze queries that cover less than <min_cov>% of the reference assembly                           | 85                                     |
-| --min_iden    | Only consider alignments where the percent identity is at least <min_iden>%                                | 99                                     |
-| --min_len     | Only consider alignments that span at least <min_len>bp                                                    | 500                                    |
-| --dwin        | A comma-separated list of windows to check SNP densities                                                   | 1000,125,15                            |
-| --wsnps       | The maximum number of SNPs allowed in the corresponding window from --dwin                                 | 3,2,1                                  |
-| --query_edge  | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 250                                    |
-| --ref_edge    | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 250                                    |
-| --n_ref       | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                      |
+| Parameter        | Description                                                                                                | Default Value                             |
+|------------------|------------------------------------------------------------------------------------------------------------|-------------------------------------------|
+| --outroot        | Base directory to create output folder                                                       				| $CWD 								        |
+| --out            | Name of the output folder to create (must not exist)                                                       | CSP2_${new java.util.Date().getTime()}    |
+| --forward        | Full file extension for forward/left reads of query                                                        | _1.fastq.gz                               |
+| --reverse        | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                               |
+| --ref_forward    | Full file extension for forward/left reads of reference                                                    | _1.fastq.gz                               |
+| --ref_reverse    | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                               |
+| --readext        | Extension for single-end reads for query                                                                   | fastq.gz                                  |
+| --ref_readext    | Extension for single-end reads for reference                                                               | fastq.gz                                  |
+| --min_cov        | Do not analyze queries that cover less than <min_cov>% of the reference assembly                           | 85                                        |
+| --min_iden       | Only consider alignments where the percent identity is at least <min_iden>%                                | 99                                        |
+| --min_len        | Only consider alignments that span at least <min_len>bp                                                    | 500                                       |
+| --dwin           | A comma-separated list of windows to check SNP densities                                                   | 1000,125,15                               |
+| --wsnps          | The maximum number of SNPs allowed in the corresponding window from --dwin                                 | 3,2,1                                     |
+| --query_edge     | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 250                                       |
+| --ref_edge       | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 250                                       |
+| --n_ref          | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                         |
+
 
 **Options without defaults include**:  
-| Parameter           | Description                                                                                                       |
-|---------------------|-------------------------------------------------------------------------------------------------------------------|
-| --reads             | Location of query read data (Path to directory, or path to file with multiple directories)                        |
-| --fasta             | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)     |
-| --ref_reads         | Location of reference read data (Path to directory, or path to file with multiple directories)                    |
-| --ref_fasta         | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs) |
-| --python_module     | Name of Python module if 'module load PYTHON' statement is required.                                              |
-| --mummer_module     | Name of MUmmer module if 'module load MUMMER' statement is required.                                              |
-| --skesa_module      | Name of SKESA module if 'module load SKESA' statement is required.                                                |
-| --refchooser_module | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                      |
-| --bedtools_module   | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                          |
-| --trim_name         | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                    |
+| Parameter              | Description                                                                                                          |
+|------------------------|----------------------------------------------------------------------------------------------------------------------|
+| --reads                | Location of query read data (Path to directory, or path to file with multiple directories)                           |
+| --fasta                | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)        |
+| --ref_reads            | Location of reference read data (Path to directory, or path to file with multiple directories)                       |
+| --ref_fasta            | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)    |
+| --python_module        | Name of Python module if 'module load PYTHON' statement is required.                                                 |
+| --mummer_module        | Name of MUmmer module if 'module load MUMMER' statement is required.                                                 |
+| --skesa_module         | Name of SKESA module if 'module load SKESA' statement is required.                                                   |
+| --refchooser_module    | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                         |
+| --bedtools_module      | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                             |
+| --trim_name            | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                       |
 
 ---
 
