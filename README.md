@@ -8,7 +8,15 @@
 
 ## CSP2 is a Nextflow pipeline for rapid, accurate SNP distance estimation from assembly data  
 
-All CSP2 sequence comparisons happen at the assembly level, but if reads are provided CSP2 will perform a genome assembly using *SKESA*. 
+CSP2 runs on Unix, with the handful of dependencies listed in the [Software Dependencies](#software-dependencies) section. CSP2 was developed to **(1)** improve on the speed of the [CFSAN SNP Pipeline (CSP)](https://peerj.com/articles/cs-20/?report=reader), **(2)** to reduce computational burden when analyzing larger isolate clusters, and **(3)** to remove the dependency for raw Illumina data. CSP2 relies on the accurate and rapid alignment of genome assemblies provided by [MUmmer](https://github.com/mummer4/mummer), which typically complete within seconds. This provides significant reductions in runtime compared to methods that rely on read mapping. The use of assemblies in place of sequencing data also means that:  
+
+- the amount storage needed can be substantially reduced, 
+- significantly less computational resources are required, 
+- as long as assemblies are available, isolates can be compared regardless of sequencing platform or whether publicly available sequence data even exists   
+
+CSP2 runs are managed via Nextflow, providing the user with an array of [customizations](#tips-for-configuring-csp2) while also facilitating module development and additions in future releases. 
+
+**Important Note**: *The software continues to be focused on the analysis of groups of bacterial genomes with limited evolutionary differences (<1000 SNPs). Testing is underway to determine how the underlying cluster diversity impacts distances estimates.*
 
 ### CSP2 has two main run modes:  
 
@@ -20,9 +28,7 @@ Generate pairwise SNP distances and alignments for 2+ isolates (*--reads*; *--fa
 - One or more user-provided references (*--ref_reads*; *--ref_fasta*), or  
 - One or more reference isolates selected by RefChooser (*--n_ref*)
 
-**Important Note**: *Testing is underway to determine how the underlying cluster diversity impacts distances estimates. Current comparisons are based on strains clusters with SNP densities in the 0 ~ 150 SNP range.*
-
-In either case, CSP2 calls MUMmer for alignment and if a sufficient portion of the reference genome is aligned (*--min_cov*), that data is passed through a set of filters, including the automated removal of:  
+In either case, CSP2 calls MUMmer for alignment. If a sufficient portion of the reference genome is aligned (*--min_cov*), that data is passed through a set of filters that largely mimic those from the CFSAN SNP Pipeline, including the automated removal of:  
 - Sites from short alignments (*--min_len*)  
 - Sites from poorly aligned contigs (*--min_iden*)
 - Sites close to the contig edge (*--query_edge*/*--ref_edge*)
@@ -37,7 +43,7 @@ This final dataset is summarized into a *.snpdiffs* file, which contains:
 2. A BED file of contig mappings that pass QC  
 3. Information about SNPs (if present)
 
-To avoid unnecessary realignment, once a .snpdiffs file is generated under a particular set of QC parameters (which is hardcoded into the file) these files can be used in other CSP2 runs via the *--snpdiffs* argument (if using the same QC parameters). 
+To avoid unnecessary realignment, once a .snpdiffs file is generated under a particular set of QC parameters (which is hardcoded into the .snpdiffs file as the "QC_String") these files can be used in other CSP2 runs via the *--snpdiffs* argument (if using the same QC parameters). 
 
 ---
 
