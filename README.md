@@ -96,6 +96,9 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 - The nextflow.config file is where you can change other aspects of the CSP2 run, including data location, QC parameters, and all the options listed below:
 
 **Options with defaults include**:  
+
+<div style="overflow-x:auto;">
+
 | Parameter        | Description                                                                                                | Default Value                             |
 |------------------|------------------------------------------------------------------------------------------------------------|-------------------------------------------|
 | --outroot        | Base directory to create output folder                                                       				| $CWD 								        |
@@ -114,6 +117,7 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 | --query_edge     | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 250                                       |
 | --ref_edge       | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 250                                       |
 | --n_ref          | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                         |
+</div>
 
 
 **Options without defaults include**:  
