@@ -23,7 +23,7 @@ Generate pairwise SNP distances and alignments for 2+ isolates (*--reads*; *--fa
 **Important Note**: *Testing is underway to determine how the underlying cluster diversity impacts distances estimates. Current comparisons are based on strains clusters with SNP densities in the 0 ~ 150 SNP range.*
 
 In either case, CSP2 calls MUMmer for alignment and if a sufficient portion of the reference genome is aligned (*--min_cov*), that data is passed through a set of filters, including the automated removal of:  
-- Sites from short contigs (*--min_len*)  
+- Sites from short alignments (*--min_len*)  
 - Sites from poorly aligned contigs (*--min_iden*)
 - Sites close to the contig edge (*--query_edge*/*--ref_edge*)
 - Sites from regions of high SNP density (*--dwin*/*--wsnps*)
@@ -240,7 +240,7 @@ snpdiffs/
     - **Percent_(Query/Reference)_Aligned**: The percent of bases from the (query/reference) genome involved in an 1-to-1 alignment that passed QC  
     - **Median_Percent_Identity**: The median percent identity of all 1-to-1 alignments  
     - **Median_SNP_Percent_Identity**: The median percent identity of 1-to-1 alignments containing SNPs  
-    - **Purged_Alignment**: Count of MUMmer SNPs removed due to falling on short contigs (*--min_len*) or contigs with low similarity (*--min_iden*)
+    - **Purged_Alignment**: Count of MUMmer SNPs removed due to falling on short alignments (*--min_len*) or contigs with low similarity (*--min_iden*)
     - **Purged_N**: Count of MUMmer SNPs removed due to presence of a non-ACTG base  
     - **Purged_Indel**: Count of MUMmer indel SNPs removed  
     - **Purged_Duplicate**: Count of MUMmer SNPs removed due to duplicated mapping to the same region (the SNP from the longest contig is retained unless there is heterozygosity)  
