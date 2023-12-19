@@ -12,10 +12,10 @@ All CSP2 sequence comparisons happen at the assembly level, but if reads are pro
 
 CSP2 has two main run modes:  
 
-#### 1) "Screening Mode" (*--runmode screen*)
-Given one or more user-provided reference isolates (*--ref_reads*; *--ref_fasta*), get alignment statistics and SNP distances for query isolates (*--reads*; *--fasta*)
+#### 1) "Screening Mode" (*--runmode screen*):  Used to determine whether query isolates are close to a set of reference isolates (e.g., lab control strains, strains related to an outbreak, etc.)    
+Given one or more user-provided reference isolates (*--ref_reads*; *--ref_fasta*), get alignment statistics and SNP distances between all reference and query isolates (*--reads*; *--fasta*)
    
-#### 2) "SNP Pipeline Mode" (*--runmode snp*)
+#### 2) "SNP Pipeline Mode" (*--runmode snp*): Used to generate pairwise distances and alignments for a set of query isolates
 Generate pairwise SNP distances and alignments for 2+ isolates (*--reads*; *--fasta*) based on comparisons to:  
 - One or more user-provided references (*--ref_reads*; *--ref_fasta*), or  
 - One or more reference isolates selected by RefChooser (*--n_ref*)
@@ -44,12 +44,12 @@ To avoid unnecessary realignment, once a .snpdiffs file is generated under a par
 ## Software Dependencies  
 The following software are required to run CSP2. Software version used during CSP2 development noted in parentheses.  
 
-- Nextflow (22.10.7)  
-- Python (3.8.1)  
-  - pybedtools  
-- BEDTools (2.26.0)  
-- MUmmer (4.0.0)  
-- SKESA (2.5.0) [Only required if starting from raw reads]  
+- [Nextflow](https://www.nextflow.io/docs/latest/getstarted.html) (22.10.7)  
+- [Python](https://www.python.org/downloads/) (3.8.1)  
+  - [pybedtools](https://pypi.org/project/pybedtools/)
+- [BEDTools](https://bedtools.readthedocs.io/en/latest/) (2.26.0)  
+- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)  
+- [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
   
 ---
 ## Installing CSP2 
@@ -93,6 +93,8 @@ profiles {
 nextflow run CSP2.nf -profile myNewProfile <args>
 ```
 
+- **Note**: There is no need to specify a module for Python, MUMmer, SKESA, bedtools, or RefChooser if those programs are already in your path.  
+  
 - The nextflow.config file is where you can change other aspects of the CSP2 run, including data location, QC parameters, and all the options listed below:
 
 **Options with defaults include**:  
