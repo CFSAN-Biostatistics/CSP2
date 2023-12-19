@@ -64,7 +64,9 @@ CSP2 options can be specified on the command line, or through the Nextflow confi
 
 There are two main configuration files associated with CSP2:  
 
-- The profiles.config file is where you add custom information about your computing environment, but you can also set parameters here as well. An example configuration setup (slurmHPC) is provided as a model.
+- The profiles.config file is where you add custom information about your computing environment, but you can also set parameters here as well. An example configuration setup (slurmHPC) is provided as a model.  
+  
+- In this example profile, access to the required programs relies on the loading of modules. **However**, there is no need to specify a module for Python, MUMmer, SKESA, bedtools, or RefChooser if those programs are already in your path. 
 
 ```
 profiles {
@@ -92,9 +94,7 @@ profiles {
 ```
 nextflow run CSP2.nf -profile myNewProfile <args>
 ```
-
-- **Note**: There is no need to specify a module for Python, MUMmer, SKESA, bedtools, or RefChooser if those programs are already in your path.  
-  
+ 
 - The nextflow.config file is where you can change other aspects of the CSP2 run, including data location, QC parameters, and all the options listed below:
 
 **Options with defaults include**:  
