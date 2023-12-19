@@ -28,7 +28,7 @@ Generate pairwise SNP distances and alignments for 2+ isolates (*--reads*; *--fa
 - One or more user-provided references (*--ref_reads*; *--ref_fasta*), or  
 - One or more reference isolates selected by RefChooser (*--n_ref*)
 
-In either case, CSP2 calls MUMmer for alignment. If a sufficient portion of the reference genome is aligned (*--min_cov*), that data is passed through a set of filters that largely mimic those from the CFSAN SNP Pipeline, including the automated removal of:  
+All CSP2 sequence comparisons happen at the assembly level, but if reads are provided CSP2 will perform a genome assembly using *SKESA*. In either case, CSP2 then calls MUMmer for alignment. If a sufficient portion of the reference genome is aligned (*--min_cov*), that data is passed through a set of filters that largely mimic those from the CFSAN SNP Pipeline, including the automated removal of:  
 - Sites from short alignments (*--min_len*)  
 - Sites from poorly aligned contigs (*--min_iden*)
 - Sites close to the contig edge (*--query_edge*/*--ref_edge*)
