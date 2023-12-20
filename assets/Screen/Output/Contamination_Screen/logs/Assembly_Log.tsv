@@ -1,3 +1,2 @@
 Isolate_ID	Read_Type	Read_Data	Assembly	Contig_Count	Assembly_Bases	SHA256
-Read_Set_B	Paired	assets/Screen/Reads/Read_Set_B_1.fq.gz;assets/Screen/Reads/Read_Set_B_2.fq.gz	Test_Output/Contamination_Screen/Assemblies/Read_Set_B.fasta	372	4561747	28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009
-Read_Set_A	Paired	assets/Screen/Reads/Read_Set_A_1.fq.gz;assets/Screen/Reads/Read_Set_A_2.fq.gz	Test_Output/Contamination_Screen/Assemblies/Read_Set_A.fasta	747	4473771	85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563
+Week_42_Reads	Paired	assets/Screen/Reads/Week_42_Reads_1.fq.gz;assets/Screen/Reads/Week_42_Reads_2.fq.gz	Test_Output/Contamination_Screen/Assemblies/Week_42_Reads.fasta	372	4561747	28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009

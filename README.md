@@ -152,16 +152,19 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 The repo contains small test datasets to ensure things are running as expected. Here are a few examples of how you can use CSP2 in screening mode or in SNP pipeline mode. 
 
 ## Screening Mode (Example)
-*Situation*: You want to check if incoming sequence data matches a laboratory control strain used by the sequencing facility. 
+*Situation*: As part of a long-term microbiology experiment, you perform weekly WGS sequencing on isolates as they evolve under different selective conditions. As results, your DNA sequencing facility returns raw WGS reads and assembled genomes. 
 
-The data:  
+During Week 42, analyses start detecting high numbers of mutations, and assembly-based results are not concordant with read-based results. You suspect that either the reads or assembly you were given may be from their lab control strain, but you want to check first.  
+
+**The data**:  
   - Read data  
-    - Read_Set_A_1.fq.gz; Read_Set_A_2.fq.gz  
-    - Read_Set_B_1.fq.gz; Read_Set_B_2.fq.gz
-  - Assembled control strain  
+    - Week_42_Reads_1.fq.gz; Week_42_Reads_2.fq.gz  
+  - Assembled data:  
+    - Week_42_Assembly.fa  
     - Lab_Control.fasta  
 
-  In this case, we want to use *--runmode screen*, because we only care if each dataset matches a reference strain, and we **do not** care about how Read_Set_A and Read_Set_B may relate to each other.
+  In this case, we want to use *--runmode screen*, because we want to explicitly check if either dataset matches the reference strain.  
+
   - **Note**: By default, CSP2 expects read data as zipped fastqs (fastq.gz), with paired-end reads denoted as _1.fastq.gz and _2.fastg.gz. These settings can be changed: 
     - Permanently in the nextflow.config file
     - Situationally in profiles.config 
@@ -173,14 +176,15 @@ The data:
 # Load Nextflow module if necessary
 module load nextflow
 
-nextflow run CSP2.nf -profile slurmHPC --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
+nextflow run CSP2.nf -profile slurmHPC --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --fasta assets/Screen/Assembly/Week_42_Assembly.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
 
 nextflow run CSP2.nf                                    // Run CSP2  
 -profile slurmHPC                                       // Choose run profile (**note single hyphen**)
 --out Test_Output/Contamination_Screen                  // Save results to ./Test_Output/Contamination_Screen  
 --runmode screen                                        // Compare each query to the reference
 --ref_fasta assets/Screen/Assembly/Lab_Control.fasta    // Compare all queries to this reference  
---reads assets/Screen/Reads                             // Gather all query read datasets from this directory
+--fasta assets/Screen/Assembly/Week_42_Assembly.fasta   // Include this assembly as a query
+--reads assets/Screen/Reads                             // Include any read datasets from this directory as queries
 --forward _1.fq.gz                                      // Forward reads don't match the default '_1.fastq.gz'
 --reverse _2.fq.gz                                      // Reverse reads don't match the default '_2.fastq.gz'
 --readext fq.gz                                         // Reads don't match the default 'fastq.gz'
@@ -197,7 +201,7 @@ From top to bottom, we can see that CSP2:
 - Found the paired-end reads
 - Assembled them using *SKESA*
 - Saved an assembly log
-- Aligned the queries against the reference using MUMmer
+- Aligned both queries against the reference using MUMmer
 - Ran the screening script to generate the output table
 
 Let's take a look to see what was generated:
@@ -225,27 +229,23 @@ snpdiffs/
 **Files**
   - *Query_Isolates.tsv*: A TSV file with basic FASTA stats for each query isolate
 
-    | Query_ID   | Query_Assembly                                                                                                                  | Query_SHA256                                                     | Query_Contigs | Query_Length |
-    |------------|---------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|---------------|--------------|
-    | Read_Set_A | Test_Output/Contamination_Screen/Assemblies/Read_Set_A.fasta | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 | 747           | 4473771      |
-    | Read_Set_B | Test_Output/Contamination_Screen/Assemblies/Read_Set_B.fasta | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 | 372           | 4561747      |
+    | Query_ID         | Query_Assembly                                                  | Query_SHA256                                                     | Query_Contig_Count | Query_Assembly_Bases |
+    |------------------|-----------------------------------------------------------------|------------------------------------------------------------------|--------------------|----------------------|
+    | Week_42_Assembly | assets/Screen/Assembly/Week_42_Assembly.fasta                   | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 | 747                | 4473771              |
+    | Week_42_Reads    | Test_Output/Contamination_Screen/Assemblies/Week_42_Reads.fasta | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 | 372                | 4561747              |
 
-
- 
   - *Reference_Isolates.tsv*: A TSV file with basic FASTA stats for each reference isolate  
 
-
-    | Reference_ID    | Reference_Assembly                                                                                              | Reference_SHA256                                                     | Reference_Contigs | Reference_Length |
-    |-------------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|---------------|--------------|
-    | Lab_Control | assets/Screen/Assembly/Lab_Control.fasta | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | 254           | 4584986      |
+    | Reference_ID | Reference_Assembly                       | Reference_SHA256                                                 | Reference_Contig_Count | Reference_Assembly_Bases |
+    |--------------|------------------------------------------|------------------------------------------------------------------|------------------------|--------------------------|
+    | Lab_Control  | assets/Screen/Assembly/Lab_Control.fasta | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | 254                    | 4584986                  |
 
 - *Screening_Results_PassQC.tsv*: A TSV file with screening results for all queries that made it through QC  
 
-
-    | Query_ID   | Reference_ID | SNPs | Percent_Query_Aligned | Percent_Reference_Aligned | Median_Percent_Identity | Median_SNP_Percent_Identity | Purged_Alignment | Purged_N | Purged_Indel | Purged_Duplicate | Purged_Het | Purged_Density | Filtered_Edge |
-    |------------|--------------|------|-----------------------|---------------------------|-------------------------|-----------------------------|------------------|----------|--------------|------------------|------------|----------------|---------------|
-    | Read_Set_A | Lab_Control  | 1    | 99.97                 | 97.55                     | 100.00                  | 99.99                       | 0                | 0        | 0            | 0                | 0          | 0              | 0             |
-    | Read_Set_B | Lab_Control  | 49   | 99.55                 | 99.04                     | 100.00                  | 99.99                       | 11               | 0        | 2            | 0                | 0          | 0              | 3             |
+  | Query_ID         | Reference_ID | SNPs | Percent_Query_Aligned | Percent_Reference_Aligned | Median_Percent_Identity | Median_SNP_Percent_Identity | Purged_Alignment | Purged_N | Purged_Indel | Purged_Duplicate | Purged_Het | Purged_Density | Filtered_Edge |
+  |------------------|--------------|------|-----------------------|---------------------------|-------------------------|-----------------------------|------------------|----------|--------------|------------------|------------|----------------|---------------|
+  | Week_42_Assembly | Lab_Control  | 1    | 99.97                 | 97.55                     | 100.00                  | 99.99                       | 0                | 0        | 0            | 0                | 0          | 0              | 0             |
+  | Week_42_Reads    | Lab_Control  | 49   | 99.55                 | 99.04                     | 100.00                  | 99.99                       | 11               | 0        | 2            | 0                | 0          | 0              | 3             |
 
   - **Note:** There will be a separate file for any queries that fail QC, along with some indication as to why they failed (*Screening_Results_FailQC.tsv*)  
   - **Columns**  
@@ -266,57 +266,28 @@ snpdiffs/
          - To peek at a .snpdiffs header, try:
            ```
            head -1 (QUERY)__vs__(REF).snpdiffs | tr "\t" "\n"
-
-           head -1 Read_Set_A__vs__Lab_Control.snpdiffs | tr "\t" "\n"
-           
-           #
-           Query_ID:Read_Set_A
-           Query_Assembly:Test_Output/Contamination_Screen/Assemblies/Read_Set_A.fasta
-           Query_Contig_Count:747
-           Query_Assembly_Bases:4473771
-           Query_SHA256:85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563
-           Reference_ID:Lab_Control
-           Reference_Assembly:assets/Screen/Assembly/Lab_Control.fasta
-           Reference_Contig_Count:254
-           Reference_Assembly_Bases:4584986
-           Reference_SHA256:aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef
-           Category:PASS
-           SNPs:1
-           Median_Percent_Identity:100.00
-           Median_SNP_Percent_Identity:99.99
-           Percent_Query_Aligned:99.97
-           Percent_Reference_Aligned:97.55
-           Purged_Alignment:0
-           Purged_N:0
-           Purged_Indel:0
-           Purged_Duplicate:0
-           Purged_Het:0
-           Purged_Density:0
-           Filtered_Edge:0
-           QC_String:85.0_99.0_500_250_250_1000,125,15_3,2,1
            ```
     2. **BED File**: Assuming sufficient overlap in assemblies, the next section will be a BED file of all the 1-to-1 overlaps between the query and reference that passed QC. This section is denoted by '##\t'  
    
         ```
-        grep "##" Read_Set_A__vs__Lab_Control.snpdiffs | head -10
+        grep "##" Week_42_Reads__vs__Lab_Control.snpdiffs | head -10
 
-        ##      SRR16119110_100_32.8137 11      2396
-        ##      SRR16119110_100_32.8137 2438    4004
-        ##      SRR16119110_100_32.8137 4035    6519
-        ##      SRR16119110_100_32.8137 6587    7475
-        ##      SRR16119110_100_32.8137 7889    14179
-        ##      SRR16119110_100_32.8137 14411   26613
-        ##      SRR16119110_100_32.8137 26663   35785
-        ##      SRR16119110_102_54.229  172     12759
-        ##      SRR16119110_103_30.5388 69      4178
-        ##      SRR16119110_103_30.5388 4408    5534
-
+        ##      SRR16119110_100_32.8137 1       6519
+        ##      SRR16119110_100_32.8137 6587    7524
+        ##      SRR16119110_100_32.8137 7829    36104
+        ##      SRR16119110_102_54.229  226     12863
+        ##      SRR16119110_103_30.5388 144     6585
+        ##      SRR16119110_104_40.3209 1       12590
+        ##      SRR16119110_104_40.3209 12665   19615
+        ##      SRR16119110_105_32.917  34      11125
+        ##      SRR16119110_106_22.2235 1       2959
+        ##      SRR16119110_107_44.0162 140     12900
         ```
     3. **SNP Data**: Finally, the third section of a .snpdiffs file contains all the data on SNPs that passed and failed QC. Only SNPs with the Category "SNP" are counted in the final distance. The columns headers are: 
     - **Reference_Contig/Position**, **SNP_Category**, **Reference_Base**, **Query_Base**, **Query_Contig/Position**, **Alignment_Length**, **Percent_Identity**
 
       ```
-      grep -v "#" Read_Set_B__vs__Lab_Control.snpdiffs | head -10
+      grep -v "#" Week_42_Reads__vs__Lab_Control.snpdiffs | head -10
 
       SRR16119110_107_44.0162/199487  Purged_Indel    C       .       Contig_93_15.202/78689  84047   99.99
       SRR16119110_107_44.0162/199488  Purged_Indel    G       .       Contig_93_15.202/78689  84047   99.99
@@ -331,7 +302,7 @@ snpdiffs/
       ```
   **Conclusions**
   
-  Based on these results, the assembly of Read_Set_A has only 1 SNP relative to the lab control strain, suggesting a high likelihood of potential contamination. Read_Set_B is 49 SNPs from the control strain, and likely represents independent data.  
+  Based on these results, the assembly provided by the DNA sequencing facility had only 1 SNP relative to the lab control strain, but the read data was over 40 SNPs away, suggesting that the wrong assembly was packaged with the read data.  
 
 ## SNP Pipeline Mode (Example)
 *Situation*: You dug 10 soil samples and isolated a single microbe from each. You want to check the relatedness of the cultured isolates.
