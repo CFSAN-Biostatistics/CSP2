@@ -7,8 +7,9 @@
 **Office of Analytics and Outreach**  
 **Center for Food Safety and Applied Nutrition**  
 **US Food and Drug Administration**  
-### Current Release: v.0.9.0 (Dec-20-2023)  
-### Last Push: Dec-20-2023  
+  
+**Current Release**: v.0.9.0 (Dec-20-2023)  
+**Last Push**: Dec-20-2023  
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
