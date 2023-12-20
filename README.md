@@ -3,8 +3,10 @@
 </p>
 
 # CFSAN SNP Pipeline 2 (CSP2) [v.0.9]
-### Dr. Robert Literman
-### Office of Analytics and Outreach, Center for Food Safety and Applied Nutrition, US Food and Drug Administration  
+#### Dr. Robert Literman
+**Office of Analytics and Outreach** 
+**Center for Food Safety and Applied Nutrition**
+**US Food and Drug Administration**  
 ### Last Push: Dec. 20th, 2023
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
