@@ -371,7 +371,7 @@ if csp2_count > 0:
         log.write("Step 6: Creating BED file for all SNP loci...") 
 
     try:
-        # Create BED file for Yenta locs
+        # Create BED file for SNP locs
         start_time = time.time()
         csp2_bed = makeBED(pd.DataFrame([item.split('/') for item in csp2_locs], columns=['Ref_Contig','Ref_End']))
         end_time = time.time()
@@ -381,8 +381,8 @@ if csp2_count > 0:
             log.write("\n-------------------------------------------------------\n\n")
     except:
         with open(log_file,"a+") as log:
-            log.write("\n\t- Error: Cannot create Yenta BED file...\n")
-        sys.exit("Cannot create Yenta BED file")
+            log.write("\n\t- Error: Cannot create SNP BED file...\n")
+        sys.exit("Cannot create SNP BED file")
     
     ###########################################
 
