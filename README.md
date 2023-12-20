@@ -25,7 +25,7 @@ CSP2 runs are managed via Nextflow, providing the user with an array of [customi
 
 **Important Note**: *The software continues to be focused on the analysis of groups of bacterial genomes with limited evolutionary differences (<1000 SNPs). Testing is underway to determine how the underlying cluster diversity impacts distances estimates.*
 
-### CSP2 has two main run modes:  
+### CSP2 has two main run modes (See [Examples](#examples):  
 
 #### 1) "Screening Mode" (*--runmode screen*):  Used to determine whether query isolates are close to a set of reference isolates (e.g., lab control strains, strains related to an outbreak, etc.)    
 Given one or more user-provided reference isolates (*--ref_reads*; *--ref_fasta*), get alignment statistics and SNP distances between all reference and query isolates (*--reads*; *--fasta*)
