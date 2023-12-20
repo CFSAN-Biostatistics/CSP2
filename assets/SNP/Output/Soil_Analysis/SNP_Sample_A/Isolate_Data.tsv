@@ -1,0 +1,16 @@
+Isolate_ID	Assembly	Contig_Count	Assembly_Bases	SHA256	Category	Percent_Reference_Aligned	Percent_Query_Aligned	SNPs	Purged_Alignment	Purged_N	Purged_Het	Purged_Indel	Purged_Density	Filtered_Edge
+Sample_D	assets/SNP/Sample_D.fasta	55	4627990	0a8824d9ecda9632b817d421c082e8bf87b613a8032e6e41ce02fb8a8167d8c0	PASS	99.97	99.93	10	0	0	0	9	0	0
+Sample_F	assets/SNP/Sample_F.fasta	275	4582721	1f9e26d3f5ea00ac336292f5877077fcf74f8fbfa13c7e64c594f9808fd392ef	PASS	99.04	99.98	28	0	0	0	1	0	1
+Sample_H	assets/SNP/Sample_H.fasta	54	4728796	7f3d73397edee903cfea5b796e4f1a257cc50b63233dcb68a5379ec4fad22953	PASS	99.97	97.81	25	0	0	0	1	0	0
+Sample_E	assets/SNP/Sample_E.fasta	84	4624417	342f8303aafabca5c3e3f175b975cab322eb91fa1f0aabb72340f07bd4740623	PASS	99.93	99.97	10	0	0	0	3	0	0
+Sample_C	assets/SNP/Sample_C.fasta	49	4668385	c4676142f6ab101d74ffea7d9315433ccaacee08df481f019cdc2cf29969f52b	PASS	99.98	99.08	18	0	0	0	1	0	0
+Sample_B	assets/SNP/Sample_B.fasta	40	4631086	2486ab6c17c1c7997a5707111aa8e2cac41c578382aff413fa66086a31fbde38	PASS	99.99	99.88	31	0	0	0	1	2	4
+Sample_K	assets/SNP/Sample_K.fasta	38	4632444	eb45e2ad3c47422df1d3bb56c8900d89daf2e623e00389a94d77f2099e6288ff	PASS	99.95	99.82	15	0	0	0	14	0	0
+Sample_I	assets/SNP/Sample_I.fasta	47	4668267	e05093575566fd4d00f1e50534435fc38b757b0f26ff73c3046ac9f436fd6208	PASS	99.97	99.07	12	0	0	0	2	0	0
+Sample_M	assets/SNP/Sample_M.fasta	805	4587464	43cb745a1d68479c4c5478bc92d6dbe3c8c999be665ce6394243b7b659a7fa1f	PASS	98.14	98.97	27	0	0	0	1	0	2
+Sample_L	assets/SNP/Sample_L.fasta	61	4627094	c0c473f21eb8c605b2bd77299e5cbff8d7e6944d62937f0202efb6425f7a1f2c	PASS	99.94	99.93	9	0	0	0	3	0	0
+Sample_G	assets/SNP/Sample_G.fasta	254	4584986	aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef	PASS	99.07	99.97	29	0	0	0	1	0	1
+Sample_O	assets/SNP/Sample_O.fasta	83	4623444	cbcc76d3c8bd2e8c61daeb1abeeab82b5f6285b1b52ec3211252fe8fa721df78	PASS	99.87	99.93	34	0	0	0	15	3	0
+Sample_J	assets/SNP/Sample_J.fasta	170	4730789	f4b68669533ce36a0f19f97ed11ffa0ea40daa27767f9b094cca7d4ffff53225	PASS	99.58	97.38	17	0	0	0	1	0	0
+Sample_N	assets/SNP/Sample_N.fasta	63	4667287	d32b34cc2dd9824e5381b505505ff44d510d4e9d5e7352eab60ec2878d3a688b	PASS	99.95	99.07	17	0	0	0	1	0	0
+Sample_A	assets/SNP/Sample_A.fasta	50	4626313	dae2379030db9c465040198216d2976ef11fcea1a5739c2dc47950253842bd4b	Reference_Isolate									

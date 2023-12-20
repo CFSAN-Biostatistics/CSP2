@@ -1,0 +1,2 @@
+Test_Output/Contamination_Screen/snpdiffs/Read_Set_A__vs__Lab_Control.snpdiffs
+Test_Output/Contamination_Screen/snpdiffs/Read_Set_B__vs__Lab_Control.snpdiffs
