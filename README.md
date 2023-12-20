@@ -2,7 +2,7 @@
   <img src="img/Temp_Logo.jpg" alt="drawing" width="300"/>
 </p>
 
-# CFSAN SNP Pipeline 2 (CSP2) [v.0.9]
+# CFSAN SNP Pipeline 2 (CSP2) [v.0.9.0]
 #### Dr. Robert Literman
 **Office of Analytics and Outreach**  
 **Center for Food Safety and Applied Nutrition**  
