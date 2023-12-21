@@ -103,6 +103,7 @@ profiles {
     }
 }
 ```
+- If you plan to run CSP2 locally, be sure to edit *params.cores* to match the available cores on your system  
 - If you add your own profile, be sure to note it on the command line (one hypen)
 ```
 nextflow run CSP2.nf -profile myNewProfile <args>
