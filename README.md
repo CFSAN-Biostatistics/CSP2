@@ -172,14 +172,13 @@ During Week 42, analyses start detecting high numbers of mutations, and assembly
       - **Query Reads**: *--readext*; *--forward*; *--reverse*  
       - **Reference Reads**: *--ref_readext*; *--ref_forward*; *--ref_reverse*
 
-To run this example locally, where *SKESA*, *MUMmer*, *Python*, and *BEDTools* are installed on your path, run:  
+To run this example locally, where *Nextflow*, *SKESA*, *MUMmer*, *Python*, and *BEDTools* are installed on your path, run:  
 
 ```
-# Load Nextflow module if necessary
-module load nextflow
-
 nextflow run CSP2.nf --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --fasta assets/Screen/Assembly/Week_42_Assembly.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
+```
 
+```
 nextflow run CSP2.nf                                    // Run CSP2  
 --out Test_Output/Contamination_Screen                  // Save results to ./Test_Output/Contamination_Screen  
 --runmode screen                                        // Compare each query to the reference
@@ -198,7 +197,8 @@ If you're running on an HPC and you need to load modules, you could include your
 module load nextflow
 
 nextflow run CSP2.nf -profile slurmHPC --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --fasta assets/Screen/Assembly/Week_42_Assembly.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
-
+```
+```
 nextflow run CSP2.nf                                    // Run CSP2  
 -profile slurmHPC                                       // Choose run profile (**note single hyphen**)
 --out Test_Output/Contamination_Screen                  // Save results to ./Test_Output/Contamination_Screen  
@@ -334,9 +334,6 @@ The data:
 In this case, we want to use *--runmode snp*, because we want to calculate the pairwise distances between all isolates and generate alignments. We will let RefChooser choose the best reference genome.
 
 ```
-# Load Nextflow module if necessary
-module load nextflow
-
 nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta assets/SNP/
 
 nextflow run CSP2.nf              // Run CSP2  
