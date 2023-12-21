@@ -9,7 +9,7 @@
 **US Food and Drug Administration**  
   
 **Current Release**: [v.0.9.0 (Dec-20-2023)](https://github.com/CFSAN-Biostatistics/CSP2/releases/tag/v.0.9.0)  
-**Last Push**: Dec-20-2023  
+**Last Push**: Dec-21-2023  
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
