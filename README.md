@@ -191,7 +191,7 @@ nextflow run CSP2.nf                                    // Run CSP2
 --readext fq.gz                                         // Reads don't match the default 'fastq.gz'
 ```
 
-If you're running on a SLURM HPC and you need to load modules, you could include your custom profile:  
+If you're running on an HPC and you need to load modules, you could include your custom profile:  
 
 ```
 # Load Nextflow module if necessary
