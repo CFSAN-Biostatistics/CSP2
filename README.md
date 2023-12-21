@@ -59,7 +59,8 @@ The following software are required to run CSP2. Software version used during CS
 
 - [Nextflow](https://www.nextflow.io/docs/latest/getstarted.html) (22.10.7)  
 - [Python](https://www.python.org/downloads/) (3.8.1)  
-  - [pybedtools](https://pypi.org/project/pybedtools/)
+  - [pybedtools](https://pypi.org/project/pybedtools/)  
+  - [RefChooser](https://pypi.org/project/refchooser/)  
 - [BEDTools](https://bedtools.readthedocs.io/en/latest/) (2.26.0)  
 - [MUmmer](https://github.com/mummer4/mummer) (4.0.0)  
 - [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
