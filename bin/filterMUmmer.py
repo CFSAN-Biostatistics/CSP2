@@ -124,7 +124,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
 
     # SNPs from bad alignments (ignore downstream)
     bad_snp_coords = pd.merge(snp_file,bad_coords_file,how='left')
-    snps_fail_idenlen = bad_snp_coords[~bad_snp_coords.isnull().any(1)]
+    snps_fail_idenlen = bad_snp_coords.dropna()
     snps_fail_idenlen = snps_fail_idenlen[snps_fail_idenlen.apply(lambda x: x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End'], axis=1)]
     snps_fail_idenlen['Cat'] = "Purged_Alignment"
     
@@ -150,7 +150,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
 
             # If the same number of SNPs and overlaps appear:
             if overlap_count == dup_snp_count:
-                dup_fail_idenlen = dup_fail_idenlen.append(dup_check_df).reset_index(drop=True)
+                dup_fail_idenlen = pd.concat([dup_fail_idenlen,dup_check_df]).reset_index(drop=True)
             # If there are more overlaps than SNPs (SNPs + reference base overlaps), add a redacted entry for each SNP
             else:
                 dup_check_snps['Ref_Length'] = "Multiple"
@@ -163,11 +163,11 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
                 dup_check_snps['Query_Aligned'] = "Multiple"
                 dup_check_snps['Perc_Iden'] = "Multiple"
                 dup_check_snps['Cat'] = "Purged_Alignment"
-                dup_fail_idenlen = dup_fail_idenlen.append(dup_check_snps)
+                dup_fail_idenlen = pd.concat([dup_fail_idenlen,dup_check_snps]).reset_index(drop=True)
                 
     # SNPs from good alignments
     snp_coords = pd.merge(snp_file, coords_file, how='left')
-    snps_pass_idenlen = snp_coords[~snp_coords.isnull().any(1)]
+    snps_pass_idenlen = snp_coords.dropna()
     snps_pass_idenlen = snps_pass_idenlen[snps_pass_idenlen.apply(lambda x: x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End'], axis=1)]
     snps_pass_idenlen['Cat'] = "Unchecked"
 
@@ -205,17 +205,17 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
                     # Add the longest/best match to the list
                     sorted_df = dup_check_df.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=[False, False])                    
                     longest_df = sorted_df.head(1)
-                    snps_pass_dup = snps_pass_dup.append(longest_df).reset_index(drop=True)
+                    snps_pass_dup = pd.concat([snps_pass_dup,longest_df]).reset_index(drop=True)
                     
                     # Add worse matches to fail list
                     lower_df = sorted_df.tail(dup_snp_count - 1)
                     lower_df['Cat'] = "Purged_Dup" 
-                    snps_fail_dup = snps_fail_dup.append(lower_df).reset_index(drop=True)
+                    snps_fail_dup = pd.concat([snps_fail_dup,lower_df]).reset_index(drop=True)
                 
                 # If there are different SNPs:
                 else:
                     dup_check_df['Cat'] = "Purged_Het"
-                    snps_fail_het = snps_fail_het.append(dup_check_df)
+                    snps_fail_het = pd.concat([snps_fail_het,dup_check_df]).reset_index(drop=True)
             
             # If there are more overlaps than SNPs (SNPs + reference base overlaps), add a redacted Het entry for each SNP
             else:
@@ -229,7 +229,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
                 dup_check_snps['Query_Aligned'] = "Multiple"
                 dup_check_snps['Perc_Iden'] = "Multiple"
                 dup_check_snps['Cat'] = "Purged_Het"
-                snps_fail_het = snps_fail_het.append(dup_check_snps)
+                snps_fail_het = pd.concat([snps_fail_het,dup_check_snps]).reset_index(drop=True)
 
     # Process indels        
     snps_pass_indel = snps_pass_dup[snps_pass_dup['Query_Base'] != "."]
@@ -257,7 +257,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
         snps_fail_het['Cat'] = "Purged_Het"
 
     # Update processed SNPs
-    processed_snps = processed_snps.append(dup_fail_idenlen).append(snps_fail_dup).append(snps_fail_indel).append(snps_fail_n).append(snps_fail_het).reset_index(drop=True)
+    processed_snps = pd.concat([processed_snps,dup_fail_idenlen,snps_fail_dup,snps_fail_indel,snps_fail_n,snps_fail_het]).reset_index(drop=True)
 
     if snps_pass_n.shape[0] == 0:
         assert processed_snps.shape[0] == raw_snp_count
@@ -272,7 +272,7 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
 
             if snps_fail_density.shape[0] > 0:
                 snps_fail_density['Cat'] = "Purged_Density"
-                processed_snps = processed_snps.append(snps_fail_density).reset_index(drop=True)
+                processed_snps = pd.concat([processed_snps,snps_fail_density]).reset_index(drop=True)
         
         if snps_pass_n.shape[0] == 0:
             assert processed_snps.shape[0] == raw_snp_count
@@ -283,11 +283,11 @@ def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref
                 
             if snps_fail_edge.shape[0] > 0:
                 snps_fail_edge['Cat'] = "Filtered_Edge"
-                processed_snps = processed_snps.append(snps_fail_edge).reset_index(drop=True)
+                processed_snps = pd.concat([processed_snps,snps_fail_edge]).reset_index(drop=True)
             
             if snps_pass_edge.shape[0] > 0:
                 snps_pass_edge['Cat'] = "SNP"
-                processed_snps = processed_snps.append(snps_pass_edge).reset_index(drop=True)
+                processed_snps = pd.concat([processed_snps,snps_pass_edge]).reset_index(drop=True)
     
     # Check for identical SNPs that are present in bad and good alignments and merge if all identical
     passed_alignment = processed_snps[processed_snps['Cat'] != "Purged_Alignment"]
@@ -531,7 +531,7 @@ try:
     het_snps = filtered_snps[filtered_snps['Ref_Aligned'] == "Multiple"]
     non_het_snps = filtered_snps[filtered_snps['Ref_Aligned'] != "Multiple"]
     non_het_snps['Ref_Aligned'] = non_het_snps['Ref_Aligned'].apply(lambda x: f'{x:.0f}')
-    filtered_snps = non_het_snps.append(het_snps)
+    filtered_snps = pd.concat([non_het_snps,het_snps])
     filtered_snps[["Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
 except:
     pass
