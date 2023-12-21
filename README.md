@@ -335,7 +335,8 @@ In this case, we want to use *--runmode snp*, because we want to calculate the p
 
 ```
 nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta assets/SNP/
-
+```
+```
 nextflow run CSP2.nf              // Run CSP2  
 --out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
 --runmode snp                     // Compare all queries to each other
