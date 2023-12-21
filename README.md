@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="img/Temp_Logo.jpg" alt="drawing" width="300"/>
+  <img src="img/Temp_Logo.jpg" alt="drawing" width="400"/>
 </p>
 
 # CFSAN SNP Pipeline 2 (CSP2)  
