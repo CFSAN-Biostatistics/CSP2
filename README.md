@@ -172,6 +172,27 @@ During Week 42, analyses start detecting high numbers of mutations, and assembly
       - **Query Reads**: *--readext*; *--forward*; *--reverse*  
       - **Reference Reads**: *--ref_readext*; *--ref_forward*; *--ref_reverse*
 
+To run this example locally, where *SKESA*, *MUMmer*, *Python*, and *BEDTools* are installed on your path, run:  
+
+```
+# Load Nextflow module if necessary
+module load nextflow
+
+nextflow run CSP2.nf --out Test_Output/Contamination_Screen --runmode screen --ref_fasta assets/Screen/Assembly/Lab_Control.fasta --fasta assets/Screen/Assembly/Week_42_Assembly.fasta --reads assets/Screen/Reads --forward _1.fq.gz --reverse _2.fq.gz --readext fq.gz
+
+nextflow run CSP2.nf                                    // Run CSP2  
+--out Test_Output/Contamination_Screen                  // Save results to ./Test_Output/Contamination_Screen  
+--runmode screen                                        // Compare each query to the reference
+--ref_fasta assets/Screen/Assembly/Lab_Control.fasta    // Compare all queries to this reference  
+--fasta assets/Screen/Assembly/Week_42_Assembly.fasta   // Include this assembly as a query
+--reads assets/Screen/Reads                             // Include any read datasets from this directory as queries
+--forward _1.fq.gz                                      // Forward reads don't match the default '_1.fastq.gz'
+--reverse _2.fq.gz                                      // Reverse reads don't match the default '_2.fastq.gz'
+--readext fq.gz                                         // Reads don't match the default 'fastq.gz'
+```
+
+If you're running on a SLURM HPC and you need to load modules, you could include your custom profile:  
+
 ```
 # Load Nextflow module if necessary
 module load nextflow
@@ -316,10 +337,9 @@ In this case, we want to use *--runmode snp*, because we want to calculate the p
 # Load Nextflow module if necessary
 module load nextflow
 
-nextflow run CSP2.nf -profile slurmHPC --out Test_Output/Soil_Analysis --runmode snp --fasta assets/SNP/
+nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta assets/SNP/
 
 nextflow run CSP2.nf              // Run CSP2  
--profile slurmHPC                 // Choose run profile (**note single hyphen**)
 --out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
 --runmode snp                     // Compare all queries to each other
 --fasta assets/SNP                // Gather query assemblies from this directory
