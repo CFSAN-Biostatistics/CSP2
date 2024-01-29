@@ -298,6 +298,7 @@ workflow assembleReads{
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
 }
 process skesaAssemble{
+// TO DO: Read count to memory check?
 
     // Set SKESA cores to 5 or fewer
     if("${params.cores}".toInteger() >= 5){
@@ -330,14 +331,14 @@ process skesaAssemble{
         """
         $params.load_python_module
         $params.load_skesa_module
-        skesa --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
+        skesa --cores ${cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
         python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
         """
     } else if(read_type == "Single"){
         """
         $params.load_python_module
         $params.load_skesa_module
-        skesa --fastq ${read_location} --contigs_out ${assembly_file}
+        skesa --cores ${cpus} --fastq ${read_location} --contigs_out ${assembly_file}
         python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
         """
     } else{
