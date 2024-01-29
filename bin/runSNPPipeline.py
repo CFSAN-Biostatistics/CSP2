@@ -339,8 +339,7 @@ else:
     ref_isolate_df = pd.DataFrame(columns = ["Query","Ref_Loc","Base"])
 
 with open(log_file,"a+") as log:
-    log.write("Done!\n")
-    log.write(f"\t- {str(csp2_count)} SNPs detected\n")
+    log.write(f"\t- {str(csp2_count)} total SNPs detected\n")
     log.write("\n-------------------------------------------------------\n\n")
     
 ###########################################
