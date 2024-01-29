@@ -321,7 +321,7 @@ csp2_locs = np.unique(csp2_df['Ref_Loc'].values)
 csp2_count = len(csp2_locs)
 
 # Rescue SNPs lost to edge filtering if Ref_Loc in csp2_locs
-edge_df = snp_df[(snp_df.Cat == "Filtered_Edge") & (snp_df.Loc.isin(csp2_locs))][['Query','Ref_Loc','Query_Base','Ref_Base','Cat']].rename(columns={'Query_Base': 'Base'})
+edge_df = snp_df[(snp_df.Cat == "Filtered_Edge") & (snp_df.Ref_Loc.isin(csp2_locs))][['Query','Ref_Loc','Query_Base','Ref_Base','Cat']].rename(columns={'Query_Base': 'Base'})
 rescued_edge_count = edge_df.shape[0]
 if rescued_edge_count > 0:
     edge_df.to_csv(ref_directory+"/Recovered_Edge_SNPs.tsv",sep="\t",index=False)
