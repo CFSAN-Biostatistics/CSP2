@@ -470,6 +470,7 @@ if csp2_count > 0:
     locus_category_df['Total_Covered'] = locus_category_df.iloc[:, 1:2].sum(axis=1)
     locus_category_df['Total_Missing'] = locus_category_df.iloc[:, 3:9].sum(axis=1)
 
+    # TO ADD: USER SETTING FOR PERCENT WITH DATA FOR PRUNING
     to_purge = locus_category_df[locus_category_df['Total_Missing'] / (locus_category_df['Total_Missing'] + locus_category_df['Total_Covered']) >= 2/3]
     prune_locs = to_purge['Ref_Loc'].to_list()
     purge_count = to_purge.shape[0]
