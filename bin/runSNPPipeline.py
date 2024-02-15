@@ -504,6 +504,7 @@ if csp2_count > 0:
     with open(ref_directory+"/Loc_List.txt","w+") as snp_file:
         snp_file.write("\n".join(csp2_ordered)+"\n")
 
+    # SAVE ALIGNMENT AS A PARQUET FILE FOR EASY DATA MANUPULATION (Row Names: LocID, Columns: Sample Bases)
     seq_records = [SeqRecord(Seq(''.join(row)), id=query,description='') for query,row in pivoted_df.iterrows()]
     alignment = MultipleSeqAlignment(seq_records)
     AlignIO.write(alignment, ref_directory+"/snp_alignment.fasta","fasta")
