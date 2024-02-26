@@ -50,6 +50,9 @@ params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${pa
 
 include {saveAssemblyLog} from "../logging/main.nf"
 
+// Set SKESA cores to 5 or fewer
+skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
+
 // Top-level workflow //
 workflow fetchData{
 
@@ -299,14 +302,6 @@ workflow assembleReads{
 }
 process skesaAssemble{
 // TO DO: Read count to memory check?
-
-    // Set SKESA cores to 5 or fewer
-    if("${params.cores}".toInteger() >= 5){
-        cpus = 5
-    } else{
-        cpus = "${params.cores}".toInteger()
-    }
-    
     memory '12 GB'
 
     input:
@@ -331,14 +326,14 @@ process skesaAssemble{
         """
         $params.load_python_module
         $params.load_skesa_module
-        skesa --cores ${cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
+        skesa --cores ${skesa_cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
         python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
         """
     } else if(read_type == "Single"){
         """
         $params.load_python_module
         $params.load_skesa_module
-        skesa --cores ${cpus} --fastq ${read_location} --contigs_out ${assembly_file}
+        skesa --cores ${skesa_cpus} --fastq ${read_location} --contigs_out ${assembly_file}
         python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
         """
     } else{
