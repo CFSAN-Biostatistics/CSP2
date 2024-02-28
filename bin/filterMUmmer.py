@@ -4,35 +4,18 @@ import sys
 import os
 import pandas as pd
 import re
-from pybedtools import BedTool
+from pybedtools import BedTool,Interval
 import warnings
-import ast
 import numpy as np
 import hashlib
 from Bio import SeqIO
-warnings.filterwarnings("ignore")
+from collections import defaultdict
 
-def count_lines(filename):
-    with open(filename, 'r') as f:
-        return sum(1 for line in f)
-    
-def makeBED(bed_df):
-    if bed_df.shape[1] == 2:
-        bed_df.columns = ['Ref_Contig','Ref_End']
-        bed_df['Ref_End'] = bed_df['Ref_End'].astype(int)
-        bed_df['Ref_Start'] = bed_df['Ref_End'] - 1
-        bed_file = BedTool.from_dataframe(bed_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
-    elif bed_df.shape[1] == 3:
-        bed_df.columns = ['Ref_Contig','Ref_End','Metadata']
-        bed_df['Ref_End'] = bed_df['Ref_End'].astype(int)
-        bed_df['Ref_Start'] = bed_df['Ref_End'] - 1
-        bed_file = BedTool.from_dataframe(bed_df[['Ref_Contig','Ref_Start','Ref_End','Metadata']]).sort()
-    else:
-        sys.exit("bed_df should have 2 or 3 columns")
-    return bed_file
+warnings.filterwarnings("ignore")
 
 def parseMUmmerReport(mum_report_dir,report_id):
     report_data = []
+    
     with open(mum_report_dir+"/"+report_id+".report", 'r') as report_file:
 
         for line in report_file.readlines():
@@ -46,7 +29,11 @@ def parseMUmmerReport(mum_report_dir,report_id):
                     })
 
     report_data = pd.DataFrame(report_data)
-    report_data = report_data[report_data['Measure'].isin(['TotalSeqs','TotalBases','AlignedBases','TotalGSNPs','TotalGIndels'])]
+    report_data = report_data[report_data['Measure'].isin(['TotalSeqs','TotalBases','AlignedBases',
+                                                           'TotalSNPs','TotalGSNPs','TotalIndels','TotalGIndels',
+                                                           'Breakpoints','Relocations','Translocations','Inversions',
+                                                           'Insertions','TandemIns'])]
+    
     report_data = report_data.drop_duplicates(subset=['Measure']) # Drop M-to-M
 
     report_data = report_data.astype({"Ref_Value":"int","Query_Value":"int"})
@@ -62,482 +49,346 @@ def parseMUmmerReport(mum_report_dir,report_id):
     percent_ref_aligned = 100*(float(ref_aligned)/ref_bases)
     percent_query_aligned = 100*(float(query_aligned)/query_bases)
     
-    return [ref_bases,percent_ref_aligned,query_bases,percent_query_aligned]
-
-def parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len):
+    # Fetch SNP data
+    g_snps = report_data[report_data['Measure'] == 'TotalGSNPs']['Ref_Value'].iloc[0]
+    g_indels = report_data[report_data['Measure'] == 'TotalGIndels']['Ref_Value'].iloc[0]    
     
-    return_columns = ['Ref_Contig','Ref_Length','Ref_Start','Ref_End','Ref_Aligned','Query_Contig','Query_Length','Query_Start','Query_End','Query_Aligned','Perc_Iden']
+    ref_breakpoints = report_data[report_data['Measure'] == 'Breakpoints']['Ref_Value'].iloc[0]
+    query_breakpoints = report_data[report_data['Measure'] == 'Breakpoints']['Query_Value'].iloc[0]
+    
+    ref_relocations = report_data[report_data['Measure'] == 'Relocations']['Ref_Value'].iloc[0]
+    query_relocations = report_data[report_data['Measure'] == 'Relocations']['Query_Value'].iloc[0]
+    
+    ref_translocations = report_data[report_data['Measure'] == 'Translocations']['Ref_Value'].iloc[0]
+    query_translocations = report_data[report_data['Measure'] == 'Translocations']['Query_Value'].iloc[0]
+
+    ref_inversions = report_data[report_data['Measure'] == 'Inversions']['Ref_Value'].iloc[0]
+    query_inversions = report_data[report_data['Measure'] == 'Inversions']['Query_Value'].iloc[0]                                                                                                 
+
+    ref_insertions = report_data[report_data['Measure'] == 'Insertions']['Ref_Value'].iloc[0]
+    query_insertions = report_data[report_data['Measure'] == 'Insertions']['Query_Value'].iloc[0]                                                                                                 
+    
+    ref_tandem = report_data[report_data['Measure'] == 'TandemIns']['Ref_Value'].iloc[0]
+    query_tandem = report_data[report_data['Measure'] == 'TandemIns']['Query_Value'].iloc[0]
+    
+    return [ref_bases,percent_ref_aligned,
+            query_bases,percent_query_aligned,
+            g_snps,g_indels,
+            ref_breakpoints,query_breakpoints,
+            ref_relocations,query_relocations,
+            ref_translocations,query_translocations,
+            ref_inversions,query_inversions,
+            ref_insertions,query_insertions,
+            ref_tandem,query_tandem]
+
+def parseMUmmerCoords(mum_coords_dir,report_id,reference_chr_bed,query_chr_bed):
+    
     coords_file = pd.read_csv(mum_coords_dir+"/"+report_id+".1coords",sep="\t",index_col=False,
     names=['Ref_Start','Ref_End','Query_Start','Query_End',
     'Ref_Aligned','Query_Aligned','Perc_Iden',
     'Ref_Length','Query_Length','Ref_Cov',
-    'Query_Cov','Ref_Contig','Query_Contig'])
+    'Query_Cov','Ref_Contig','Query_Contig'],   
+    dtype={
+        'Ref_Start': int,
+        'Ref_End': int,
+        'Query_Start': int,
+        'Query_End': int,
+        'Ref_Aligned': int,
+        'Query_Aligned': int,
+        'Perc_Iden': float,
+        'Ref_Length': int,
+        'Query_Length': int,
+        'Ref_Cov': float,
+        'Query_Cov': float,
+        'Ref_Contig': str,
+        'Query_Contig': str
+    })
     
-    bad_coords_file = coords_file[(coords_file.Ref_Aligned < min_len) | (coords_file.Perc_Iden < min_iden)]
-    good_coords_file = coords_file[(coords_file.Ref_Aligned >= min_len) & (coords_file.Perc_Iden >= min_iden)]
-    
-    # Fix start coordinates and create a BED file
-    if good_coords_file.shape[0] > 0:
-        good_coords_file['Ref_Start'] = (good_coords_file['Ref_Start'].astype(int) - 1)
-        good_coords_file['Query_Start'] = (good_coords_file['Query_Start'].astype(int) - 1)
-        ref_bed = BedTool.from_dataframe(coords_file[['Ref_Contig','Ref_Start','Ref_End']]).sort().merge()
+    if coords_file.shape[0] > 0:
+        
+        coords_file['Ref_Start'] = (coords_file['Ref_Start'] - 1)
+        coords_file = coords_file.apply(adjust_query_row, axis=1)
+                
+        merged_ref_bed = BedTool.from_dataframe(coords_file[['Ref_Contig','Ref_Start','Ref_End']]).sort().merge()
+        merged_query_bed = BedTool.from_dataframe(coords_file[['Query_Contig','Query_Start','Query_End']]).sort().merge()
+        
+        covered_ref_regions = reference_chr_bed.intersect(merged_ref_bed)
+        uncovered_ref_regions = reference_chr_bed.subtract(merged_ref_bed)
+                
+        covered_query_regions = query_chr_bed.intersect(merged_query_bed)
+        uncovered_query_regions = query_chr_bed.subtract(merged_query_bed)
     else:
-        ref_bed = BedTool([])
+        merged_ref_bed = BedTool([])
+        merged_query_bed = BedTool([])
+        
+        covered_ref_regions = BedTool([])
+        uncovered_ref_regions = BedTool([])  
+        
+        covered_query_regions = BedTool([])
+        uncovered_query_regions = BedTool([])  
     
-    # Fix start coordinates
-    if bad_coords_file.shape[0] > 0:
-        bad_coords_file['Ref_Start'] = (bad_coords_file['Ref_Start'].astype(int) - 1)
-        bad_coords_file['Query_Start'] = (bad_coords_file['Query_Start'].astype(int) - 1)
+    ref_genome_size = calculate_total_length(reference_chr_bed)
+    ref_covered_size = calculate_total_length(covered_ref_regions)
+    ref_uncovered_size = calculate_total_length(uncovered_ref_regions)
 
-    return [good_coords_file[return_columns],bad_coords_file[return_columns],ref_bed]
+    query_genome_size = calculate_total_length(query_chr_bed)
+    query_covered_size = calculate_total_length(covered_query_regions)
+    query_uncovered_size = calculate_total_length(uncovered_query_regions)
     
-def parseMUmmerSNPs(mum_snps_dir,report_id):
+    assert ref_covered_size + ref_uncovered_size == ref_genome_size
+    assert query_covered_size + query_uncovered_size == query_genome_size
+    
+    # Create return_df
+    return_columns = ['Ref_Contig','Ref_Start','Ref_End','Ref_Length','Ref_Aligned','Query_Contig','Query_Start','Query_End','Query_Length','Query_Aligned','Perc_Iden']
 
-    return_columns = ['Ref_Contig','Ref_Pos','Ref_Loc','Query_Contig','Query_Pos','Query_Loc','Dist_to_Ref_End','Dist_to_Query_End','Ref_Base','Query_Base','Ref_Direction','Query_Direction']
+    return_df = pd.DataFrame(columns=return_columns)
+    
+    if coords_file.shape[0] > 0:
+        return_df = pd.concat([return_df,coords_file[return_columns]],ignore_index=True)
+
+    if uncovered_ref_regions.count() > 0:
+        return_uncovered_df = uncovered_ref_regions.to_dataframe().sort_values(['chrom','start']).rename(columns={'chrom':'Ref_Contig','start':'Ref_Start','end':'Ref_End'}).assign(Ref_Aligned = ".",Query_Aligned = ".",Query_Contig=".",Query_Start=".",Query_End=".",Ref_Length = ".",Query_Length=".",Perc_Iden = ".")
+        return_df = pd.concat([return_df,return_uncovered_df[return_columns]],ignore_index=True)
+    
+    if uncovered_query_regions.count() > 0:
+        return_uncovered_df = uncovered_query_regions.to_dataframe().sort_values(['chrom','start']).rename(columns={'chrom':'Query_Contig','start':'Query_Start','end':'Query_End'}).assign(Ref_Aligned = ".",Query_Aligned = ".",Ref_Contig=".",Ref_Start=".",Ref_End=".",Ref_Length = ".",Query_Length=".",Perc_Iden = ".")
+        return_df = pd.concat([return_df,return_uncovered_df[return_columns]],ignore_index=True) 
+    
+    return return_df
+
+def adjust_query_row(row):
+    if set(['Query_Start', 'Query_End', 'Query_Contig']).issubset(row.index):
+        if row['Query_Start'] > row['Query_End']:
+            row['Query_Start'], row['Query_End'] = row['Query_End'] - 1, row['Query_Start']
+        else:
+            row['Query_Start'] = row['Query_Start'] - 1
+    return row
+
+def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
+    
+    return_columns = ['Ref_Contig','Start_Ref','Ref_Pos',
+                'Query_Contig','Start_Query','Query_Pos',
+                'Ref_Loc','Query_Loc',
+                'Ref_Start','Ref_End',
+                'Query_Start','Query_End',
+                'Ref_Base','Query_Base',
+                'Dist_to_Ref_End','Dist_to_Query_End',
+                'Ref_Aligned','Perc_Iden','Cat']
+    
+    coords_columns = ['Ref_Contig','Ref_Start','Ref_End',
+                      'Query_Contig','Query_Start','Query_End',
+                      'Ref_Aligned','Perc_Iden']
 
     snp_file = pd.read_csv(mum_snps_dir+"/"+report_id+".snps",sep="\t",index_col=False,
         names=['Ref_Pos','Ref_Base','Query_Base','Query_Pos',
         'SNP_Buffer','Dist_to_End','Ref_Length','Query_Length',
         'Ref_Direction','Query_Direction','Ref_Contig','Query_Contig'])
-
-    # Ignore SNPs where the reference has an indel
-    snp_file = snp_file[snp_file['Ref_Base'] != "."]
-
-    # If no nucleotide SNPs are present, return empty df
+    
     if snp_file.shape[0] == 0:
-        return snp_file
+        return pd.DataFrame(columns=return_columns)
     else:
-        # Get minimum dist_to_end for ref and query
+        total_snp_count = snp_file.shape[0]
+
+        snp_file['Start_Ref'] = snp_file['Ref_Pos'] - 1
+        snp_file['Start_Query'] = snp_file['Query_Pos'] - 1
+        
         snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'],snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
         snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
 
-        # Add Loc data
         snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
         snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]    
 
-        return snp_file[return_columns]
-
-def filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref_edge,query_edge):
-
-    # Get raw SNP count
-    raw_snp_count = snp_file.shape[0]
-
-    # SNPs from bad alignments (ignore downstream)
-    bad_snp_coords = pd.merge(snp_file,bad_coords_file,how='left')
-    snps_fail_idenlen = bad_snp_coords.dropna()
-    snps_fail_idenlen = snps_fail_idenlen[snps_fail_idenlen.apply(lambda x: x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End'], axis=1)]
-    snps_fail_idenlen['Cat'] = "Purged_Alignment"
-    
-    # Process duplicate locs from bad coords
-    loc_tally = snps_fail_idenlen['Ref_Loc'].value_counts()
-    solo_locs = loc_tally[loc_tally == 1].index.tolist()
-    
-    # Grab locs covered by 1 bad alignment
-    dup_fail_idenlen = snps_fail_idenlen[snps_fail_idenlen.Ref_Loc.isin(solo_locs)]
-    
-    # Process locs covered by 2+ alignments
-    dup_query = loc_tally[loc_tally > 1]
-    dup_locs = dup_query.index.tolist()
-
-    if len(dup_locs) > 0:
-        snps_check_dup = snps_fail_idenlen[snps_fail_idenlen.Ref_Loc.isin(dup_locs)]
-        for loc in dup_locs:
-            # Find all query overlaps with each reference locus
-            dup_check_df = snps_check_dup[snps_check_dup['Ref_Loc'] == loc]
-            overlap_count = dup_check_df.shape[0]
-            dup_check_snps = snp_file[snp_file['Ref_Loc'] == loc]
-            dup_snp_count = dup_check_snps.shape[0]
-
-            # If the same number of SNPs and overlaps appear:
-            if overlap_count == dup_snp_count:
-                dup_fail_idenlen = pd.concat([dup_fail_idenlen,dup_check_df]).reset_index(drop=True)
-            # If there are more overlaps than SNPs (SNPs + reference base overlaps), add a redacted entry for each SNP
-            else:
-                dup_check_snps['Ref_Length'] = "Multiple"
-                dup_check_snps['Ref_Start'] = "Multiple"
-                dup_check_snps['Ref_End'] = "Multiple"
-                dup_check_snps['Ref_Aligned'] = "Multiple"
-                dup_check_snps['Query_Length'] = "Multiple"
-                dup_check_snps['Query_Start'] = "Multiple"
-                dup_check_snps['Query_End'] = "Multiple"
-                dup_check_snps['Query_Aligned'] = "Multiple"
-                dup_check_snps['Perc_Iden'] = "Multiple"
-                dup_check_snps['Cat'] = "Purged_Alignment"
-                dup_fail_idenlen = pd.concat([dup_fail_idenlen,dup_check_snps]).reset_index(drop=True)
-                
-    # SNPs from good alignments
-    snp_coords = pd.merge(snp_file, coords_file, how='left')
-    snps_pass_idenlen = snp_coords.dropna()
-    snps_pass_idenlen = snps_pass_idenlen[snps_pass_idenlen.apply(lambda x: x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End'], axis=1)]
-    snps_pass_idenlen['Cat'] = "Unchecked"
-
-    # Create empty dataframe to hold SNP data
-    processed_snps = snp_coords.iloc[0:0]
-    
-    # Process duplicate locs from good coords
-    loc_tally = snps_pass_idenlen['Ref_Loc'].value_counts()
-    solo_locs = loc_tally[loc_tally == 1].index.tolist()
-    dup_query = loc_tally[loc_tally > 1]
-    dup_locs = dup_query.index.tolist()
-    
-    # Grab locs covered by 2+ alignments
-    snps_pass_dup = snps_pass_idenlen[snps_pass_idenlen.Ref_Loc.isin(solo_locs)]
-    snps_check_dup = snps_pass_idenlen[snps_pass_idenlen.Ref_Loc.isin(dup_locs)]
-    
-    snps_fail_dup = processed_snps.iloc[0:0]
-    snps_fail_het = processed_snps.iloc[0:0]
-
-    if len(dup_locs) > 0:
-        for loc in dup_locs:
-            
-            # Find all query overlaps with each reference locus
-            dup_check_df = snps_check_dup[snps_check_dup['Ref_Loc'] == loc]
-            overlap_count = dup_check_df.shape[0]
-            dup_check_snps = snp_file[snp_file['Ref_Loc'] == loc]
-            dup_snp_count = dup_check_snps.shape[0]
-
-            # If the same number of SNPs and overlaps appear:
-            if overlap_count == dup_snp_count:
-                
-                # If there is a single base:
-                if dup_check_df['Query_Base'].nunique() == 1:
-
-                    # Add the longest/best match to the list
-                    sorted_df = dup_check_df.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=[False, False])                    
-                    longest_df = sorted_df.head(1)
-                    snps_pass_dup = pd.concat([snps_pass_dup,longest_df]).reset_index(drop=True)
-                    
-                    # Add worse matches to fail list
-                    lower_df = sorted_df.tail(dup_snp_count - 1)
-                    lower_df['Cat'] = "Purged_Dup" 
-                    snps_fail_dup = pd.concat([snps_fail_dup,lower_df]).reset_index(drop=True)
-                
-                # If there are different SNPs:
-                else:
-                    dup_check_df['Cat'] = "Purged_Het"
-                    snps_fail_het = pd.concat([snps_fail_het,dup_check_df]).reset_index(drop=True)
-            
-            # If there are more overlaps than SNPs (SNPs + reference base overlaps), add a redacted Het entry for each SNP
-            else:
-                dup_check_snps['Ref_Length'] = "Multiple"
-                dup_check_snps['Ref_Start'] = "Multiple"
-                dup_check_snps['Ref_End'] = "Multiple"
-                dup_check_snps['Ref_Aligned'] = "Multiple"
-                dup_check_snps['Query_Length'] = "Multiple"
-                dup_check_snps['Query_Start'] = "Multiple"
-                dup_check_snps['Query_End'] = "Multiple"
-                dup_check_snps['Query_Aligned'] = "Multiple"
-                dup_check_snps['Perc_Iden'] = "Multiple"
-                dup_check_snps['Cat'] = "Purged_Het"
-                snps_fail_het = pd.concat([snps_fail_het,dup_check_snps]).reset_index(drop=True)
-
-    # Process indels        
-    snps_pass_indel = snps_pass_dup[snps_pass_dup['Query_Base'] != "."]
-    snps_fail_indel = snps_pass_dup[snps_pass_dup['Query_Base'] == "."]
-
-    # Find any SNPs where either sequence has non ACTG.
-    valid_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T','.']
-
-    snps_pass_n = snps_pass_indel[(snps_pass_indel['Ref_Base'].isin(valid_bases)) & (snps_pass_indel['Query_Base'].isin(valid_bases))]        
-    snps_fail_n = snps_pass_indel[(~snps_pass_indel['Ref_Base'].isin(valid_bases)) | (~snps_pass_indel['Query_Base'].isin(valid_bases))]
-    
-    if dup_fail_idenlen.shape[0] > 0:
-        dup_fail_idenlen['Cat'] = "Purged_Alignment"
-
-    if snps_fail_n.shape[0] > 0:
-        snps_fail_n['Cat'] = "Purged_N"
-
-    if snps_fail_indel.shape[0] > 0:
-        snps_fail_indel['Cat'] = "Purged_Indel"
-
-    if snps_fail_dup.shape[0] > 0:
-        snps_fail_dup['Cat'] = "Purged_Dup"
-
-    if snps_fail_het.shape[0] > 0:
-        snps_fail_het['Cat'] = "Purged_Het"
-
-    # Update processed SNPs
-    processed_snps = pd.concat([processed_snps,dup_fail_idenlen,snps_fail_dup,snps_fail_indel,snps_fail_n,snps_fail_het]).reset_index(drop=True)
-
-    if snps_pass_n.shape[0] == 0:
-        assert processed_snps.shape[0] == raw_snp_count
-
-    else:
-
-        if len(density_windows) > 0:
-            density_locs = density_filter(snps_pass_n['Ref_Loc'],density_windows,max_snps)
-            
-            snps_fail_density = snps_pass_n[snps_pass_n.Ref_Loc.isin(density_locs)]
-            snps_pass_n = snps_pass_n[~snps_pass_n.Ref_Loc.isin(density_locs)]
-
-            if snps_fail_density.shape[0] > 0:
-                snps_fail_density['Cat'] = "Purged_Density"
-                processed_snps = pd.concat([processed_snps,snps_fail_density]).reset_index(drop=True)
+        valid_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
         
-        if snps_pass_n.shape[0] == 0:
-            assert processed_snps.shape[0] == raw_snp_count
-            
-        else:            
-            snps_pass_edge = snps_pass_n[(snps_pass_n.Dist_to_Ref_End >= ref_edge) & (snps_pass_n.Dist_to_Query_End >= query_edge)]
-            snps_fail_edge = snps_pass_n[(snps_pass_n.Dist_to_Ref_End < ref_edge) | (snps_pass_n.Dist_to_Query_End < query_edge)]
-                
-            if snps_fail_edge.shape[0] > 0:
-                snps_fail_edge['Cat'] = "Filtered_Edge"
-                processed_snps = pd.concat([processed_snps,snps_fail_edge]).reset_index(drop=True)
-            
-            if snps_pass_edge.shape[0] > 0:
-                snps_pass_edge['Cat'] = "SNP"
-                processed_snps = pd.concat([processed_snps,snps_pass_edge]).reset_index(drop=True)
-    
-    # Check for identical SNPs that are present in bad and good alignments and merge if all identical
-    passed_alignment = processed_snps[processed_snps['Cat'] != "Purged_Alignment"]
-    key_columns = ['Ref_Loc', 'Query_Loc', 'Ref_Base', 'Query_Base']
-    rows_to_add = dup_fail_idenlen.merge(passed_alignment[key_columns], on=key_columns, how='left', indicator=True).query('_merge == "left_only"').drop('_merge', axis=1)
-    processed_snps = pd.concat([passed_alignment, rows_to_add], ignore_index=True)
-
-    assert processed_snps[processed_snps['Cat'] == "Unchecked"].shape[0] == 0
-    assert processed_snps.shape[0] == raw_snp_count
-    return processed_snps
-
-def density_filter(locs,density_windows,max_snps):
-
-    density_locs = []
-    if len(density_windows) != len(max_snps):
-        sys.exit("density_windows must be the same length as max_snps")
-
-    elif len(density_windows) > 0 and len(locs) > 0:
-        density_df = pd.DataFrame([item.split('/') for item in locs], columns=['Ref_Contig','Ref_End'])
-        if density_df.shape[0] > 0:
-            density_df['Ref_Loc'] = locs
-            density_bed = makeBED(density_df[['Ref_Contig','Ref_End']])
+        invalid_file = snp_file[(~snp_file['Ref_Base'].isin(valid_bases)) | (~snp_file['Query_Base'].isin(valid_bases))]
+        snp_file = snp_file[(snp_file['Ref_Base'].isin(valid_bases)) & (snp_file['Query_Base'].isin(valid_bases))]
+        indel_file = snp_file[(snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == ".")]
+        snp_file = snp_file[~((snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == "."))]
         
-            if len(density_bed):
-                for i in range(0,len(density_windows)):
-                    window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
-                    if len(window_bed) > 0:
-                        window_df = window_bed.to_dataframe()
-                        window_df = window_df[window_df['name'] > max_snps[i]]
-                        if window_df.shape[0] > 0:
-                            density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
-                            density_bed = makeBED(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_End']])
+        # Gather coordinate information       
+        if snp_file.shape[0] == 0:
+            snp_coords = pd.DataFrame(columns=return_columns)
+        else:
+            snp_coords = makeSNPCoords(snp_file,coords_file)
+            snp_coords['Cat'] = "SNP"
+        
+        if indel_file.shape[0] == 0:
+            indel_coords = pd.DataFrame(columns=return_columns)
+        else:
+            indel_coords = makeSNPCoords(indel_file,coords_file)
+            indel_coords['Cat'] = "Indel"
+        
+        if invalid_file.shape[0] == 0:
+            invalid_coords = pd.DataFrame(columns=return_columns)
+        else:
+            invalid_coords = makeSNPCoords(invalid_file,coords_file)
+            invalid_coords['Cat'] = "Invalid"
+                  
+        return_df = pd.concat([snp_coords,indel_coords,invalid_coords],ignore_index=True)[return_columns]
+        
+        assert return_df.shape[0] == total_snp_count
+        return return_df
     
-    return density_locs
-
+def makeSNPCoords(snp_df,coords_df):
+    snp_coords = pd.merge(snp_df,coords_df,how='left').dropna()
+    snp_coords = snp_coords[snp_coords.apply(lambda x: (x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End']) & (x['Query_Start'] <= x['Query_Pos'] <= x['Query_End']), axis=1)]
+    return(snp_coords)
+    
 def fasta_info(file_path):
     records = list(SeqIO.parse(file_path, 'fasta'))
     contig_count = int(len(records))
-    assembly_bases = int(sum(len(record) for record in records))
+    lengths = sorted([len(record) for record in records], reverse=True)
+    assembly_bases = sum(lengths)
+
     with open(file_path, 'rb') as file:
         sha256 = hashlib.sha256(file.read()).hexdigest()
-    return [file_path, contig_count, assembly_bases, sha256]
+
+    cumulative_length = 0
+    n50 = None
+    n90 = None
+    l50 = None
+    l90 = None
+    
+    for i, length in enumerate(lengths, start=1):
+        cumulative_length += length
+        if cumulative_length >= assembly_bases * 0.5 and n50 is None:
+            n50 = length
+            l50 = i
+        if cumulative_length >= assembly_bases * 0.9 and n90 is None:
+            n90 = length
+            l90 = i
+        if n50 is not None and n90 is not None:
+            break
+
+    return [file_path, contig_count, assembly_bases, n50,l50, n90,l90, sha256]
+
+def fasta_to_bedtool(fasta_file):
+    intervals = []
+    for record in SeqIO.parse(fasta_file, "fasta"):
+        chrom_name = record.id
+        chrom_length = len(record.seq)
+        interval = Interval(chrom_name, 0, chrom_length)
+        intervals.append(interval)
+    bedtool = BedTool(intervals).sort()
+    return bedtool
+
+def calculate_total_length(bedtool):
+    return sum(len(interval) for interval in bedtool)
 
 #### 01: Read in arguments ####
 
-# Get isolate data
 query = str(sys.argv[1])
 query_fasta = str(sys.argv[2])
-query_data = [query] + fasta_info(query_fasta)
-query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases','Query_SHA256'],query_data)]
-
 reference = str(sys.argv[3])
 reference_fasta = str(sys.argv[4])
-reference_data = [reference] + fasta_info(reference_fasta)
-reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases','Reference_SHA256'],reference_data)]
-
-report_id = query + "__vs__" + reference
-
-# Get directories
 output_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
 
+# Get query data
+query_data = [query] + fasta_info(query_fasta)
+query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
+                                             'Query_N50','Query_L50','Query_N90','Query_L90','Query_SHA256'],query_data)]
+
+# Get reference data
+reference_data = [reference] + fasta_info(reference_fasta)
+reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
+                                                 'Reference_N50','Reference_L50','Reference_N90','Reference_L90','Reference_SHA256'],reference_data)]
+
+# Create reference BED file using fasta seq lengths
+query_chr_bed = fasta_to_bedtool(query_fasta)
+reference_chr_bed = fasta_to_bedtool(reference_fasta)
+
+# Set report ID
+report_id = query + "__vs__" + reference
+
+# Set directories
 mummer_dir = output_dir + "/MUMmer_Output"
 mum_snps_dir = mummer_dir + "/snps"
 mum_report_dir = mummer_dir + "/report"
 mum_coords_dir = mummer_dir + "/1coords"
-
 log_dir = output_dir + "/logs"
-
 snpdiffs_dir = output_dir + "/snpdiffs"
 snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
 
-# Set filtering criteria
-min_cov = float(sys.argv[6])
-min_iden = float(sys.argv[7])
-min_len = int(sys.argv[8])
+# Create NA variables for all downstream options
+median_percent_identity = "NA"
+median_alignment_length = "NA"
 
-density_windows = [int(x) for x in sys.argv[9].split(",")]
-max_snps = [int(x) for x in sys.argv[10].split(",")]
+total_snp_count = "NA"
+total_indel_count = "NA"
+total_invalid_count = "NA"
 
-qc_density =  ",".join([str(x) for x in density_windows])
-qc_maxsnps =  ",".join([str(x) for x in max_snps])
+#### 02: Read in MUMmer report data ####
+[ref_bases,percent_ref_aligned,
+            query_bases,percent_query_aligned,
+            g_snps,g_indels,
+            ref_breakpoints,query_breakpoints,
+            ref_relocations,query_relocations,
+            ref_translocations,query_translocations,
+            ref_inversions,query_inversions,
+            ref_insertions,query_insertions,
+            ref_tandem,query_tandem] = parseMUmmerReport(mum_report_dir,report_id)
 
-assert len(density_windows) == len(max_snps)
-
-ref_edge = int(sys.argv[11])
-query_edge = int(sys.argv[12])
-
-run_mode = str(sys.argv[13])
-
-# Create QC String
-qc_string = "_".join([str(x) for x in [min_cov,min_iden,min_len,ref_edge,query_edge,qc_density,qc_maxsnps]]) 
-
-#### 02: Read in MUmmer report data ####
-[ref_bases,percent_ref_aligned,query_bases,percent_query_aligned] = parseMUmmerReport(mum_report_dir,report_id)
-
-if percent_ref_aligned < min_cov:
-    sample_category = "Purged_Min_Coverage"
-    percent_ref_aligned_filtered = percent_ref_aligned
-    percent_query_aligned_filtered = percent_query_aligned
-    median_percent_identity = "NA"
-    final_snp_count = "NA"
-    median_snp_perc_iden = "NA"
-    reject_snps_alignment_count = "NA"
-    reject_snps_n_count = "NA"
-    reject_snps_indel_count = "NA"
-    reject_snps_dup_count = "NA"
-    reject_snps_het_count = "NA"
-    reject_snps_density_count = "NA"
-    reject_snps_edge_count = "NA"
-
-else:
+if percent_ref_aligned > 0:
     
-    raw_snp_count = count_lines(f"{mum_snps_dir}/{report_id}.snps")
-    
-    if raw_snp_count > 10000:
-        sample_category = "Purged_Filter_SNP_Count"
-        percent_ref_aligned_filtered = percent_ref_aligned
-        percent_query_aligned_filtered = percent_query_aligned
-        median_percent_identity = "NA"
-        final_snp_count = "NA"
-        median_snp_perc_iden = "NA"
-        reject_snps_alignment_count = "NA"
-        reject_snps_n_count = "NA"
-        reject_snps_indel_count = "NA"
-        reject_snps_dup_count = "NA"
-        reject_snps_het_count = "NA"
-        reject_snps_density_count = "NA"
-        reject_snps_edge_count = "NA"
-    
-    else:
+    #### 03: Process MUMmer coords file ####
+    coords_file = parseMUmmerCoords(mum_coords_dir,report_id,reference_chr_bed,query_chr_bed)
+    aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
+    if aligned_coords.shape[0] > 0:
+        aligned_coords['Perc_Iden'] = aligned_coords['Perc_Iden'].astype(float)
+        aligned_coords['Ref_Aligned'] = aligned_coords['Ref_Aligned'].astype(int)
+
+        median_percent_identity = np.median(aligned_coords['Perc_Iden'])
+        median_alignment_length = np.median(aligned_coords['Ref_Aligned'])
+
+        ##### 04: Process MUMmer SNP file ####
+        processed_snps = parseMUmmerSNPs(mum_snps_dir,report_id,aligned_coords)
         
-        #### 03: Process MUmmer coords file ####
-        [coords_file,bad_coords_file,merged_ref_bed] = parseMUmmerCoords(mum_coords_dir,report_id,min_iden,min_len)
-
-        # STOP if the coordinates file is empty after filtering based on <perc_iden>
-        if coords_file.shape[0] == 0:
-            sample_category = "Purged_Filter_Coverage"
-            percent_ref_aligned_filtered = percent_ref_aligned
-            percent_query_aligned_filtered = percent_query_aligned
-            median_percent_identity = "NA"
-            final_snp_count = "NA"
-            median_snp_perc_iden = "NA"
-            reject_snps_alignment_count = "NA"
-            reject_snps_n_count = "NA"
-            reject_snps_indel_count = "NA"
-            reject_snps_dup_count = "NA"
-            reject_snps_het_count = "NA"
-            reject_snps_density_count = "NA"
-            reject_snps_edge_count = "NA"
+        total_snp_count = processed_snps[processed_snps['Cat'] == "SNP"].shape[0]
+        total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]
+        total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
         
-        else:
-
-            # Get information for filtered mappings
-            median_percent_identity = f"{ coords_file.Perc_Iden.median():.2f}"
-            filtered_ref_covered = sum(int(interval.length) for interval in merged_ref_bed)
-            percent_ref_aligned_filtered = 100*(filtered_ref_covered/ref_bases)
-            percent_query_aligned_filtered = 100*(filtered_ref_covered/query_bases)
             
-            # STOP if the reference is not covered by at least <min_cov>
-            if percent_ref_aligned_filtered < min_cov:
-                percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
-                percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"
-                sample_category = "Purged_Filter_Coverage"
-                final_snp_count = "NA"
-                median_snp_perc_iden = "NA"
-                reject_snps_alignment_count = "NA"
-                reject_snps_n_count = "NA"
-                reject_snps_indel_count = "NA"
-                reject_snps_dup_count = "NA"
-                reject_snps_het_count = "NA"
-                reject_snps_density_count = "NA"
-                reject_snps_edge_count = "NA"
-            
-            else:
-
-                percent_ref_aligned_filtered = f"{percent_ref_aligned_filtered:.2f}"
-                percent_query_aligned_filtered = f"{percent_query_aligned_filtered:.2f}"            
-
-                #### 04: Process MUmmer SNPs file ####
-
-                # Read in SNP file
-                snp_file = parseMUmmerSNPs(mum_snps_dir,report_id)
-                
-                sample_category = "PASS"
-
-                # STOP if no SNPs detected
-                if snp_file.shape[0] == 0:
-                    median_snp_perc_iden = "NA"
-                    final_snp_count = 0
-                    median_snp_perc_iden = "NA"
-                    reject_snps_alignment_count = 0
-                    reject_snps_n_count = 0
-                    reject_snps_indel_count = 0
-                    reject_snps_dup_count = 0
-                    reject_snps_het_count = 0
-                    reject_snps_density_count = 0
-                    reject_snps_edge_count = 0
-                    
-                else:
-
-                    # Characterize and filter SNPs based on user criteria (perc_iden,query_edge/ref_edge,density)
-                    filtered_snps = filterSNPs(snp_file,coords_file,bad_coords_file,density_windows,max_snps,ref_edge,query_edge)
-                    
-                    final_snp_df = filtered_snps[filtered_snps.Cat == "SNP"]
-                    final_snp_count = final_snp_df.shape[0]
-
-                    if final_snp_count == 0:
-                        median_snp_perc_iden = "NA"
-                    else:
-                        median_snp_perc_iden = f"{final_snp_df.Perc_Iden.median():.2f}"
-                    
-                    reject_snps_alignment_count = filtered_snps[filtered_snps.Cat =="Purged_Alignment"].shape[0]
-                    reject_snps_n_count = filtered_snps[filtered_snps.Cat =="Purged_N"].shape[0]
-                    reject_snps_indel_count = filtered_snps[filtered_snps.Cat =="Purged_Indel"].shape[0]
-                    reject_snps_dup_count = filtered_snps[filtered_snps.Cat =="Purged_Dup"].shape[0]
-                    reject_snps_het_count = filtered_snps[filtered_snps.Cat =="Purged_Het"].shape[0]
-                    reject_snps_density_count = filtered_snps[filtered_snps.Cat =="Purged_Density"].shape[0]
-                    reject_snps_edge_count = filtered_snps[filtered_snps.Cat =="Filtered_Edge"].shape[0]
-
 # Create header
-snpdiffs_header=[]
-snpdiffs_header.append("#\t" + "\t".join(query_string) + "\t" + "\t".join(reference_string) + "\t" + "\t".join([
-"Category:"+str(sample_category),"SNPs:"+str(final_snp_count),"Median_Percent_Identity:"+str(median_percent_identity),"Median_SNP_Percent_Identity:"+str(median_snp_perc_iden),
-"Percent_Query_Aligned:"+str(percent_query_aligned_filtered),"Percent_Reference_Aligned:"+str(percent_ref_aligned_filtered),"Purged_Alignment:"+str(reject_snps_alignment_count),
-"Purged_N:"+str(reject_snps_n_count),"Purged_Indel:"+str(reject_snps_indel_count),"Purged_Duplicate:"+str(reject_snps_dup_count),"Purged_Het:"+str(reject_snps_het_count),
-"Purged_Density:"+str(reject_snps_density_count),"Filtered_Edge:"+str(reject_snps_edge_count),"QC_String:"+qc_string]))
+percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
+percent_query_aligned = f"{percent_query_aligned:.2f}" if percent_query_aligned != "NA" else percent_query_aligned
+median_percent_identity = f"{median_percent_identity:.2f}" if median_percent_identity != "NA" else median_percent_identity
+median_alignment_length = f"{median_alignment_length:.2f}" if median_alignment_length != "NA" else median_alignment_length
+total_snp_count = f"{total_snp_count:.0f}" if total_snp_count != "NA" else total_snp_count
+total_indel_count = f"{total_indel_count:.0f}" if total_indel_count != "NA" else total_indel_count
+total_invalid_count = f"{total_invalid_count:.0f}" if total_invalid_count != "NA" else total_invalid_count
 
-# Save file
+snpdiffs_header=[]
+snpdiffs_header.append("#\t" +
+                       "\t".join(query_string) +
+                       "\t" + "\t".join(reference_string) +
+                       "\t" + "\t".join([
+"SNPs:"+total_snp_count,
+"Indels:"+total_indel_count,
+"Invalid:"+total_invalid_count,
+"Percent_Reference_Aligned:"+percent_ref_aligned,
+"Percent_Query_Aligned:"+percent_query_aligned,
+"Median_Percent_Identity:"+median_percent_identity,
+"Median_Alignment_Length:"+median_alignment_length,
+"gSNPs:"+f"{g_snps:.0f}",
+"gIndels:"+f"{g_indels:.0f}",
+"Ref_Breakpoints:"+f"{ref_breakpoints:.0f}",
+"Query_Breakpoints:"+f"{query_breakpoints:.0f}",
+"Ref_Relocations:"+f"{ref_relocations:.0f}",
+"Query_Relocations:"+f"{query_relocations:.0f}",
+"Ref_Translocations:"+f"{ref_translocations:.0f}",
+"Query_Translocations:"+f"{query_translocations:.0f}",
+"Ref_Inversions:"+f"{ref_inversions:.0f}",
+"Query_Inversions:"+f"{query_inversions:.0f}",
+"Ref_Insertions:"+f"{ref_insertions:.0f}",
+"Query_Insertions:"+f"{query_insertions:.0f}",
+"Ref_Tandem:"+f"{ref_tandem:.0f}",
+"Query_Tandem:"+f"{query_tandem:.0f}"]))
+
 with open(snpdiffs_file,"w") as file:
     file.write("\n".join(snpdiffs_header) + "\n")
+    for index, row in coords_file.iterrows():
+        file.write("##\t" + "\t".join(map(str, row))+"\n")
+    for index, row in processed_snps.iterrows():
+        file.write("\t".join(map(str, row))+"\n")
 
-try:
-    bed_df = merged_ref_bed.to_dataframe()
-    with open(snpdiffs_file,"a") as file:
-        for index, row in bed_df.iterrows():
-            file.write("##\t" + "\t".join(map(str, row))+"\n")
-except:
-    pass
-
-try:
-    het_snps = filtered_snps[filtered_snps['Ref_Aligned'] == "Multiple"]
-    non_het_snps = filtered_snps[filtered_snps['Ref_Aligned'] != "Multiple"]
-    non_het_snps['Ref_Aligned'] = non_het_snps['Ref_Aligned'].apply(lambda x: f'{x:.0f}')
-    filtered_snps = pd.concat([non_het_snps,het_snps])
-    filtered_snps[["Ref_Loc","Cat","Ref_Base","Query_Base","Query_Loc","Ref_Aligned","Perc_Iden"]].to_csv(snpdiffs_file, sep="\t",mode='a', header=False, index=False)
-except:
-    pass
-
-if run_mode == "align":
-    print(",".join([str(x) for x in query_data]))
-    print(",".join([str(x) for x in reference_data]))
-else:
-    print(",".join([query,reference,snpdiffs_file]))
+print(",".join([query,reference,snpdiffs_file]))
