@@ -362,27 +362,27 @@ snpdiffs_header.append("#\t" +
                        "\t".join(query_string) +
                        "\t" + "\t".join(reference_string) +
                        "\t" + "\t".join([
+"Reference_Percent_Aligned:"+percent_ref_aligned,
+"Reference_Breakpoints:"+f"{ref_breakpoints:.0f}",
+"Reference_Relocations:"+f"{ref_relocations:.0f}",
+"Reference_Translocations:"+f"{ref_translocations:.0f}",
+"Reference_Inversions:"+f"{ref_inversions:.0f}",
+"Reference_Insertions:"+f"{ref_insertions:.0f}",
+"Reference_Tandem:"+f"{ref_tandem:.0f}",
+"Query_Percent_Aligned:"+percent_query_aligned,
+"Query_Breakpoints:"+f"{query_breakpoints:.0f}",
+"Query_Relocations:"+f"{query_relocations:.0f}",
+"Query_Translocations:"+f"{query_translocations:.0f}",
+"Query_Inversions:"+f"{query_inversions:.0f}",
+"Query_Insertions:"+f"{query_insertions:.0f}",
+"Query_Tandem:"+f"{query_tandem:.0f}",
+"Median_Percent_Identity:"+median_percent_identity,
+"Median_Alignment_Length:"+median_alignment_length,
 "SNPs:"+total_snp_count,
 "Indels:"+total_indel_count,
 "Invalid:"+total_invalid_count,
-"Percent_Reference_Aligned:"+percent_ref_aligned,
-"Percent_Query_Aligned:"+percent_query_aligned,
-"Median_Percent_Identity:"+median_percent_identity,
-"Median_Alignment_Length:"+median_alignment_length,
 "gSNPs:"+f"{g_snps:.0f}",
-"gIndels:"+f"{g_indels:.0f}",
-"Ref_Breakpoints:"+f"{ref_breakpoints:.0f}",
-"Query_Breakpoints:"+f"{query_breakpoints:.0f}",
-"Ref_Relocations:"+f"{ref_relocations:.0f}",
-"Query_Relocations:"+f"{query_relocations:.0f}",
-"Ref_Translocations:"+f"{ref_translocations:.0f}",
-"Query_Translocations:"+f"{query_translocations:.0f}",
-"Ref_Inversions:"+f"{ref_inversions:.0f}",
-"Query_Inversions:"+f"{query_inversions:.0f}",
-"Ref_Insertions:"+f"{ref_insertions:.0f}",
-"Query_Insertions:"+f"{query_insertions:.0f}",
-"Ref_Tandem:"+f"{ref_tandem:.0f}",
-"Query_Tandem:"+f"{query_tandem:.0f}"]))
+"gIndels:"+f"{g_indels:.0f}"]))
 
 with open(snpdiffs_file,"w") as file:
     file.write("\n".join(snpdiffs_header) + "\n")
