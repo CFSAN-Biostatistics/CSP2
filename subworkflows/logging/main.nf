@@ -38,24 +38,6 @@ if(run_mode == "assemble"){
 }
 
 // Logging Processes//
-process saveIsolateLog{
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
-    
-    input:
-    val(isolate_data)
-
-    output:
-    val(isolate_data)
-
-    script:
-    """
-    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tN50\tL50\tN90\tL90\tSHA256" > "${isolate_file}"
-    echo "${isolate_data.join('\n')}" >> "${isolate_file}"
-    """
-}
-
 process saveAssemblyLog{
     executor = 'local'
     cpus = 1

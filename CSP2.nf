@@ -76,6 +76,7 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
         }
     }
 }
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -85,16 +86,17 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
 
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
-include {saveIsolateLog} from "./subworkflows/logging/main.nf"
-include {alignGenomes} from "./subworkflows/alignData/main.nf"
-include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
-include {runRefChooser} from "./subworkflows/refchooser/main.nf"
+//include {saveIsolateLog} from "./subworkflows/logging/main.nf"
+//include {alignGenomes} from "./subworkflows/alignData/main.nf"
+//include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
+//include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
     
     // Read in data
     input_data = fetchData()
-
+}
+/*
     // If run mode is 'assemble', tasks are complete
     if(run_mode != "assemble"){        
          if(run_mode == "align"){
@@ -122,3 +124,5 @@ workflow{
         } 
     }
 }
+
+*/
