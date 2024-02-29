@@ -1,46 +1,55 @@
 #! /usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-// START DOCS
-
-// Main script for running Yenta
-// Params are read in from command line or from nextflow.config
+// CSP2 Main Script
+// Params are read in from command line or from nextflow.config and/or conf/profiles.config
 
 // Assess run mode
+
+// Runmode 'assemble'
+//  - Requires --reads or --ref_reads
+//  - Runs SKESA and summarzies output FASTA 
+
+// Runmode 'align'
+//  - Requires --reads/--fasta
+//  - Optional: --ref_reads/--ref_fasta
+//  - Runs MUMmer, generates .snpdiffs, and alignment summary.
+//      - If references are provided, all queries are aligned to all refs
+//      - If no references are provided, query alignments are all-vs-all
+
+// Runmode 'screen'
+//  - Requires (1) --snpdiffs AND --ref_id or (2) --reads/--fasta AND --ref_reads/--ref_fasta
+//  - Takes .snpdiffs files, applies QC, and generates SNP distance data between each query and reference pair
+
+// Runmode 'snp'
+//  - Requires (1) --snpdiffs AND --ref_id or (2) --reads/--fasta
+//  - Optional: --ref_reads/--ref_fasta
+//  - If references are not provided, runs RefChooser to choose references (--n_ref sets how many references to choose)
+//  - Takes .snpdiffs files, applies QC, and generates SNP distance data between all queries based on their alignment to each reference
+
 if (params.runmode == "") {
-    if (params.snpdiffs != "") {
-        run_mode = "screen" // If .snpdiffs are provided, generate a summary of query/reference alignments
-    } else if((params.reads != "" || params.ref_reads != "") && (params.fasta == "" && params.ref_fasta == "")){
-        run_mode = "assemble" // If only reads are provided, generate assemblies
-    } else if(params.reads == "" && params.fasta == ""){
-        error "No query data provided via --reads/--fasta/--snpdiffs" // Exit if no data is provided
-    } else if (params.ref_fasta == "" && params.ref_reads == ""){
-        run_mode = "snp" // If query data is provided without reference data, run the SNP pipeline with RefChooser
-    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta != "")){
-        run_mode = "screen" // If query and reference data are provided, perform MUMmer alignment and generate a summary
-    } else if((params.fasta == "" && params.reads == "") && (params.ref_fasta != "" || params.ref_reads != "")){
-        error "Reference data provided via --ref_reads/--ref_fasta, but no query data provided by --reads/--fasta/--snpdiffs" // Exit if no query data is provided
-    } 
+    error "--runmode must be specified..."
 } else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
     error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
-
-// Ensure data before continuing
+// Ensure data matches run mode
 if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) {
     error "Runmode is --assemble but no read data provided via --reads/--ref_reads"
 } else if ((run_mode == "align") && (params.fasta == "" && params.reads == "")) {
     error "Runmode is --align but no query data provided via --fasta/--reads"
-}  else if ((run_mode == "align") && (params.ref_fasta == "" && params.ref_reads == "")) {
-    error "Runmode is --align but no reference data provided via --ref_fasta/--ref_reads"
-} else if ((run_mode == "screen") && (params.snpdiffs == "" && params.fasta == "" && params.reads == "")) {
-    error "Runmode is --screen but no query data provided via --fasta/--reads/--snpdiffs"
-}  else if ((run_mode == "screen") && (params.snpdiffs == "" && params.ref_fasta == "" && params.ref_reads == "")) {
-    error "Runmode is --screen but no reference data provided via --ref_fasta/--ref_reads/--snpdiffs"
-} else if ((run_mode == "snp") && (params.snpdiffs == "" && params.fasta == "" && params.reads == "")) {
-    error "Runmode is --snp but no query data provided via --snpdiffs/--fasta/--reads"
+} else if ((run_mode == "screen") && (params.snpdiffs == "")){
+    if((params.ref_fasta == "" && params.ref_reads == "")) {
+        error "Runmode is --screen but no reference data provided via --snpdiffs/--ref_fasta/--ref_reads"
+    } else if ((params.fasta == "" && params.reads == "")) {
+        error "Runmode is --screen but no query data provided via --snpdiffs/--reads/--fasta"
+    } 
+} else if ((run_mode == "snp") && (params.snpdiffs == "")){
+    if ((params.fasta == "" && params.reads == "")) {
+        error "Runmode is --snp but no query data provided via --snpdiffs/--reads/--fasta"
+    } 
 } else{
     // Set directory structure
     if (params.outroot == "") {
@@ -61,6 +70,14 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
         }
     }
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
 
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
