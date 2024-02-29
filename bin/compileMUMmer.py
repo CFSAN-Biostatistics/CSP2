@@ -355,6 +355,20 @@ median_alignment_length = f"{median_alignment_length:.2f}" if median_alignment_l
 total_snp_count = f"{total_snp_count:.0f}" if total_snp_count != "NA" else total_snp_count
 total_indel_count = f"{total_indel_count:.0f}" if total_indel_count != "NA" else total_indel_count
 total_invalid_count = f"{total_invalid_count:.0f}" if total_invalid_count != "NA" else total_invalid_count
+ref_breakpoints = f"{ref_breakpoints:.0f}"
+ref_relocations = f"{ref_relocations:.0f}"
+ref_translocations = f"{ref_translocations:.0f}"
+ref_inversions = f"{ref_inversions:.0f}"
+ref_insertions = f"{ref_insertions:.0f}"
+ref_tandem = f"{ref_tandem:.0f}"
+query_breakpoints = f"{query_breakpoints:.0f}"
+query_relocations = f"{query_relocations:.0f}"
+query_translocations = f"{query_translocations:.0f}"
+query_inversions = f"{query_inversions:.0f}"
+query_insertions = f"{query_insertions:.0f}"
+query_tandem = f"{query_tandem:.0f}"
+g_snps = f"{g_snps:.0f}"
+g_indels = f"{g_indels:.0f}"
 
 snpdiffs_header=[]
 snpdiffs_header.append("#\t" +
@@ -362,26 +376,26 @@ snpdiffs_header.append("#\t" +
                        "\t" + "\t".join(reference_string) +
                        "\t" + "\t".join([
 "Reference_Percent_Aligned:"+percent_ref_aligned,
-"Reference_Breakpoints:"+f"{ref_breakpoints:.0f}",
-"Reference_Relocations:"+f"{ref_relocations:.0f}",
-"Reference_Translocations:"+f"{ref_translocations:.0f}",
-"Reference_Inversions:"+f"{ref_inversions:.0f}",
-"Reference_Insertions:"+f"{ref_insertions:.0f}",
-"Reference_Tandem:"+f"{ref_tandem:.0f}",
+"Reference_Breakpoints:"+ref_breakpoints,
+"Reference_Relocations:"+ref_relocations,
+"Reference_Translocations:"+ref_translocations,
+"Reference_Inversions:"+ref_inversions,
+"Reference_Insertions:"+ref_insertions,
+"Reference_Tandem:"+ref_tandem,
 "Query_Percent_Aligned:"+percent_query_aligned,
-"Query_Breakpoints:"+f"{query_breakpoints:.0f}",
-"Query_Relocations:"+f"{query_relocations:.0f}",
-"Query_Translocations:"+f"{query_translocations:.0f}",
-"Query_Inversions:"+f"{query_inversions:.0f}",
-"Query_Insertions:"+f"{query_insertions:.0f}",
-"Query_Tandem:"+f"{query_tandem:.0f}",
+"Query_Breakpoints:"+query_breakpoints,
+"Query_Relocations:"+query_relocations,
+"Query_Translocations:"+query_translocations,
+"Query_Inversions:"+query_inversions,
+"Query_Insertions:"+query_insertions,
+"Query_Tandem:"+query_tandem,
 "Median_Percent_Identity:"+median_percent_identity,
 "Median_Alignment_Length:"+median_alignment_length,
 "SNPs:"+total_snp_count,
 "Indels:"+total_indel_count,
 "Invalid:"+total_invalid_count,
-"gSNPs:"+f"{g_snps:.0f}",
-"gIndels:"+f"{g_indels:.0f}"]))
+"gSNPs:"+g_snps,
+"gIndels:"+g_indels]))
 
 with open(snpdiffs_file,"w") as file:
     file.write("\n".join(snpdiffs_header) + "\n")
