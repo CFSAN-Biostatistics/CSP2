@@ -51,7 +51,7 @@ process saveIsolateLog{
 
     script:
     """
-    echo "Isolate_ID\tAssembly\tContig_Count\tAssembly_Length\tSHA256" > "${isolate_file}"
+    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tN50\tL50\tN90\tL90\tSHA256" > "${isolate_file}"
     echo "${isolate_data.join('\n')}" >> "${isolate_file}"
     """
 }
@@ -67,7 +67,7 @@ process saveAssemblyLog{
     script:
  
     """
-    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tSHA256" > "${assembly_log}"
+    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tN50\tL50\tN90\tL90\tSHA256" > "${assembly_log}"
     echo "${assembly_data.join('\n')}" >> "${assembly_log}"
     """
 }

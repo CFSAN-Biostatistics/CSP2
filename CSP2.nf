@@ -79,17 +79,18 @@ workflow{
          if(run_mode == "align"){
             input_data.query_data.combine(input_data.reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
         } else{
+            // If run mode is 'screen' or 'snp' and references are provided, use them. If not, run RefChooser to generate references
             if(params.ref_reads == "" && params.ref_fasta == ""){ 
                 if(params.snpdiffs == ""){
                     reference_data = runRefChooser(input_data.query_data) // Run RefChooser to generate references if none provided
-                    mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
                 }else{
                     mummer_results = Channel.empty() // If snpdiffs are provided without other references, skip alignment
                 }   
             } else{
                 reference_data = input_data.reference_data
-                mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
             }
+
+            mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
 
             if(run_mode == "screen"){
                 input_data.snpdiffs_data.concat(mummer_results) | runScreen // Compare snpdiffs to generate a summary
