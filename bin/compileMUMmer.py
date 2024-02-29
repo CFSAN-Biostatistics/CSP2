@@ -172,11 +172,12 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
                 'Query_Start','Query_End',
                 'Ref_Base','Query_Base',
                 'Dist_to_Ref_End','Dist_to_Query_End',
-                'Ref_Aligned','Perc_Iden','Cat']
+                'Ref_Aligned','Query_Aligned',
+                'Perc_Iden','Cat']
     
     coords_columns = ['Ref_Contig','Ref_Start','Ref_End',
                       'Query_Contig','Query_Start','Query_End',
-                      'Ref_Aligned','Perc_Iden']
+                      'Ref_Aligned','Query_Aligned','Perc_Iden']
 
     snp_file = pd.read_csv(mum_snps_dir+"/"+report_id+".snps",sep="\t",index_col=False,
         names=['Ref_Pos','Ref_Base','Query_Base','Query_Pos',
