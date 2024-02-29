@@ -9,7 +9,6 @@ import warnings
 import numpy as np
 import hashlib
 from Bio import SeqIO
-from collections import defaultdict
 
 warnings.filterwarnings("ignore")
 
