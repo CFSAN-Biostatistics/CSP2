@@ -27,6 +27,12 @@ nextflow.enable.dsl=2
 //  - If references are not provided, runs RefChooser to choose references (--n_ref sets how many references to choose)
 //  - Takes .snpdiffs files, applies QC, and generates SNP distance data between all queries based on their alignment to each reference
 
+// Runmode 'kmer' (IN DEVELOPMENT)
+//  - Requires --reads/--fasta
+//  - Optional: --ref_reads/--ref_fasta
+//  - Generates full kmer comparisons between all queries and references
+//  - If no references are provided, query kmer comparisons are all-vs-all
+
 if (params.runmode == "") {
     error "--runmode must be specified..."
 } else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
@@ -70,8 +76,6 @@ if ((run_mode == "assemble") && (params.reads == "" && params.ref_reads == "")) 
         }
     }
 }
-
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 
