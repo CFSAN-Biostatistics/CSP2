@@ -67,6 +67,7 @@ workflow fetchData{
            return(tuple(it[0],it[3]))}
 
     assembled_reads = fasta_read_combo.read.collect().flatten().collate(3).unique{it->it[0]} | assembleReads
+    assembled_isolates = all_assembled.concat(assembled_reads).collect().flatten().collate(2)
 
     query_data = query_fasta.map{it->it[0]}.concat(query_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
 
@@ -74,7 +75,6 @@ workflow fetchData{
         reference_data = ref_fasta.map{it->it[0]}.concat(ref_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
     } else{
         ref_ids = params.ref_id.replaceAll(" ","").tokenize(',').unique()
-        assembled_isolates = all_assembled.concat(assembled_reads).collect().flatten().collate(2)
         reference_data = assembled_isolates.collect().flatten().collate(2).filter{it->ref_ids.contains(it[0])}
     }
 }
