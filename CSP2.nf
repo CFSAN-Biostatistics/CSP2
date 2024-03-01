@@ -68,48 +68,59 @@ else if (run_mode == "snp"){
 //  - Generates full kmer comparisons between all queries and references
 //  - If no references are provided, query kmer comparisons are all-vs-all
     
-else{
-    // Set directory structure
-    if (params.outroot == "") {
-        output_directory = file(params.out)
-    } else {
-        output_directory = file("${file(params.outroot)}/${params.out}")
-    }
-    
-    if(output_directory.isDirectory()){
-        error "${output_directory.getSimpleName()} (--out) already exists in ${output_directory.getParent()} (--outroot)..."
-    } else if(!output_directory.getParent().isDirectory()){
-        error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
-    } else{
-        output_directory.mkdirs()
-        
-        // In --runmode assembly, results save to output_directory
-        if(run_mode != "assemble"){
-            log_directory = file("${output_directory}/logs")
-            log_directory.mkdirs()
-            
-            // If --reads/--ref_reads are provided, make a directory for assemblies
-            if((params.reads != "") || (params.ref_reads != "")){
-                assembly_directory = file("${output_directory}/Assemblies")
-                assembly_directory.mkdirs()    
-            }
+// Set directory structure
+if (params.outroot == "") {
+    output_directory = file(params.out)
+} else {
+    output_directory = file("${file(params.outroot)}/${params.out}")
+}
 
-            // If --fasta/--reads are provided, make a directory for alignment logs
-            if((params.fasta != "") || (params.reads != "")){
-                align_log_directory = file("${log_directory}/align_logs")
-                align_log_directory.mkdirs()    
-            }
-            
-            if(run_mode == "screen"){
-                screen_log_directory = file("${log_directory}/screen_logs")
-                screen_log_directory.mkdirs()
-            
-            if(run_mode == "snp"){
-                snp_log_directory = file("${log_directory}/snp_logs")
-                snp_log_directory.mkdirs()
-            }
-        }  
-    }
+if(output_directory.isDirectory()){
+    error "${output_directory.getSimpleName()} (--out) already exists in ${output_directory.getParent()} (--outroot)..."
+} else if(!output_directory.getParent().isDirectory()){
+    error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
+} else{
+    output_directory.mkdirs()
+    
+    // In --runmode assembly, results save to output_directory
+    if(run_mode != "assemble"){
+        log_directory = file("${output_directory}/logs")
+        log_directory.mkdirs()
+        
+        // If --reads/--ref_reads are provided, make a directory for assemblies
+        if((params.reads != "") || (params.ref_reads != "")){
+            assembly_directory = file("${output_directory}/Assemblies")
+            assembly_directory.mkdirs()    
+        }
+
+        // If --fasta/--reads are provided, make directories for alignment data
+        if((params.fasta != "") || (params.reads != "")){
+            mummer_directory = file("${output_directory}/MUMmer_Output")
+            mum_coords_directory = file("${mummer_directory}/1coords")
+            mum_report_directory = file("${mummer_directory}/report")
+            mum_snps_directory = file("${mummer_directory}/snps")   
+            snpdiffs_directory = file("${output_directory}/snpdiffs") 
+            mummer_directory.mkdirs()
+            mum_coords_directory.mkdirs()
+            mum_report_directory.mkdirs()
+            mum_snps_directory.mkdirs()
+            snpdiffs_directory.mkdirs()
+        }
+
+        if(run_mode == "screen"){
+            screen_log_directory = file("${log_directory}/screen_logs")
+            screen_directory = file("${output_directory}/Screening_Analysis")
+            screen_log_directory.mkdirs()
+            screen_directory.mkdirs()
+        }
+        
+        if(run_mode == "snp"){
+            snp_log_directory = file("${log_directory}/snp_logs")
+            snp_directory = file("${output_directory}/SNP_Analysis")
+            snp_log_directory.mkdirs()
+            snp_directory.mkdirs()
+        }
+    }  
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -129,40 +140,37 @@ workflow{
     input_data = fetchData()
 
     // If run mode is 'assemble', tasks are complete
-    if(run_mode != "assemble"){        
-         
-         if(run_mode == "align"){
+    if(run_mode == "align"){
 
-            // If there is no reference data, align all query_data against each other
-            if(params.ref_reads == "" && params.ref_fasta == "" && params.ref_id == ""){
-                
-                seen_combinations = []
-                query_channel = input_data.query_data.combine(input_data.query_data).collect().flatten().collate(4)
-                .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
-                .filter { it ->
-                combination = ["${it[0]}", "${it[2]}"].sort()
-                if (combination in seen_combinations) {
-                    return false
-                    } else {
-                        seen_combinations << combination
-                        return true
-                        }
-                    }
-                    mummer_results = query_channel | alignGenomes
-            } else{
-                mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes
-            }
-         } else if(run_mode == "screen"){
-            mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes
-            screen_results = input_data.snpdiffs_data.concat(mummer_results) | runScreen
-        } else if(run_mode == "snp"){
-            if(params.ref_reads == "" && params.ref_fasta == "" && params.ref_id == ""){
+        // If there is no reference data, align all query_data against each other
+        if(params.ref_reads == "" && params.ref_fasta == "" && params.ref_id == ""){
             
+            seen_combinations = []
+            to_align = input_data.query_data.combine(input_data.query_data).collect().flatten().collate(4)
+            .filter { it ->
+            combination = ["${it[0]}", "${it[2]}"].sort()
+            
+            if (combination in seen_combinations) {
+                return false
+            } else {
+                seen_combinations << combination
+                return true
             }
-
+            }
+        } else{
+            to_align = input_data.query_data.combine(input_data.reference_data)
         }
+        mummer_results = to_align | alignGenomes
+        saveMUMmerLog(mummer_results.collect{it[2]})
+    } else if(run_mode == "screen"){
+        mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes
+        all_snpdiffs = input_data.snpdiffs_data.concat(mummer_results)
+        saveMUMmerLog(all_snpdiffs.collect{it[2]})
+
+        //screen_results = runScreen(all_snpdiffs,input_data.reference_data)
     }
 }
+
         
         /*else{
             // If run mode is 'screen' or 'snp' and references are provided, use them. If not, run RefChooser to generate references

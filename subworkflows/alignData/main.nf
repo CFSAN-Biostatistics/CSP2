@@ -16,9 +16,7 @@ if(params.outroot == "") {
     output_directory = file("${file(params.outroot)}/${params.out}")
 }
 
-log_directory = file("${output_directory}/logs")
-snpdiffs_directory = file("${output_directory}/snpdiffs")
-
+// Set MUMmer directory structure
 mummer_directory = file("${output_directory}/MUMmer_Output")
 mum_coords_directory = file("${mummer_directory}/1coords")
 mum_report_directory = file("${mummer_directory}/report")
@@ -33,13 +31,11 @@ params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${
 params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
 
 // Get QC thresholds
-min_cov = params.min_cov.toFloat()
-min_length = params.min_len.toInteger()
-min_iden = params.min_iden.toFloat()
-reference_edge = params.ref_edge.toInteger()
-query_edge = params.query_edge.toInteger()
-
-// Load saveMUMmerLog function
+// min_cov = params.min_cov.toFloat()
+// min_length = params.min_len.toInteger()
+// min_iden = params.min_iden.toFloat()
+// reference_edge = params.ref_edge.toInteger()
+// query_edge = params.query_edge.toInteger()
 
 workflow alignGenomes{
     take:
@@ -50,14 +46,6 @@ workflow alignGenomes{
 
     main:
     
-    if(!mummer_directory.isDirectory()){
-        snpdiffs_directory.mkdirs()
-        mummer_directory.mkdirs()
-        mum_coords_directory.mkdirs()
-        mum_report_directory.mkdirs()
-        mum_snps_directory.mkdirs()
-    } 
-
     sample_pairwise = combined_data
     .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
     | runMUMmer | splitCsv
@@ -105,6 +93,7 @@ process runMUMmer{
         mv ${mummer_directory}/${report_id}.snps ${mum_snps_directory}
         mv ${mummer_directory}/${report_id}.report ${mum_report_directory}
         mv ${mummer_directory}/${report_id}.1coords ${mum_coords_directory}
+
         python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${output_directory}"       
         """
     }
