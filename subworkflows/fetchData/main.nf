@@ -74,7 +74,7 @@ workflow fetchData{
     if(params.ref_id == ""){
         reference_data = ref_fasta.map{it->it[0]}.concat(ref_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
     } else{
-        ref_ids = params.ref_id.replaceAll(" ","").tokenize(',').unique()
+        ref_ids = params.ref_id.tokenize(',').collect { it.trim() }.unique()
         reference_data = assembled_isolates.collect().flatten().collate(2).filter{it->ref_ids.contains(it[0])}
     }
 }
@@ -287,9 +287,9 @@ workflow assembleReads{
     // Return assembly data
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
 }
+
 process skesaAssemble{
-// TO DO: Read count to memory check?
-    memory '12 GB'
+    memory '12 GB' // Add readcount/memory check?
 
     input:
     tuple val(sample_name),val(read_type),val(read_location)
@@ -300,15 +300,12 @@ process skesaAssemble{
     script:
     assembly_file = file("${assembly_directory}/${sample_name}.fasta")
     
-    if(assembly_directory.isDirectory()){
-        if(assembly_file.isFile()){
-            error "$assembly_file already exists..."
-        }     
-    } else{
-        assembly_directory.mkdirs()
-    }
-        
-    if(read_type == "Paired"){
+    // Ensure folder exists and file doesn't
+    if(!assembly_directory.isDirectory()){
+        error "$assembly_directory is not a valid directory..."
+    } else if(assembly_file.isFile()){
+        error "$assembly_file already exists..."
+    } else if(read_type == "Paired"){
         forward_reverse = read_location.split(";")
         """
         $params.load_python_module

@@ -13,6 +13,8 @@ if (params.runmode == "") {
     error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
+// Ensure necessary data is provided given the run mode
+
 // Runmode 'assemble'
 //  - Requires --reads or --ref_reads
 //  - Runs SKESA and summarzies output FASTA 
@@ -80,10 +82,33 @@ else{
         error "Parent directory for output (--outroot) is not a valid directory [${output_directory.getParent()}]..."
     } else{
         output_directory.mkdirs()
+        
+        // In --runmode assembly, results save to output_directory
         if(run_mode != "assemble"){
             log_directory = file("${output_directory}/logs")
             log_directory.mkdirs()
-        }
+            
+            // If --reads/--ref_reads are provided, make a directory for assemblies
+            if((params.reads != "") || (params.ref_reads != "")){
+                assembly_directory = file("${output_directory}/Assemblies")
+                assembly_directory.mkdirs()    
+            }
+
+            // If --fasta/--reads are provided, make a directory for alignment logs
+            if((params.fasta != "") || (params.reads != "")){
+                align_log_directory = file("${log_directory}/align_logs")
+                align_log_directory.mkdirs()    
+            }
+            
+            if(run_mode == "screen"){
+                screen_log_directory = file("${log_directory}/screen_logs")
+                screen_log_directory.mkdirs()
+            
+            if(run_mode == "snp"){
+                snp_log_directory = file("${log_directory}/snp_logs")
+                snp_log_directory.mkdirs()
+            }
+        }  
     }
 }
 
