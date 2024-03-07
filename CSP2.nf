@@ -44,8 +44,6 @@ else if (run_mode == "screen"){
         error "Runmode is --screen but no reference data provided via --ref_id/--ref_fasta/--ref_reads"
     } else if ((params.snpdiffs == "") && (params.fasta == "") && (params.reads == "")) {
         error "Runmode is --screen but no query data provided via --snpdiffs/--reads/--fasta"
-    } else if(((params.snpdiffs != "") && (params.fasta == "") && (params.reads == "")) && (params.ref_id == "")) {
-        error "Runmode is --screen, and only snpdiffs were provided, but no reference data provided via --ref_id"
     }
 }
 
@@ -94,7 +92,7 @@ if(output_directory.isDirectory()){
         }
 
         // If --fasta/--reads are provided, make directories for alignment data
-        if((params.fasta != "") || (params.reads != "")){
+        if((params.fasta != "") || (params.reads != "") || (params.snpdiffs != "")){
             mummer_directory = file("${output_directory}/MUMmer_Output")
             mum_coords_directory = file("${mummer_directory}/1coords")
             mum_report_directory = file("${mummer_directory}/report")
@@ -129,6 +127,7 @@ if(output_directory.isDirectory()){
 include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
 include {saveMUMmerLog} from "./subworkflows/logging/main.nf"
+include {runScreen} from "./subworkflows/snpdiffs/main.nf"
 
 //include {saveIsolateLog} from "./subworkflows/logging/main.nf"
 //include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
@@ -160,14 +159,17 @@ workflow{
         } else{
             to_align = input_data.query_data.combine(input_data.reference_data)
         }
-        mummer_results = to_align | alignGenomes
-        saveMUMmerLog(mummer_results.collect{it[2]})
+        
+        align_results = to_align | alignGenomes | collect | flatten | collate(3)
+        saveMUMmerLog(align_results.collect{it[2]})
+
     } else if(run_mode == "screen"){
+
         mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes
-        all_snpdiffs = input_data.snpdiffs_data.concat(mummer_results)
+        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3)
         saveMUMmerLog(all_snpdiffs.collect{it[2]})
 
-        //screen_results = runScreen(all_snpdiffs,input_data.reference_data)
+        //runScreen(all_snpdiffs)
     }
 }
 

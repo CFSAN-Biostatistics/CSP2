@@ -1,3 +1,12 @@
+// Assess run mode
+if (params.runmode == "") {
+    error "--runmode must be specified..."
+} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+    run_mode = "${params.runmode}"
+} else {
+    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+}
+
 // Set directory structure
 if(params.outroot == "") {
     output_directory = file(params.out)
@@ -6,45 +15,46 @@ if(params.outroot == "") {
 }
 
 log_directory = file("${output_directory}/logs")
-snp_diffs_file = file("${log_directory}/SNPDiffs.txt")
+mummer_directory = file("${output_directory}/MUMmer_Output")
+snpdiffs_directory = file("${output_directory}/snpdiffs")
 
-// Assess run mode
-if (params.runmode == "") {
-    if (params.snpdiffs != "") {
-        run_mode = "screen" // If .snpdiffs are provided, generate a summary of query/reference alignments
-    } else if((params.reads != "" || params.ref_reads != "") && (params.fasta == "" && params.ref_fasta == "")){
-        run_mode = "assemble" // If only reads are provided, generate assemblies
-    } else if(params.reads == "" && params.fasta == ""){
-        error "No query data provided via --reads/--fasta/--snpdiffs" // Exit if no data is provided
-    } else if (params.ref_fasta == "" && params.ref_reads == ""){
-        run_mode = "snp" // If query data is provided without reference data, run the SNP pipeline with RefChooser
-    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta == "")){
-        run_mode = "screen" // If query and reference data are provided, perform MUMmer alignment and generate a summary
-    } else if((params.fasta == "" && params.reads == "") && (params.ref_fasta != "" || params.ref_reads != "")){
-        error "Reference data provided via --ref_reads/--ref_fasta, but no query data provided by --reads/--fasta/--snpdiffs" // Exit if no query data is provided
-    } 
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
-    run_mode = "${params.runmode}"
-} else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
-}
+screen_directory = file("${output_directory}/Screening_Analysis")
+snp_directory = file("${output_directory}/SNP_Analysis")
+
+snpdiffs_list = file("${snpdiffs_directory}/All_SNPDiffs.txt")
 
 // Set paths to accessory scripts
-screenDiffs = file("${projectDir}/bin/screenSNPDiffs.py")
-runSNP = file("${projectDir}/bin/runSNPPipeline.py")
+screen_script = file("${projectDir}/bin/screenSNPDiffs.py")
+snp_script = file("${projectDir}/bin/runSNPPipeline.py")
 
 // Set modules
 params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
 params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
 
+// Get QC thresholds
+min_cov = params.min_cov.toFloat()
+min_length = params.min_len.toInteger()
+min_iden = params.min_iden.toFloat()
+reference_edge = params.ref_edge.toInteger()
+query_edge = params.query_edge.toInteger()
 
-workflow runScreen{
+workflow runScreen {
+    
     take:
-    snp_diff_data
+    all_snpdiffs
 
     main:
 
-    snp_diff_data.collect{it[2]} | screenSNPDiffs
+    if(params.ref_id == ""){
+        ref_ids = all_snpdiffs.map{ it -> it[1] }.unique().collect().flatten()
+        print("No ID!")
+    } else{
+        ref_ids = params.ref_id.tokenize(',').unique().collect().flatten()
+        print("Yes ID!")
+    }
+
+    filtered_refs = all_snpdiffs.filter{it -> (it[0] in ref_ids) || (it[1] in ref_ids)}
+    filtered_refs.subscribe{println("Filtered: ${it}")}
 }
 
 workflow runSNPPipeline{

@@ -30,13 +30,6 @@ params.load_python_module = params.python_module == "" ? "" : "module load -s ${
 params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${params.mummer_module}"
 params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
 
-// Get QC thresholds
-// min_cov = params.min_cov.toFloat()
-// min_length = params.min_len.toInteger()
-// min_iden = params.min_iden.toFloat()
-// reference_edge = params.ref_edge.toInteger()
-// query_edge = params.query_edge.toInteger()
-
 workflow alignGenomes{
     take:
     combined_data

@@ -19,14 +19,18 @@ if(params.outroot == "") {
 // Save assembly data in the main directory if --runmode is 'assemble'
 if(run_mode == "assemble"){
     assembly_directory = file("${output_directory}")
+    log_directory = file("${output_directory}")
 } else{
+    log_directory = file("${output_directory}/logs")
     assembly_directory = file("${output_directory}/Assemblies")
 }
-assembly_log = file("${assembly_directory}/Assembly_Data.tsv")
+assembly_log = file("${log_directory}/Assembly_Data.tsv")
+user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 
 // Set paths to accessory scripts
 findReads = file("${projectDir}/bin/fetchReads.py")
 processFasta = file("${projectDir}/bin/processFasta.py")
+userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 
 // Set up modules if needed
 params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
@@ -41,20 +45,30 @@ workflow fetchData{
     emit:
     query_data
     reference_data
-    snpdiffs_data
+    snpdiff_data
 
     main:
 
-    // Read in data
+    // Process snpdiffs alignments
+    ("${params.snpdiffs}" != "" ? processSNPDiffs() : Channel.empty()).set{user_snpdiffs}
+    snpdiff_data = user_snpdiffs.map{it -> tuple(it[0],it[2],it[4])}.collect().flatten().collate(3)
+
+    // Grab assemblies from snpdiffs if they still exist in the same directory
+    snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[0],it[1])}
+    .concat(user_snpdiffs.map{it-> tuple(it[2],it[3])})
+    .filter{it -> it[1] != null && it[1].toString() != "null"}
+    .unique().collect().flatten().collate(2)
+
+    // Process any data provided as assemblies
     ("${params.fasta}" != "" ? fetchQueryFasta() : Channel.empty()).set{query_fasta}
     ("${params.ref_fasta}" != "" ? fetchRefFasta() : Channel.empty()).set{ref_fasta}
-    all_assembled = query_fasta.concat(ref_fasta).collect().flatten().collate(2).unique{it->it[0]}
-    
+
+    all_assembled = snpdiff_assemblies.concat(query_fasta).concat(ref_fasta).unique().collect().flatten().collate(2)
+
+    // Process any data provided as reads
     ("${params.reads}" != "" ? fetchQueryReads() : Channel.empty()).set{query_reads}
     ("${params.ref_reads}" != "" ? fetchRefReads() : Channel.empty()).set{ref_reads}
     all_reads =  query_reads.concat(ref_reads).collect().flatten().collate(3).unique{it->it[0]}
-
-    ("${params.snpdiffs}" != "" ? getSNPDiffs() : Channel.empty()).set{snpdiffs_data}
     
     // Figure out if any assembly is necessary
     fasta_read_combo = all_reads.join(all_assembled,by:0,remainder: true) |
@@ -67,16 +81,30 @@ workflow fetchData{
            return(tuple(it[0],it[3]))}
 
     assembled_reads = fasta_read_combo.read.collect().flatten().collate(3).unique{it->it[0]} | assembleReads
-    assembled_isolates = all_assembled.concat(assembled_reads).collect().flatten().collate(2)
+    user_fastas = query_fasta.concat(ref_fasta).concat(assembled_reads).unique{it->it[0]}.collect().flatten().collate(2)
 
-    query_data = query_fasta.map{it->it[0]}.concat(query_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
+    assembled_isolates = snpdiff_assemblies.map{it-> tuple(it[0],it[1])}
+    .concat(user_fastas.map{it -> tuple(it[0],it[1],'User')}.join(snpdiff_assemblies.map{it-> tuple(it[0],it[1],"SNPDiff")},by:0,remainder:true)
+    .filter( (it->it[3] == null || it[3].toString() == "null"))
+    .map{it-> tuple(it[0],it[1])}).collect().flatten().collate(2)
 
-    if(params.ref_id == ""){
-        reference_data = ref_fasta.map{it->it[0]}.concat(ref_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
-    } else{
-        ref_ids = params.ref_id.tokenize(',').collect { it.trim() }.unique()
-        reference_data = assembled_isolates.collect().flatten().collate(2).filter{it->ref_ids.contains(it[0])}
-    }
+    // Process additional reference IDs
+    ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
+
+    reference_data = ref_fasta.map{it->tuple(it[0])}
+    .concat(ref_reads.map{it->tuple(it[0])})
+    .concat(user_ref_ids)
+    .unique{it-> it[0]}.collect().flatten().collate(2)
+    .join(assembled_isolates,by:0).collect().flatten().collate(2)
+
+    if((run_mode == "assemble") || (run_mode == "snp")){
+        query_data = assembled_isolates
+    } else if ((run_mode == "align") || (run_mode == "screen")){
+        query_data = assembled_isolates.map{it->tuple(it[0],it[1],"Query")}
+        .join(reference_data.map{it->tuple(it[0],it[1],"Reference")},by:0,remainder:true)
+        .filter( (it->it[3] == null || it[3].toString() == "null"))
+        .map{it-> tuple(it[0],it[1])}
+    } 
 }
 
 // Fetching preassembled data //
@@ -140,15 +168,17 @@ workflow getAssemblies{
         .map { filePath ->
             def fileName = file(filePath).getBaseName()
             def sampleName = fileName.replaceAll(trim_this, "")
-            tuple(sampleName,filePath)}
+            tuple(sampleName, filePath)}
     }
 }
-workflow getSNPDiffs{
+workflow processSNPDiffs{
 
     emit:
     snpdiffs_data
     
     main:
+
+    def trim_this = "${params.trim_name}"
 
     if("${params.snpdiffs}" == ""){
         error "No assembly data provided via --snpdiffs"
@@ -175,12 +205,45 @@ workflow getSNPDiffs{
             error "$snpdiffs_dir is not a valid directory or file..."
         }
 
-        snpdiffs_data = ch_snpdiffs.map { filePath ->
-        def fileName = filePath.getBaseName()
-        def query = fileName.tokenize('__vs')[0]
-        def reference = fileName.tokenize('vs__')[1].tokenize('.')[0]
-        tuple(query,reference,filePath)}
+        snpdiffs_data = ch_snpdiffs
+            .filter { file(it).exists() }
+            .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(5)
     }
+}
+process getSNPDiffsData{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(snpdiffs_paths)
+
+    output:
+    stdout
+
+    script:
+    """
+    ${params.load_python_module}
+
+    echo "${snpdiffs_paths.join('\n')}" > $user_snpdiffs_list
+    python ${userSNPDiffs} "${user_snpdiffs_list}" ${params.trim_name}
+    """
+}
+
+workflow processRefIDs{
+
+    emit:
+    ref_ids
+    
+    main:
+    def trim_this = "${params.trim_name}"
+
+    ref_ids = params.ref_id
+    .tokenize(',')
+    .unique()
+    .collect { it ->
+        "${it}".replaceAll(trim_this, "")}
+    .flatten()
 }
 
 
