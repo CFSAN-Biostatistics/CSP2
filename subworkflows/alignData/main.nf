@@ -3,10 +3,10 @@
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+} else if (['align','assemble', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
 }
 
 // Set directory structure

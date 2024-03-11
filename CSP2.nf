@@ -7,10 +7,10 @@ nextflow.enable.dsl=2
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (['align','assemble', 'filter', 'screen', 'snp'].contains(params.runmode)) {
+} else if (['align','assemble', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be 'align','assemble', 'filter', 'screen', or 'snp', not ${params.runmode}..."
+    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
 }
 
 // Ensure necessary data is provided given the run mode
@@ -36,15 +36,6 @@ if (run_mode == "assemble"){
 else if (run_mode == "align"){
     if((params.fasta == "") && (params.reads == "") && (params.snpdiffs == "")){
         error "Runmode is --align but no query data provided via --fasta/--reads/--snpdiffs"
-    } 
-}
-
-// Runmode 'filter'
-//  - Requires: --snpdiffs
-// Runs QC on --snpdiffs to generate SNP distance data
-else if (run_mode == "filter"){
-    if(params.snpdiffs == ""){
-        error "Runmode is --filter but no snpdiffs provided via --snpdiffs"
     } 
 }
 
@@ -142,12 +133,12 @@ workflow{
     
     // Read in data
     input_data = fetchData()
-
-    // Get pre-aligned data from snpdiffs
-    input_data.snpdiff_data.map { it -> ["${it[0]}", "${it[2]}"].sort() }.unique().toList().set { sortedUniqueList }  
     
+    already_aligned = input_data.snpdiff_data
+    .map { it -> tuple([it[0], it[1]].sort().join(','), it[2]) }
+
     // If run mode is 'assemble', tasks are complete
-    if(run_mode == "align"){
+    if((run_mode == "align") || (run_mode == "screen")){
 
         // If there is no reference data, align all query_data against each other
         if(params.ref_reads == "" && params.ref_fasta == "" && params.ref_id == ""){
@@ -155,28 +146,48 @@ workflow{
             seen_combinations = []
             
             to_align = input_data.query_data
-            .combine(input_data.query_data).collect().flatten().collate(4)
-            .filter { it ->
+            .combine(input_data.query_data)
+            .collect().flatten().collate(4)
+            .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+            .filter{ it ->
     
             combination = ["${it[0]}", "${it[2]}"].sort()
             
-            if (combination in seen_combinations) {
+            if(combination in seen_combinations) {
                 return false
             } else {
                 seen_combinations << combination
                 return true
             }}
         } else{
-            to_align = input_data.query_data.combine(input_data.reference_data)
+            to_align = input_data.query_data
+            .combine(input_data.reference_data)
+            .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
         }
+
+        mummer_results = to_align
+        .map { it -> tuple([it[0], it[2]].sort().join(','),it[0], it[1], it[2], it[3]) }
+        .join(already_aligned,by:0,remainder:true)
+        .filter{it -> it[5].toString() == "null"} // If already aligned, skip
+        .map{it -> [it[1], it[2], it[3], it[4]]}
+        | alignGenomes | collect | flatten | collate(3)
         
-        mummer_results = to_align | alignGenomes | collect | flatten | collate(3)
-        saveMUMmerLog(mummer_results.collect{it[2]})
+        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3)
+        .ifEmpty { error "No .snpdiffs to process..." }.collect().flatten().collate(3)
+        
+        saveMUMmerLog(all_snpdiffs.collect{it[2]})
 
-    } else if(run_mode == "screen"){
+        if(run_mode == "screen"){
+            runScreen(all_snpdiffs,input_data.reference_data)
+        }
+    } 
+}
 
-          
-            
+
+        
+        /*
+        else if(run_mode == "screen"){
+
             snpdiff_aligned = 
             .map { it ->
             combination = ["${it[0]}", "${it[2]}"].sort()
@@ -197,10 +208,7 @@ workflow{
 
         runScreen(all_snpdiffs,input_data.reference_data)
     }
-}
-
-        
-        /*else{
+    else{
             // If run mode is 'screen' or 'snp' and references are provided, use them. If not, run RefChooser to generate references
             if(params.ref_reads == "" && params.ref_fasta == ""){ 
                 if(params.snpdiffs == ""){
@@ -223,5 +231,12 @@ workflow{
         } 
     }
 }
+
+
+
+
+
+
+
 
 */

@@ -3,11 +3,12 @@
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+} else if (['align','assemble', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
 }
+
 
 // Set directory structure
 if(params.outroot == "") {
@@ -24,6 +25,7 @@ if(run_mode == "assemble"){
     log_directory = file("${output_directory}/logs")
     assembly_directory = file("${output_directory}/Assemblies")
 }
+
 assembly_log = file("${log_directory}/Assembly_Data.tsv")
 user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 
@@ -50,28 +52,46 @@ workflow fetchData{
     main:
 
     // Process snpdiffs alignments
+    // Returns 5-item tuples with the following format: (Query_ID, Query_Assembly, Reference_ID, Reference_Assembly, SNPDiff_Path)
+    // If assembly file cannot be found, it will be 'null'
     ("${params.snpdiffs}" != "" ? processSNPDiffs() : Channel.empty()).set{user_snpdiffs}
-    snpdiff_data = user_snpdiffs.map{it -> tuple(it[0],it[2],it[4])}.collect().flatten().collate(3)
 
-    // Grab assemblies from snpdiffs if they still exist in the same directory
+    // Generate 3-item tuple with the following format: (Query_ID, Reference_ID, SNPDiff_Path)
+    snpdiff_data = user_snpdiffs.map{it -> tuple(it[0],it[2],it[4])}
+    .collect().flatten().collate(3)
+
+    // Get assembly data from snpdiffs
     snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[0],it[1])}
     .concat(user_snpdiffs.map{it-> tuple(it[2],it[3])})
-    .filter{it -> it[1] != null && it[1].toString() != "null"}
-    .unique().collect().flatten().collate(2)
+    .map{it -> tuple(it[0],it[1],'SNPDiff')}
+    .collect().flatten().collate(3)
+
+    assembled_snpdiffs = snpdiff_assemblies
+    .filter{it -> it[1].toString() != "null"}
+    .unique{it->it[0]}.collect().flatten().collate(3)
 
     // Process any data provided as assemblies
+    // Returns 2-item tuples with the following format: (Isolate_ID, Assembly_Path)
     ("${params.fasta}" != "" ? fetchQueryFasta() : Channel.empty()).set{query_fasta}
     ("${params.ref_fasta}" != "" ? fetchRefFasta() : Channel.empty()).set{ref_fasta}
 
-    all_assembled = snpdiff_assemblies.concat(query_fasta).concat(ref_fasta).unique().collect().flatten().collate(2)
+    pre_assembled = assembled_snpdiffs
+    .map{it -> tuple(it[0],it[1])}
+    .concat(query_fasta)
+    .concat(ref_fasta)
+    .unique{it->it[0]}.collect().flatten().collate(2)
 
     // Process any data provided as reads
+    // Returns 3-item tuples with the following format: (Isolate_ID, Read_Type, Read_Path)
     ("${params.reads}" != "" ? fetchQueryReads() : Channel.empty()).set{query_reads}
     ("${params.ref_reads}" != "" ? fetchRefReads() : Channel.empty()).set{ref_reads}
-    all_reads =  query_reads.concat(ref_reads).collect().flatten().collate(3).unique{it->it[0]}
-    
+
+    all_reads = query_reads
+    .concat(ref_reads)
+    .unique{it->it[0]}.collect().flatten().collate(3)
+
     // Figure out if any assembly is necessary
-    fasta_read_combo = all_reads.join(all_assembled,by:0,remainder: true) |
+    fasta_read_combo = all_reads.join(pre_assembled,by:0,remainder: true) |
     branch{it ->
         assembly: it[1].toString() == "null"
             return(tuple(it[0],it[2]))
@@ -80,31 +100,76 @@ workflow fetchData{
         combo: true
            return(tuple(it[0],it[3]))}
 
-    assembled_reads = fasta_read_combo.read.collect().flatten().collate(3).unique{it->it[0]} | assembleReads
-    user_fastas = query_fasta.concat(ref_fasta).concat(assembled_reads).unique{it->it[0]}.collect().flatten().collate(2)
+    // Assemble reads if necessary
+    assembled_reads = fasta_read_combo.read
+    .collect().flatten().collate(3) | assembleReads
 
-    assembled_isolates = snpdiff_assemblies.map{it-> tuple(it[0],it[1])}
-    .concat(user_fastas.map{it -> tuple(it[0],it[1],'User')}.join(snpdiff_assemblies.map{it-> tuple(it[0],it[1],"SNPDiff")},by:0,remainder:true)
-    .filter( (it->it[3] == null || it[3].toString() == "null"))
-    .map{it-> tuple(it[0],it[1])}).collect().flatten().collate(2)
+    // If runmode is 'assemble', tasks are complete
+    if(run_mode == "assemble"){
+        query_data = Channel.empty()
+        reference_data = Channel.empty()
+    } else{
+        
+        // If FASTAs are provided via data and snpdiffs, use snpdiffs (as it's already been used)
+        user_fastas = query_fasta
+        .concat(ref_fasta)
+        .concat(assembled_reads)
+        .unique{it->it[0]}.collect().flatten().collate(2)
+        .map{it -> tuple(it[0],it[1],'User')}
+        .join(assembled_snpdiffs,by:0,remainder:true)
+        .filter{it -> it[3].toString() == "null"}
+        .map{it->tuple(it[0],it[1])}
 
-    // Process additional reference IDs
-    ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
+        all_assembled = assembled_snpdiffs
+        .map{it -> tuple(it[0],it[1])}
+        .concat(user_fastas)
+        .collect().flatten().collate(2)
 
-    reference_data = ref_fasta.map{it->tuple(it[0])}
-    .concat(ref_reads.map{it->tuple(it[0])})
-    .concat(user_ref_ids)
-    .unique{it-> it[0]}.collect().flatten().collate(2)
-    .join(assembled_isolates,by:0).collect().flatten().collate(2)
+        no_assembly = snpdiff_assemblies
+        .map{it -> tuple(it[0],it[1])}
+        .filter{it -> it[1].toString() == "null"}
+        .unique{it -> it[0]}
+        .join(all_assembled,by:0,remainder:true)
+        .filter{it -> it[2].toString() == "null"}
+        .map{it->tuple(it[0],it[1])}
+        .collect().flatten().collate(2)
 
-    if((run_mode == "assemble") || (run_mode == "snp")){
-        query_data = assembled_isolates
-    } else if ((run_mode == "align") || (run_mode == "screen")){
-        query_data = assembled_isolates.map{it->tuple(it[0],it[1],"Query")}
-        .join(reference_data.map{it->tuple(it[0],it[1],"Reference")},by:0,remainder:true)
-        .filter( (it->it[3] == null || it[3].toString() == "null"))
-        .map{it-> tuple(it[0],it[1])}
-    } 
+        // If no reference data is provided return a blank channel
+        if((params.ref_reads == "") && (params.ref_fasta == "") && (params.ref_id == "")){
+            reference_data = Channel.empty()
+
+            query_data = all_assembled
+            .concat(no_assembly)
+            .collect().flatten().collate(2)
+
+        } else{
+
+            // Process additional reference IDs
+            ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
+            
+            all_ref_ids = ref_fasta.map{it->tuple(it[0])}
+            .concat(ref_reads.map{it->tuple(it[0])})
+            .concat(user_ref_ids)
+            .unique{it-> it[0]}.collect().flatten().collate(1)
+            .map{it -> tuple(it[0],"Reference")}
+        
+            all_samples = all_assembled
+            .concat(no_assembly)
+            .collect().flatten().collate(2)
+
+            query_data = all_samples
+            .join(all_ref_ids,by:0,remainder:true)
+            .filter{it -> it[2].toString() != "Reference"}
+            .map{it->tuple(it[0],it[1])}
+            .collect().flatten().collate(2)
+
+            reference_data = all_samples
+            .join(all_ref_ids,by:0,remainder:true)
+            .filter{it -> it[2].toString() == "Reference"}
+            .map{it->tuple(it[0],it[1])}
+            .collect().flatten().collate(2)
+        }
+    }
 }
 
 // Fetching preassembled data //
@@ -229,7 +294,6 @@ process getSNPDiffsData{
     python ${userSNPDiffs} "${user_snpdiffs_list}" ${params.trim_name}
     """
 }
-
 workflow processRefIDs{
 
     emit:
