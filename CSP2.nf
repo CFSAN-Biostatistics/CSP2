@@ -7,16 +7,16 @@ nextflow.enable.dsl=2
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+} else if (['align','assemble', 'filter', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+    error "--runmode must be 'align','assemble', 'filter', 'screen', or 'snp', not ${params.runmode}..."
 }
 
 // Ensure necessary data is provided given the run mode
 
 // Runmode 'assemble'
-//  - Requires --reads or --ref_reads
+//  - Requires: --reads/--ref_reads
 //  - Runs SKESA and summarzies output FASTA 
 if (run_mode == "assemble"){
     if((params.reads == "") && (params.ref_reads == "")){
@@ -25,38 +25,52 @@ if (run_mode == "assemble"){
 }
 
 // Runmode 'align'
-//  - Requires --reads/--fasta
-//  - Optional: --ref_reads/--ref_fasta
+//  - Requires: --reads/--fasta/--snpdiffs
+//  - Optional: --ref_reads/--ref_fasta/--ref_id
 //  - Runs MUMmer, generates .snpdiffs, and alignment summary.
-//      - If references are provided, all queries are aligned to all refs
-//      - If no references are provided, query alignments are all-vs-all
+//      - If references are provided via --ref_reads/--ref_fasta/--ref_id, non-reference samples are aligned to each reference
+//      - If no references are provided, alignments are all-vs-all
+//      - If --snpdiffs are provided, their FASTAs will be autodetected and, if present, used as queries or references as specified by --ref_reads/--ref_fasta/--ref_id
+//      - Does NOT perform QC filtering
+
 else if (run_mode == "align"){
-    if((params.fasta == "") && (params.reads == "")){
-        error "Runmode is --align but no query data provided via --fasta/--reads"
+    if((params.fasta == "") && (params.reads == "") && (params.snpdiffs == "")){
+        error "Runmode is --align but no query data provided via --fasta/--reads/--snpdiffs"
+    } 
+}
+
+// Runmode 'filter'
+//  - Requires: --snpdiffs
+// Runs QC on --snpdiffs to generate SNP distance data
+else if (run_mode == "filter"){
+    if(params.snpdiffs == ""){
+        error "Runmode is --filter but no snpdiffs provided via --snpdiffs"
     } 
 }
 
 // Runmode 'screen'
-//  - Requires (1) --ref_id/--ref_reads/--ref_fasta AND (2) --reads/--fasta/--snpdiffs
-//  - Takes .snpdiffs files, applies QC, and generates SNP distance data between each query and reference pair
+//  - Requires: --reads/--fasta/--snpdiffs
+//  - Optional: --ref_reads/--ref_fasta/--ref_id
+//  - Generates .snpdiffs files (if needed), applies QC, and generates alignment summaries and SNP distance estimates
+//      - If references are provided via --ref_reads/--ref_fasta/--ref_id, non-reference samples are aligned to each reference
+//      - If no references are provided, alignments are all-vs-all
+//      - If --snpdiffs are provided, (1) they will be QC filtered and included in the output report and (2) their FASTAs will be autodetected and, if present, used as queries or references as specified by --ref_reads/--ref_fasta/--ref_id
+
 else if (run_mode == "screen"){
-    if((params.ref_fasta == "") && (params.ref_reads == "") && (params.ref_id == "")) {
-        error "Runmode is --screen but no reference data provided via --ref_id/--ref_fasta/--ref_reads"
-    } else if ((params.snpdiffs == "") && (params.fasta == "") && (params.reads == "")) {
+    if((params.fasta == "") && (params.reads == "") && (params.snpdiffs == "")){
         error "Runmode is --screen but no query data provided via --snpdiffs/--reads/--fasta"
     }
 }
 
 // Runmode 'snp'
-//  - Requires (1) --snpdiffs AND --ref_id or (2) --reads/--fasta
-//  - Optional: --ref_reads/--ref_fasta
-//  - If references are not provided, runs RefChooser to choose references (--n_ref sets how many references to choose)
-//  - Takes .snpdiffs files, applies QC, and generates SNP distance data between all queries based on their alignment to each reference
+//  - Requires: --reads/--fasta/--snpdiffs
+//  - Optional: --ref_reads/--ref_fasta/--ref_id
+//  - If references are not provided, runs RefChooser using all FASTAs to choose references (--n_ref sets how many references to choose)
+//  - Each query is aligned to each reference, and pairwise SNP distances for all queries are generated based on that reference
+//  - Generates .snpdiffs files (if needed), applies QC, and generates SNP distance data between all queries based on their alignment to each reference
 else if (run_mode == "snp"){
     if((params.snpdiffs == "") && (params.fasta == "") && (params.reads == "")) {
         error "Runmode is --snp but no query data provided via --snpdiffs/--reads/--fasta"
-    } else if(((params.snpdiffs != "") && (params.fasta == "") && (params.reads == "")) && (params.ref_id == "")) {
-        error "Runmode is --snp, and only snpdiffs were provided, but no reference data provided via --ref_id"
     }
 } 
 
@@ -91,7 +105,7 @@ if(output_directory.isDirectory()){
             assembly_directory.mkdirs()    
         }
 
-        // If --fasta/--reads are provided, make directories for alignment data
+        // If --fasta/--reads/--snpdiffs are provided, make directories for alignment data
         if((params.fasta != "") || (params.reads != "") || (params.snpdiffs != "")){
             mummer_directory = file("${output_directory}/MUMmer_Output")
             mum_coords_directory = file("${mummer_directory}/1coords")
@@ -104,18 +118,9 @@ if(output_directory.isDirectory()){
             mum_snps_directory.mkdirs()
             snpdiffs_directory.mkdirs()
         }
-
-        if(run_mode == "screen"){
-            screen_log_directory = file("${log_directory}/screen_logs")
-            screen_directory = file("${output_directory}/Screening_Analysis")
-            screen_log_directory.mkdirs()
-            screen_directory.mkdirs()
-        }
         
         if(run_mode == "snp"){
-            snp_log_directory = file("${log_directory}/snp_logs")
             snp_directory = file("${output_directory}/SNP_Analysis")
-            snp_log_directory.mkdirs()
             snp_directory.mkdirs()
         }
     }  
@@ -138,6 +143,9 @@ workflow{
     // Read in data
     input_data = fetchData()
 
+    // Get pre-aligned data from snpdiffs
+    input_data.snpdiff_data.map { it -> ["${it[0]}", "${it[2]}"].sort() }.unique().toList().set { sortedUniqueList }  
+    
     // If run mode is 'assemble', tasks are complete
     if(run_mode == "align"){
 
@@ -145,8 +153,11 @@ workflow{
         if(params.ref_reads == "" && params.ref_fasta == "" && params.ref_id == ""){
             
             seen_combinations = []
-            to_align = input_data.query_data.combine(input_data.query_data).collect().flatten().collate(4)
+            
+            to_align = input_data.query_data
+            .combine(input_data.query_data).collect().flatten().collate(4)
             .filter { it ->
+    
             combination = ["${it[0]}", "${it[2]}"].sort()
             
             if (combination in seen_combinations) {
@@ -154,22 +165,37 @@ workflow{
             } else {
                 seen_combinations << combination
                 return true
+            }}
+        } else{
+            to_align = input_data.query_data.combine(input_data.reference_data)
+        }
+        
+        mummer_results = to_align | alignGenomes | collect | flatten | collate(3)
+        saveMUMmerLog(mummer_results.collect{it[2]})
+
+    } else if(run_mode == "screen"){
+
+          
+            
+            snpdiff_aligned = 
+            .map { it ->
+            combination = ["${it[0]}", "${it[2]}"].sort()
+            
+            if (combination in pre_aligned) {
+                return false
+            } else {
+                pre_aligned << combination
+                return false
             }
             }
         } else{
             to_align = input_data.query_data.combine(input_data.reference_data)
         }
-        
-        align_results = to_align | alignGenomes | collect | flatten | collate(3)
-        saveMUMmerLog(align_results.collect{it[2]})
-
-    } else if(run_mode == "screen"){
-
-        mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes
+        mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes | collect | flatten | collate(3)
         all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3)
         saveMUMmerLog(all_snpdiffs.collect{it[2]})
 
-        //runScreen(all_snpdiffs)
+        runScreen(all_snpdiffs,input_data.reference_data)
     }
 }
 
