@@ -172,15 +172,19 @@ workflow{
         .map{it -> [it[1], it[2], it[3], it[4]]}
         | alignGenomes | collect | flatten | collate(3)
         
-        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3)
-        .ifEmpty { error "No .snpdiffs to process..." }.collect().flatten().collate(3)
+        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3).unique{it->it[2]}
+        .ifEmpty { error "No .snpdiffs to process..." }
         
-        saveMUMmerLog(all_snpdiffs.collect{it[2]})
+        if(run_mode == "align"){
+            all_snpdiffs.collect{it[2]} | saveMUMmerLog
+        }
 
         if(run_mode == "screen"){
-            runScreen(all_snpdiffs,input_data.reference_data)
+            runScreen(all_snpdiffs,input_data.reference_data)       
         }
-    } 
+    } else if(run_mode == "snp"){
+        print("SNP")
+    }
 }
 
 

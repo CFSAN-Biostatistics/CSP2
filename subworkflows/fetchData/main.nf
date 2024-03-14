@@ -58,7 +58,7 @@ workflow fetchData{
 
     // Generate 3-item tuple with the following format: (Query_ID, Reference_ID, SNPDiff_Path)
     snpdiff_data = user_snpdiffs.map{it -> tuple(it[0],it[2],it[4])}
-    .collect().flatten().collate(3)
+    .unique{it -> it[2]}.collect().flatten().collate(3)
 
     // Get assembly data from snpdiffs
     snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[0],it[1])}
@@ -161,13 +161,13 @@ workflow fetchData{
             .join(all_ref_ids,by:0,remainder:true)
             .filter{it -> it[2].toString() != "Reference"}
             .map{it->tuple(it[0],it[1])}
-            .collect().flatten().collate(2)
+            .unique{it -> it[0]}.collect().flatten().collate(2)
 
             reference_data = all_samples
             .join(all_ref_ids,by:0,remainder:true)
             .filter{it -> it[2].toString() == "Reference"}
             .map{it->tuple(it[0],it[1])}
-            .collect().flatten().collate(2)
+            .unique{it -> it[0]}.collect().flatten().collate(2)
         }
     }
 }

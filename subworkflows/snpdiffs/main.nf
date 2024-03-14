@@ -1,10 +1,10 @@
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
+} else if (['all','assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
     run_mode = "${params.runmode}"
 } else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
+    error "--runmode must be 'all', 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
 }
 
 // Set directory structure
@@ -17,11 +17,10 @@ if(params.outroot == "") {
 log_directory = file("${output_directory}/logs")
 mummer_directory = file("${output_directory}/MUMmer_Output")
 snpdiffs_directory = file("${output_directory}/snpdiffs")
+snpdiffs_list_file = file("${log_directory}/All_SNPDiffs.txt")
+ref_id_file = file("${log_directory}/Ref_IDs.txt")
 
-screen_directory = file("${output_directory}/Screening_Analysis")
 snp_directory = file("${output_directory}/SNP_Analysis")
-
-snpdiffs_list = file("${snpdiffs_directory}/All_SNPDiffs.txt")
 
 // Set paths to accessory scripts
 screen_script = file("${projectDir}/bin/screenSNPDiffs.py")
@@ -42,20 +41,38 @@ workflow runScreen {
     
     take:
     all_snpdiffs
+    reference_data
 
     main:
 
-    if(params.ref_id == ""){
-        ref_ids = all_snpdiffs.map{ it -> it[1] }.unique().collect().flatten()
-        print("No ID!")
-    } else{
-        ref_ids = params.ref_id.tokenize(',').unique().collect().flatten()
-        print("Yes ID!")
-    }
-
-    filtered_refs = all_snpdiffs.filter{it -> (it[0] in ref_ids) || (it[1] in ref_ids)}
-    filtered_refs.subscribe{println("Filtered: ${it}")}
+    ref_ids = reference_data.collect{it[0]}
+    snpdiff_files = all_snpdiffs.collect{it[2]}
+    screenSNPDiffs(snpdiff_files,ref_ids)
 }
+
+process screenSNPDiffs{
+
+    input:
+    val(snp_diffs)
+    val(ref_ids)
+
+    script:
+    if((params.ref_fasta == "") && (params.ref_reads == "") && (params.ref_id == "")){
+    """
+    $params.load_python_module
+    echo "${snp_diffs.join('\n')}" > $snp_diffs_file
+    python ${screenDiffs} "${snp_diffs_file}" "${output_directory}"
+    """
+    } else{
+    """
+    $params.load_python_module
+    echo "${snp_diffs.join('\n')}" > $snp_diffs_file
+    echo "${ref_ids.join('\n')}" > $ref_id_file
+    python ${screenDiffs} "${snp_diffs_file}" "${output_directory}"
+    """   
+    }
+}
+
 
 workflow runSNPPipeline{
     take:
@@ -92,17 +109,4 @@ process runSnpPipeline{
     """
 }
 
-process screenSNPDiffs{
-
-    input:
-    val(snp_diffs)
-
-    script:
-    
-    """
-    $params.load_python_module
-    echo "${snp_diffs.join('\n')}" > $snp_diffs_file
-    python ${screenDiffs} "${snp_diffs_file}" "${output_directory}"
-    """
-}
 

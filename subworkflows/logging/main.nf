@@ -22,8 +22,8 @@ mum_coords_directory = file("${mummer_directory}/1coords")
 mum_report_directory = file("${mummer_directory}/report")
 mum_snps_directory = file("${mummer_directory}/snps")
 
-snpdiffs_list_file = file("${snpdiffs_directory}/All_SNPDiffs.txt")
-snpdiffs_summary_file = file("${mummer_directory}/Raw_Alignment_Summary.tsv")
+snpdiffs_list_file = file("${log_directory}/All_SNPDiffs.txt")
+snpdiffs_summary_file = file("${output_directory}/Raw_Alignment_Summary.tsv")
 
 // Set path to accessory scripts
 saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
@@ -41,6 +41,8 @@ process saveMUMmerLog{
 
     input:
     val(snpdiffs_paths)
+
+    output:
 
     script:
 
