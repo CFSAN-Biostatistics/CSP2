@@ -29,6 +29,7 @@ mummerScript = file("$projectDir/bin/compileMUMmer.py")
 params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
 params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${params.mummer_module}"
 params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
+params.load_bbtools_module = params.bbtools_module == "" ? "" : "module load -s ${params.bbtools_module}"
 
 workflow alignGenomes{
     take:
@@ -70,6 +71,7 @@ process runMUMmer{
         $params.load_mummer_module
         $params.load_python_module
         $params.load_bedtools_module
+        $params.load_bbtools_module
 
         cd ${mummer_directory}
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}

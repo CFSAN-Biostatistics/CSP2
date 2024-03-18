@@ -9,6 +9,7 @@ import warnings
 import numpy as np
 import hashlib
 from Bio import SeqIO
+import subprocess
 
 warnings.filterwarnings("ignore")
 
@@ -275,6 +276,24 @@ def fasta_to_bedtool(fasta_file):
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
+def compare_kmers(reference_file,query_file):
+    ref_kmers = set()
+    ref_process = subprocess.run(["kmercountexact.sh", f"in={reference_file}", "threads=1","fastadump=f", "out=stdout", "|", "cut", "-f1"], capture_output=True, text=True)
+    ref_kmers.update(ref_process.stdout.strip().split('\n'))
+
+    query_kmers = set()
+    query_process = subprocess.run(["kmercountexact.sh", f"in={query_file}", "threads=1","fastadump=f", "out=stdout", "|", "cut", "-f1"], capture_output=True, text=True)
+    query_kmers.update(query_process.stdout.strip().split('\n'))
+    
+    intersection = len(ref_kmers.intersection(query_kmers))
+    similarity = 100*(intersection/(len(ref_kmers) + len(query_kmers) - intersection))
+    unique_ref = len(ref_kmers.difference(query_kmers))
+    unique_query = len(query_kmers.difference(ref_kmers))
+    
+    return [len(ref_kmers),len(query_kmers),
+                unique_ref,unique_query,
+                intersection,similarity]
+    
 #### 01: Read in arguments ####
 
 query = str(sys.argv[1])
@@ -292,6 +311,11 @@ query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_
 reference_data = [reference] + fasta_info(reference_fasta)
 reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
                                                  'Reference_N50','Reference_L50','Reference_N90','Reference_L90','Reference_SHA256'],reference_data)]
+
+# Get kmer distance
+[ref_kmers,query_kmers,
+ unique_ref_kmers,unique_query_kmers,
+ kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
 
 # Create reference BED file using fasta seq lengths
 query_chr_bed = fasta_to_bedtool(query_fasta)
@@ -370,6 +394,12 @@ query_insertions = f"{query_insertions:.0f}"
 query_tandem = f"{query_tandem:.0f}"
 g_snps = f"{g_snps:.0f}"
 g_indels = f"{g_indels:.0f}"
+ref_kmers = f"{ref_kmers:.0f}"
+query_kmers = f"{query_kmers:.0f}"
+unique_ref_kmers = f"{unique_ref_kmers:.0f}"
+unique_query_kmers = f"{unique_query_kmers:.0f}"
+kmer_intersection = f"{kmer_intersection:.0f}"
+kmer_similarity = f"{kmer_similarity:.2f}" 
 
 snpdiffs_header=[]
 snpdiffs_header.append("#\t" +
@@ -383,6 +413,8 @@ snpdiffs_header.append("#\t" +
 "Reference_Inversions:"+ref_inversions,
 "Reference_Insertions:"+ref_insertions,
 "Reference_Tandem:"+ref_tandem,
+"Reference_Total_Kmers:"+ref_kmers,
+"Reference_Unique_Kmers:"+unique_ref_kmers,
 "Query_Percent_Aligned:"+percent_query_aligned,
 "Query_Breakpoints:"+query_breakpoints,
 "Query_Relocations:"+query_relocations,
@@ -390,6 +422,10 @@ snpdiffs_header.append("#\t" +
 "Query_Inversions:"+query_inversions,
 "Query_Insertions:"+query_insertions,
 "Query_Tandem:"+query_tandem,
+"Query_Total_Kmers:"+query_kmers,
+"Query_Unique_Kmers:"+unique_query_kmers,
+"Shared_Kmers:"+kmer_intersection,
+"Kmer_Similarity:"+kmer_similarity,
 "Median_Percent_Identity:"+median_percent_identity,
 "Median_Alignment_Length:"+median_alignment_length,
 "SNPs:"+total_snp_count,
