@@ -1,31 +1,5 @@
 // Subworkflow to fetch sample and reference data from --fasta/--reads/--ref_fasta/--ref_reads
 
-// Assess run mode
-if (params.runmode == "") {
-    error "--runmode must be specified..."
-} else if (['align','assemble', 'screen', 'snp'].contains(params.runmode)) {
-    run_mode = "${params.runmode}"
-} else {
-    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
-}
-
-
-// Set directory structure
-if(params.outroot == "") {
-    output_directory = file(params.out)
-} else {
-    output_directory = file("${file(params.outroot)}/${params.out}")
-}
-
-// Save assembly data in the main directory if --runmode is 'assemble'
-if(run_mode == "assemble"){
-    assembly_directory = file("${output_directory}")
-    log_directory = file("${output_directory}")
-} else{
-    log_directory = file("${output_directory}/logs")
-    assembly_directory = file("${output_directory}/Assemblies")
-}
-
 assembly_log = file("${log_directory}/Assembly_Data.tsv")
 user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 
@@ -33,10 +7,6 @@ user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 findReads = file("${projectDir}/bin/fetchReads.py")
 processFasta = file("${projectDir}/bin/processFasta.py")
 userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
-
-// Set up modules if needed
-params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
-params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${params.skesa_module}"
 
 // Set SKESA cores to 5 or fewer
 skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
