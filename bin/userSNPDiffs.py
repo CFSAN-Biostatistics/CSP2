@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import pandas as pd
@@ -48,14 +50,23 @@ except:
 
 query_sha_counts = all_snpdiffs_data.groupby('Query_ID')['Query_SHA256'].nunique()
 reference_sha_counts = all_snpdiffs_data.groupby('Reference_ID')['Reference_SHA256'].nunique()
+file_counts = all_snpdiffs_data['SNPDiffs_File'].value_counts()
 
 if ((query_sha_counts > 1).any() or (reference_sha_counts > 1).any()):
     print(all_snpdiffs_data[all_snpdiffs_data['Query_ID'].isin(query_sha_counts[query_sha_counts > 1].index)])
     print(all_snpdiffs_data[all_snpdiffs_data['Reference_ID'].isin(reference_sha_counts[reference_sha_counts > 1].index)])
     sys.exit("Multiple SHA256 values found for the same Query_ID/Reference_ID")
+elif (file_counts > 1).any():
+    print(all_snpdiffs_data[all_snpdiffs_data['SNPDiffs_File'].isin(file_counts[file_counts > 1].index)])
+    sys.exit("The same SNPDiffs file is listed multiple times")
 
 else:
     for index, row in all_snpdiffs_data.iterrows():
         query_assembly = os.path.abspath(row['Query_Assembly']) if checkLineExists(row['Query_Assembly'], row['Query_SHA256']) else "null"
         reference_assembly = os.path.abspath(row['Reference_Assembly']) if checkLineExists(row['Reference_Assembly'], row['Reference_SHA256']) else "null"
-        print(",".join([row['Query_ID'], query_assembly,row['Reference_ID'], reference_assembly, row['SNPDiffs_File']]))
+        
+        print(",".join(row['SNPDiffs_File'],
+                       row['Query_ID'], query_assembly,row['Query_Contig_Count'],row['Query_Assembly_Bases'],
+                       row['Query_N50'],row['Query_N90'],row['Query_L50'],row['Query_L90'],row['Query_SHA256'],
+                       row['Reference_ID'],reference_assembly,row['Reference_Contig_Count'],row['Reference_Assembly_Bases'],
+                       row['Reference_N50'],row['Reference_N90'],row['Reference_L50'],row['Reference_L90'],row['Reference_SHA256']))

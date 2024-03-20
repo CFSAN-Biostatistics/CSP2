@@ -1,35 +1,11 @@
 // Subworkflow to run MUMmer for query/referece comparisons
 
-// Assess run mode
-if (params.runmode == "") {
-    error "--runmode must be specified..."
-} else if (['align','assemble', 'screen', 'snp'].contains(params.runmode)) {
-    run_mode = "${params.runmode}"
-} else {
-    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
-}
-
-// Set directory structure
-if(params.outroot == "") {
-    output_directory = file(params.out)
-} else {
-    output_directory = file("${file(params.outroot)}/${params.out}")
-}
-
-// Set MUMmer directory structure
-mummer_directory = file("${output_directory}/MUMmer_Output")
-mum_coords_directory = file("${mummer_directory}/1coords")
-mum_report_directory = file("${mummer_directory}/report")
-mum_snps_directory = file("${mummer_directory}/snps")
+// Set path variables
+mummer_directory = file(params.mummer_directory)
+snpdiffs_directory = file(params.snpdiffs_directory)
 
 // Set path to accessory scripts
 mummerScript = file("$projectDir/bin/compileMUMmer.py")
-
-// Set up modules if needed
-params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
-params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${params.mummer_module}"
-params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
-params.load_bbtools_module = params.bbtools_module == "" ? "" : "module load -s ${params.bbtools_module}"
 
 workflow alignGenomes{
     take:
@@ -85,11 +61,7 @@ process runMUMmer{
         rm -rf ${mummer_directory}/${report_id}.unref
         rm -rf ${mummer_directory}/${report_id}.unqry
 
-        mv ${mummer_directory}/${report_id}.snps ${mum_snps_directory}
-        mv ${mummer_directory}/${report_id}.report ${mum_report_directory}
-        mv ${mummer_directory}/${report_id}.1coords ${mum_coords_directory}
-
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${output_directory}"       
+        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}"    
         """
     }
 }

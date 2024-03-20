@@ -261,7 +261,7 @@ def fasta_info(file_path):
         if n50 is not None and n90 is not None:
             break
 
-    return [file_path, contig_count, assembly_bases, n50,l50, n90,l90, sha256]
+    return [file_path,contig_count,assembly_bases,n50,n90,l50,l90,sha256]
 
 def fasta_to_bedtool(fasta_file):
     intervals = []
@@ -300,17 +300,18 @@ query = str(sys.argv[1])
 query_fasta = str(sys.argv[2])
 reference = str(sys.argv[3])
 reference_fasta = str(sys.argv[4])
-output_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
+mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
+snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
 
 # Get query data
 query_data = [query] + fasta_info(query_fasta)
 query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
-                                             'Query_N50','Query_L50','Query_N90','Query_L90','Query_SHA256'],query_data)]
+                                             'Query_N50','Query_N90','Query_L50','Query_L90','Query_SHA256'],query_data)]
 
 # Get reference data
 reference_data = [reference] + fasta_info(reference_fasta)
 reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
-                                                 'Reference_N50','Reference_L50','Reference_N90','Reference_L90','Reference_SHA256'],reference_data)]
+                                                 'Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256'],reference_data)]
 
 # Get kmer distance
 [ref_kmers,query_kmers,
@@ -323,14 +324,6 @@ reference_chr_bed = fasta_to_bedtool(reference_fasta)
 
 # Set report ID
 report_id = query + "__vs__" + reference
-
-# Set directories
-mummer_dir = output_dir + "/MUMmer_Output"
-mum_snps_dir = mummer_dir + "/snps"
-mum_report_dir = mummer_dir + "/report"
-mum_coords_dir = mummer_dir + "/1coords"
-log_dir = output_dir + "/logs"
-snpdiffs_dir = output_dir + "/snpdiffs"
 snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
 
 # Create NA variables for all downstream options
@@ -350,12 +343,12 @@ total_invalid_count = "NA"
             ref_translocations,query_translocations,
             ref_inversions,query_inversions,
             ref_insertions,query_insertions,
-            ref_tandem,query_tandem] = parseMUmmerReport(mum_report_dir,report_id)
+            ref_tandem,query_tandem] = parseMUmmerReport(mummer_dir,report_id)
 
 if percent_ref_aligned > 0:
     
     #### 03: Process MUMmer coords file ####
-    coords_file = parseMUmmerCoords(mum_coords_dir,report_id,reference_chr_bed,query_chr_bed)
+    coords_file = parseMUmmerCoords(mummer_dir,report_id,reference_chr_bed,query_chr_bed)
     aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
     if aligned_coords.shape[0] > 0:
         aligned_coords['Perc_Iden'] = aligned_coords['Perc_Iden'].astype(float)
@@ -365,7 +358,7 @@ if percent_ref_aligned > 0:
         median_alignment_length = np.median(aligned_coords['Ref_Aligned'])
 
         ##### 04: Process MUMmer SNP file ####
-        processed_snps = parseMUmmerSNPs(mum_snps_dir,report_id,aligned_coords)
+        processed_snps = parseMUmmerSNPs(mummer_dir,report_id,aligned_coords)
         
         total_snp_count = processed_snps[processed_snps['Cat'] == "SNP"].shape[0]
         total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]

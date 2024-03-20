@@ -1,7 +1,13 @@
 // Subworkflow to fetch sample and reference data from --fasta/--reads/--ref_fasta/--ref_reads
 
-assembly_log = file("${log_directory}/Assembly_Data.tsv")
-user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
+// Set path variables
+output_directory = file(params.output_directory)
+assembly_directory = file(params.assembly_directory)
+log_directory = file(params.log_directory)
+assembly_log = file(params.assembly_log)
+isolate_data_file = file(params.isolate_data_file)
+user_snpdiffs_list = file(params.user_snpdiffs_list)
+ref_mode = params.ref_mode
 
 // Set paths to accessory scripts
 findReads = file("${projectDir}/bin/fetchReads.py")
@@ -27,12 +33,13 @@ workflow fetchData{
     ("${params.snpdiffs}" != "" ? processSNPDiffs() : Channel.empty()).set{user_snpdiffs}
 
     // Generate 3-item tuple with the following format: (Query_ID, Reference_ID, SNPDiff_Path)
-    snpdiff_data = user_snpdiffs.map{it -> tuple(it[0],it[2],it[4])}
-    .unique{it -> it[2]}.collect().flatten().collate(3)
+    snpdiff_data = user_snpdiffs
+    .map{it -> tuple(it[1],it[10],it[0])}
+    .collect().flatten().collate(3)
 
     // Get assembly data from snpdiffs
-    snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[0],it[1])}
-    .concat(user_snpdiffs.map{it-> tuple(it[2],it[3])})
+    snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[1],it[2])}
+    .concat(user_snpdiffs.map{it-> tuple(it[10],it[11])})
     .map{it -> tuple(it[0],it[1],'SNPDiff')}
     .collect().flatten().collate(3)
 
@@ -75,7 +82,7 @@ workflow fetchData{
     .collect().flatten().collate(3) | assembleReads
 
     // If runmode is 'assemble', tasks are complete
-    if(run_mode == "assemble"){
+    if(params.runmode == "assemble"){
         query_data = Channel.empty()
         reference_data = Channel.empty()
     } else{
@@ -90,11 +97,24 @@ workflow fetchData{
         .filter{it -> it[3].toString() == "null"}
         .map{it->tuple(it[0],it[1])}
 
+        // Process user FASTAs
+        user_fasta_data = processFasta(user_fastas).splitCsv()
+        .collect().flatten().collate(9)
+        
+        snpdiffs_fasta_data = user_snpdiffs.map{it->tuple(it[1],it[2],it[3],it[4],it[5],it[6],it[7,it[8],it[9]])}
+        .concat(user_snpdiffs.map{it->tuple(it[10],it[11],it[12],it[13],it[14],it[15],it[16],it[17],it[18])})
+        .unique{it->it[0]}.collect().flatten().collate(9)
+
+        all_fasta_data = user_fasta_data.concat(snpdiffs_fasta_data)
+        .collect().flatten().collate(9)
+
+        // Get all assemblies
         all_assembled = assembled_snpdiffs
         .map{it -> tuple(it[0],it[1])}
         .concat(user_fastas)
         .collect().flatten().collate(2)
 
+        // Get data for isolates where a SNPDiff was provided, but no FASTA could be located
         no_assembly = snpdiff_assemblies
         .map{it -> tuple(it[0],it[1])}
         .filter{it -> it[1].toString() == "null"}
@@ -105,12 +125,17 @@ workflow fetchData{
         .collect().flatten().collate(2)
 
         // If no reference data is provided return a blank channel
-        if((params.ref_reads == "") && (params.ref_fasta == "") && (params.ref_id == "")){
+        if(!ref_mode){
             reference_data = Channel.empty()
 
             query_data = all_assembled
             .concat(no_assembly)
-            .collect().flatten().collate(2)
+            .unique{it-> it[0]}.collect().flatten().collate(2)
+
+            all_fasta_data
+            .map{it->tuple(it[0],"Query",it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8])}
+            .unique{it-> it[0]}.collect().flatten().collate(10).map {it -> it.join("\t")}.collect() 
+            | saveIsolateLog
 
         } else{
 
@@ -138,6 +163,19 @@ workflow fetchData{
             .filter{it -> it[2].toString() == "Reference"}
             .map{it->tuple(it[0],it[1])}
             .unique{it -> it[0]}.collect().flatten().collate(2)
+
+            query_fasta_data = query_data.collect{it[0]}
+            .join(all_fasta_data,by:0)
+            .map{it->tuple(it[0],"Query",it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8])}
+
+            reference_fasta_data = reference_data.collect{it[0]}
+            .join(all_fasta_data,by:0)
+            .map{it->tuple(it[0],"Reference",it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8])}
+
+            query_fasta.concat(reference_fasta_data)
+            .collect().flatten().collate(10).map {it -> it.join("\t")}.collect() 
+            | saveIsolateLog
+
         }
     }
 }
@@ -242,7 +280,12 @@ workflow processSNPDiffs{
 
         snpdiffs_data = ch_snpdiffs
             .filter { file(it).exists() }
-            .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(5)
+            .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(19)
+
+        // (1) SNPDiffs_File, (2) Query_ID, (3) Query_Assembly, (4) Query_Contig_Count, (5) Query_Assembly_Bases, 
+        // (6) Query_N50, (7) Query_N90, (8) Query_L50, (9) Query_L90, (10) Query_SHA256,
+        // (11) Reference_ID, (12) Reference_Assembly, (13) Reference_Contig_Count, (14) Reference_Assembly_Bases,
+        // (15) Reference_N50, (16) Reference_N90, (17) Reference_L50, (18) Reference_L90, (19) Reference_SHA256
     }
 }
 process getSNPDiffsData{
@@ -257,29 +300,33 @@ process getSNPDiffsData{
     stdout
 
     script:
-    """
-    ${params.load_python_module}
 
-    echo "${snpdiffs_paths.join('\n')}" > $user_snpdiffs_list
-    python ${userSNPDiffs} "${user_snpdiffs_list}" ${params.trim_name}
+    user_snpdiffs_list.write(snpdiffs_paths.join('\n'))
+
+    """
+    $params.load_python_module
+    python ${userSNPDiffs} "${user_snpdiffs_list}" "${params.trim_name}"
     """
 }
-workflow processRefIDs{
-
-    emit:
-    ref_ids
+process processFasta{
     
-    main:
-    def trim_this = "${params.trim_name}"
-
-    ref_ids = params.ref_id
-    .tokenize(',')
-    .unique()
-    .collect { it ->
-        "${it}".replaceAll(trim_this, "")}
-    .flatten()
+        executor = 'local'
+        cpus = 1
+        maxForks = 1
+    
+        input:
+        tuple val(sample_id),val(fasta_path)
+    
+        output:
+        stdout
+    
+        script:
+        """
+        $params.load_python_module
+        python ${processFasta} $sample_id $fasta_path
+        """
+    
 }
-
 
 // Fetching read data //
 workflow fetchQueryReads{
@@ -357,12 +404,28 @@ process fetchReads{
         error "$dir is not a valid directory..."
     } else{
     """
-    ${params.load_python_module}
+    $params.load_python_module
     python ${findReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix} ${params.trim_name}
     """
     }
 }
 
+// Fetch reference IDs //
+workflow processRefIDs{
+
+    emit:
+    ref_ids
+    
+    main:
+    def trim_this = "${params.trim_name}"
+
+    ref_ids = params.ref_id
+    .tokenize(',')
+    .unique()
+    .collect { it ->
+        "${it}".replaceAll(trim_this, "")}
+    .flatten()
+}
 
 // Assembly //
 workflow assembleReads{
@@ -384,7 +447,6 @@ workflow assembleReads{
     // Return assembly data
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
 }
-
 process skesaAssemble{
     memory '12 GB' // Add readcount/memory check?
 
@@ -408,21 +470,21 @@ process skesaAssemble{
         $params.load_python_module
         $params.load_skesa_module
         skesa --cores ${skesa_cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
-        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        echo "${sample_name},${read_type},${read_location},${assembly_file}"
         """
     } else if(read_type == "Single"){
         """
         $params.load_python_module
         $params.load_skesa_module
         skesa --cores ${skesa_cpus} --fastq ${read_location} --contigs_out ${assembly_file}
-        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        echo "${sample_name},${read_type},${read_location},${assembly_file}"
         """
     } else{
         error "read_type should be Paired or Single, not $read_type..."
     }
 }
 
-// Logging Processes//
+// Logging //
 process saveAssemblyLog{
     executor = 'local'
     cpus = 1
@@ -432,9 +494,21 @@ process saveAssemblyLog{
     val(assembly_data)
 
     script:
- 
+    assembly_log.append(assembly_data.join('\n') + '\n')    
     """
-    echo "Isolate_ID\tRead_Type\tRead_Data\tAssembly\tContig_Count\tAssembly_Bases\tN50\tL50\tN90\tL90\tSHA256" > "${assembly_log}"
-    echo "${assembly_data.join('\n')}" >> "${assembly_log}"
+    """
+}
+
+process saveIsolateLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(isolate_data)
+
+    script:
+    isolate_data_file.append(isolate_data.join('\n') + '\n')    
+    """
     """
 }

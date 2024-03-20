@@ -34,9 +34,7 @@ def fasta_info(file_path):
     return int(contig_count), int(assembly_bases), int(n50),int(l50), int(n90),int(l90), sha256
 
 sample_name = str(sys.argv[1])
-read_type = str(sys.argv[2])
-read_location = str(sys.argv[3])
-fasta_file = str(sys.argv[4])
+fasta_file = str(sys.argv[2])
 
 if not os.path.exists(fasta_file):
     sys.exit(f"File {fasta_file} does not exist.")
@@ -44,6 +42,4 @@ elif not fasta_file.lower().endswith(('.fa', '.fasta', '.fna')):
     sys.exit(f"File {fasta_file} is not a .fa, .fasta, or .fna file.")
 
 contig_count, assembly_bases, n50, l50, n90, l90, sha256 = fasta_info(fasta_file)
-
-
-print(f"{sample_name},{read_type},{read_location},{fasta_file},{contig_count},{assembly_bases},{n50},{l50},{n90},{l90},{sha256}")
+print(f"{sample_name},{fasta_file},{contig_count},{assembly_bases},{n50},{n90},{l50},{l90},{sha256}")
