@@ -164,18 +164,18 @@ workflow fetchData{
             .map{it->tuple(it[0],it[1])}
             .unique{it -> it[0]}.collect().flatten().collate(2)
 
-            query_fasta_data = query_data.collect{it[0]}
-            .join(all_fasta_data,by:0)
+            query_fasta_data = all_fasta_data
+            .join(query_data,by:0)
             .map{it->tuple(it[0],"Query",it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8])}
 
-            reference_fasta_data = reference_data.collect{it[0]}
-            .join(all_fasta_data,by:0)
+            reference_fasta_data = all_fasta_data
+            .join(reference_data,by:0)
             .map{it->tuple(it[0],"Reference",it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8])}
 
-            query_fasta.concat(reference_fasta_data)
-            .collect().flatten().collate(10).map {it -> it.join("\t")}.collect() 
+            query_fasta_data.concat(reference_fasta_data)
+            .collect().flatten().collate(10)
+            .map {it -> it.join("\t")}.collect() 
             | saveIsolateLog
-
         }
     }
 }
