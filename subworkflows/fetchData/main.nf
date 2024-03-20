@@ -498,7 +498,6 @@ process saveAssemblyLog{
     """
     """
 }
-
 process saveIsolateLog{
     executor = 'local'
     cpus = 1

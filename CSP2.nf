@@ -166,7 +166,6 @@ params.load_refchooser_module = params.refchooser_module == "" ? "" : "module lo
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
-include {saveMUMmerLog} from "./subworkflows/logging/main.nf"
 include {runScreen} from "./subworkflows/snpdiffs/main.nf"
 
 //include {saveIsolateLog} from "./subworkflows/logging/main.nf"
@@ -190,11 +189,10 @@ workflow{
             
             seen_combinations = []
             
-            to_align = input_data.query_data
-            .combine(input_data.query_data)
+            to_align = input_data.query_data.combine(input_data.query_data) // Self-combine query data
             .collect().flatten().collate(4)
             .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
-            .filter{ it ->
+            .filter{ it -> // Get unique combinations
     
             combination = ["${it[0]}", "${it[2]}"].sort()
             
@@ -205,6 +203,8 @@ workflow{
                 return true
             }}
         } else{
+
+            // If references are provided, align all queries against all references
             to_align = input_data.query_data
             .combine(input_data.reference_data)
             .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
@@ -222,26 +222,42 @@ workflow{
         .collect().flatten().collate(3)
         .ifEmpty { error "No .snpdiffs to process..." }
         
-        snpdiffs_file = all_snpdiffs.collect{it[2]} | saveMUMmerLog
-
-        if(params.runmode == "screen"){
+        if(params.runmode == "align"){
+            all_snpdiffs.collect{it[2]} | saveMUMmerLog // Save raw alignment log
+        } else if(params.runmode == "screen"){
             
-            // Based on whether reference samples are provided, label .snpdiffs files as Forward/Reverse/NonRef
-            // Forward: SNPDiffs file is the correct (Query - Reference) orientation
-                // If no references are provided, SNPDiffs files are 'Forward'
-
-            // Reverse: SNPDiffs file is in the reverse (Reference - Query) orientation
-            // NonRef: If references were provided, NPDiffs file is a non-reference sample aligned to another non-reference sample
-
-
-
-            runScreen(all_snpdiffs,snpdiffs_file,input_data.reference_data)       
+            // If references are provided, ensure that all snpdiffs are processed in Query-Reference order
+            // If no references are provided, process snpdiffs as is
+            if(ref_mode){
+                
+            }
+            runScreen(all_snpdiffs) 
         }
     } else if(params.runmode == "snp"){
         print("SNP")
     }
 }
 
+process saveMUMmerLog{
+// Takes: Flattened list of snpdiffs files and generates a TSV report via python
+// Returns: Path to list of snpdiffs files
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(snpdiffs_paths)
+
+    saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
+
+    script:
+
+    snpdiffs_list_file.write(snpdiffs_paths.join('\n'))
+    """
+    $params.load_python_module
+    python ${saveSNPDiffs} "${snpdiffs_list_file}" "${snpdiffs_summary_file}"
+    """
+}
 
         
         /*
