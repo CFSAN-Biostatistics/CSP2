@@ -276,7 +276,7 @@ def fasta_to_bedtool(fasta_file):
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
-def compare_kmers(reference_file,query_file):
+def compare_kmers(query_file,reference_file):
     ref_kmers = set()
     ref_process = subprocess.run(["kmercountexact.sh", f"in={reference_file}", "threads=1","fastadump=f", "out=stdout", "|", "cut", "-f1"], capture_output=True, text=True)
     ref_kmers.update(ref_process.stdout.strip().split('\n'))
@@ -399,29 +399,29 @@ snpdiffs_header.append("#\t" +
                        "\t".join(query_string) +
                        "\t" + "\t".join(reference_string) +
                        "\t" + "\t".join([
+"SNPs:"+total_snp_count,  
 "Reference_Percent_Aligned:"+percent_ref_aligned,
-"Reference_Breakpoints:"+ref_breakpoints,
-"Reference_Relocations:"+ref_relocations,
-"Reference_Translocations:"+ref_translocations,
-"Reference_Inversions:"+ref_inversions,
-"Reference_Insertions:"+ref_insertions,
-"Reference_Tandem:"+ref_tandem,
-"Reference_Total_Kmers:"+ref_kmers,
-"Reference_Unique_Kmers:"+unique_ref_kmers,
 "Query_Percent_Aligned:"+percent_query_aligned,
-"Query_Breakpoints:"+query_breakpoints,
-"Query_Relocations:"+query_relocations,
-"Query_Translocations:"+query_translocations,
-"Query_Inversions:"+query_inversions,
-"Query_Insertions:"+query_insertions,
-"Query_Tandem:"+query_tandem,
-"Query_Total_Kmers:"+query_kmers,
-"Query_Unique_Kmers:"+unique_query_kmers,
-"Shared_Kmers:"+kmer_intersection,
-"Kmer_Similarity:"+kmer_similarity,
 "Median_Percent_Identity:"+median_percent_identity,
 "Median_Alignment_Length:"+median_alignment_length,
-"SNPs:"+total_snp_count,
+"Kmer_Similarity:"+kmer_similarity,    
+"Shared_Kmers:"+kmer_intersection,
+"Reference_Unique_Kmers:"+unique_ref_kmers,
+"Query_Unique_Kmers:"+unique_query_kmers,
+#"Reference_Total_Kmers:"+ref_kmers,
+#"Query_Total_Kmers:"+query_kmers,
+"Reference_Breakpoints:"+ref_breakpoints,
+"Query_Breakpoints:"+query_breakpoints,
+"Reference_Relocations:"+ref_relocations,
+"Query_Relocations:"+query_relocations,
+"Reference_Translocations:"+ref_translocations,
+"Query_Translocations:"+query_translocations,
+"Reference_Inversions:"+ref_inversions,
+"Query_Inversions:"+query_inversions,
+"Reference_Insertions:"+ref_insertions,
+"Query_Insertions:"+query_insertions,
+"Reference_Tandem:"+ref_tandem,
+"Query_Tandem:"+query_tandem,
 "Indels:"+total_indel_count,
 "Invalid:"+total_invalid_count,
 "gSNPs:"+g_snps,

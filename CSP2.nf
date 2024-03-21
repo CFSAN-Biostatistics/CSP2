@@ -308,10 +308,9 @@ process saveMUMmerLog{
     input:
     val(snpdiffs_paths)
 
-    saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
 
     script:
-
+    saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
     snpdiffs_list_file.write(snpdiffs_paths.join('\n'))
     """
     $params.load_python_module
