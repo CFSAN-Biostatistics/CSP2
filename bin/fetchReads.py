@@ -11,6 +11,8 @@ if not os.path.isdir(read_dir):
 
 # Get read filetype information
 read_filetype = str(sys.argv[2])
+if not read_filetype.startswith("."):
+    read_filetype = "." + str(sys.argv[2])
 forward_suffix = str(sys.argv[3])
 reverse_suffix = str(sys.argv[4])
 trim_name = str(sys.argv[5])
