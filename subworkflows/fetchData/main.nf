@@ -101,7 +101,7 @@ workflow fetchData{
         user_fasta_data = processFasta(user_fastas).splitCsv()
         .collect().flatten().collate(9)
         
-        snpdiffs_fasta_data = user_snpdiffs.map{it->tuple(it[1],it[2],it[3],it[4],it[5],it[6],it[7,it[8],it[9]])}
+        snpdiffs_fasta_data = user_snpdiffs.map{it->tuple(it[1],it[2],it[3],it[4],it[5],it[6],it[7],it[8],it[9])}
         .concat(user_snpdiffs.map{it->tuple(it[10],it[11],it[12],it[13],it[14],it[15],it[16],it[17],it[18])})
         .unique{it->it[0]}.collect().flatten().collate(9)
 

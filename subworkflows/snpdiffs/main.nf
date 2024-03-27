@@ -3,6 +3,8 @@ output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
 screen_log_dir = file(params.screen_log_dir)
 snp_log_dir = file(params.snp_log_dir)
+screen_diffs_list = file("${log_directory}/Screen_Input.tsv")
+screening_results_file = file(params.screening_results_file)
 
 // Get QC thresholds
 min_cov = params.min_cov.toFloat()
@@ -18,28 +20,73 @@ workflow runScreen {
 
     main:
 
-    all_snpdiffs
-    .view()
+    screening_results = all_snpdiffs
+    .map{it -> it.join("\t")}
+    .collect()
+    | screenSNPDiffs
+    | splitCsv() 
+
+    screening_results
+    .map{it -> it.join("\t")}
+    .collect()
+    | saveScreen
 }
 
 process screenSNPDiffs{
 
-    cpus = 1
-    memory '4 GB'
-
     input:
-    tuple val(query_id),val(reference_id),val(snp_diffs_file)
+    val(all_snpdiffs)
 
     output:
     stdout
 
     script:
+
     screenDiffs = file("${projectDir}/bin/screenSNPDiffs.py")
+    screen_diffs_list.write(all_snpdiffs.join('\n') + '\n')
     """
     $params.load_python_module
-    python $screenDiffs "${query_id}" "${reference_id}" "${snp_diffs_file}" "${screen_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params_wsnps}"
+    $params.load_bedtools_module
+    python $screenDiffs "${screen_diffs_list}" "${screen_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}"
     """
 } 
+
+process saveScreen{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(screen_results)
+
+    script:
+    screening_results_file.append(screen_results.join('\n') + '\n')
+    """
+    """
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

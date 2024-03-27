@@ -65,8 +65,8 @@ else:
         query_assembly = os.path.abspath(row['Query_Assembly']) if checkLineExists(row['Query_Assembly'], row['Query_SHA256']) else "null"
         reference_assembly = os.path.abspath(row['Reference_Assembly']) if checkLineExists(row['Reference_Assembly'], row['Reference_SHA256']) else "null"
         
-        print(",".join(row['SNPDiffs_File'],
-                       row['Query_ID'], query_assembly,row['Query_Contig_Count'],row['Query_Assembly_Bases'],
-                       row['Query_N50'],row['Query_N90'],row['Query_L50'],row['Query_L90'],row['Query_SHA256'],
-                       row['Reference_ID'],reference_assembly,row['Reference_Contig_Count'],row['Reference_Assembly_Bases'],
-                       row['Reference_N50'],row['Reference_N90'],row['Reference_L50'],row['Reference_L90'],row['Reference_SHA256']))
+        print(",".join([row['SNPDiffs_File'],
+                       row['Query_ID'], query_assembly,str(row['Query_Contig_Count']),str(row['Query_Assembly_Bases']),
+                       str(row['Query_N50']),str(row['Query_N90']),str(row['Query_L50']),str(row['Query_L90']),row['Query_SHA256'],
+                       row['Reference_ID'],reference_assembly,str(row['Reference_Contig_Count']),str(row['Reference_Assembly_Bases']),
+                       str(row['Reference_N50']),str(row['Reference_N90']),str(row['Reference_L50']),str(row['Reference_L90']),row['Reference_SHA256']]))

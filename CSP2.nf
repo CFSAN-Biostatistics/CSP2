@@ -84,7 +84,7 @@ if(!output_directory.getParent().isDirectory()){
 // Set headers
 assembly_header = "Isolate_ID\tRead_Type\tRead_Location\tAssembly_Path\n"
 isolate_data_header = "Isolate_ID\tIsolate_Type\tAssembly_Path\tContig_Count\tAssembly_Bases\tN50\tN90\tL50\tL90\tSHA256\n"
-screen_header = "Query_ID\tReference_ID\tSNPs\tQuery_Percent_Aligned\tReference_Percent_Aligned\tRaw_SNPs\tPurged_Length\tPurged_Identity\tPurged_LengthIdentity\tPurged_Invalid\tPurged_Indel\tPurged_Duplicate\tPurged_Het\tPurged_Density\tFiltered_Edge\tKmer_Similarity\tShared_Kmers\tQuery_Unique_Kmers\tReference_Unique_Kmers\tMUMmer_gSNPs\tMUMmer_gIndels\n"
+screen_header = "Query_ID\tReference_ID\tScreening_Category\tCSP2_Screen_SNPs\tQuery_Percent_Aligned\tReference_Percent_Aligned\tQuery_Contig_Count\tQuery_Assembly_Bases\tReferenence_Contig_Count\tReference_Assembly_Bases\tRaw_SNPs\tPurged_Length\tPurged_Identity\tPurged_LengthIdentity\tPurged_Invalid\tPurged_Indel\tPurged_Duplicate\tPurged_Het\tPurged_Density\tFiltered_Query_Edge\tFiltered_Ref_Edge\tFiltered_Both_Edge\tKmer_Similarity\tShared_Kmers\tQuery_Unique_Kmers\tReference_Unique_Kmers\tMUMmer_gSNPs\tMUMmer_gIndels\n"
 
 // Set MUMmer and SNP directories
 mummer_directory = file("${output_directory}/MUMmer_Output")
@@ -213,6 +213,7 @@ workflow{
     // Create channel for pre-aligned data
     already_aligned = input_data.snpdiff_data
     .map { it -> tuple([it[0], it[1]].sort().join(','), it[2]) }
+    .collect().flatten().collate(2)
     
     // If run mode is 'assemble', tasks are complete
     if((params.runmode == "align") || (params.runmode == "screen")){
@@ -267,30 +268,41 @@ workflow{
             if(ref_mode){
 
                 ref_list = input_data.reference_data
+                    .unique{it -> it[0]}
                     .map{it -> "${it[0]}"}
                     .collect()
 
                 query_list = input_data.query_data
+                    .unique{it -> it[0]}
                     .map{it -> "${it[0]}"}
                     .collect()
 
                 all_snpdiffs = all_snpdiffs
                 .branch{it ->
                     forward: query_list.contains("${it[0]}") && ref_list.contains("${it[1]}")
-                        return(tuple(it[0],it[1],it[2]))
+                        return(tuple([it[0], it[1]].sort().join(','),it[0],it[1],it[2]))
                     reverse: ref_list.contains("${it[0]}") && query_list.contains("${it[1]}")
-                        return(tuple(it[1],it[0],it[2]))
+                        return(tuple([it[0], it[1]].sort().join(','),it[1],it[0],it[2]))
                     other: true
                         return(tuple(it[0],it[1],it[2]))}
+
+                // Drop snpdiffs that are in the reverse orientation if a forward orientation exists
+                retained_reverse = all_snpdiffs.reverse
+                .join(all_snpdiffs.forward, by:0, remainder:true)
+                .filter{it -> it[4].toString() == "null"}
+                .map{it -> [it[1], it[2], it[3]]}
+
                 
                 all_snpdiffs.forward
-                .concat(all_snpdiffs.reverse)
+                .map{it -> [it[1], it[2], it[3]]}
+                .concat(retained_reverse)
                 .concat(all_snpdiffs.other)
                 .unique{it -> it[2]}.collect().flatten().collate(3)
                 | runScreen
 
                 } else{
-                    runScreen(all_snpdiffs)
+                    all_snpdiffs.collect().flatten().collate(3)
+                    | runScreen
                 }
         }
     } else if(params.runmode == "snp"){
@@ -308,10 +320,9 @@ process saveMUMmerLog{
     input:
     val(snpdiffs_paths)
 
-
     script:
     saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
-    snpdiffs_list_file.write(snpdiffs_paths.join('\n'))
+    snpdiffs_list_file.write(snpdiffs_paths.join('\n') + '\n')
     """
     $params.load_python_module
     python $saveSNPDiffs "${snpdiffs_list_file}" "${snpdiffs_summary_file}"
