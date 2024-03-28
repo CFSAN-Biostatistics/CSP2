@@ -230,10 +230,14 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         assert return_df.shape[0] == total_snp_count
         return return_df
     
-def makeSNPCoords(snp_df,coords_df):
-    snp_coords = pd.merge(snp_df,coords_df,how='left').dropna()
-    snp_coords = snp_coords[snp_coords.apply(lambda x: (x['Ref_Start'] <= x['Ref_Pos'] <= x['Ref_End']) & (x['Query_Start'] <= x['Query_Pos'] <= x['Query_End']), axis=1)]
-    return(snp_coords)
+def makeSNPCoords(snp_df, coords_df):
+    snp_coords = pd.merge(snp_df, coords_df, how='left').dropna()
+    condition = ((snp_coords['Ref_Start'] <= snp_coords['Ref_Pos']) & 
+                 (snp_coords['Ref_Pos'] <= snp_coords['Ref_End']) & 
+                 (snp_coords['Query_Start'] <= snp_coords['Query_Pos']) & 
+                 (snp_coords['Query_Pos'] <= snp_coords['Query_End']))
+    snp_coords = snp_coords[condition]
+    return snp_coords
     
 def fasta_info(file_path):
     records = list(SeqIO.parse(file_path, 'fasta'))
@@ -408,8 +412,6 @@ snpdiffs_header.append("#\t" +
 "Shared_Kmers:"+kmer_intersection,
 "Reference_Unique_Kmers:"+unique_ref_kmers,
 "Query_Unique_Kmers:"+unique_query_kmers,
-#"Reference_Total_Kmers:"+ref_kmers,
-#"Query_Total_Kmers:"+query_kmers,
 "Reference_Breakpoints:"+ref_breakpoints,
 "Query_Breakpoints:"+query_breakpoints,
 "Reference_Relocations:"+ref_relocations,

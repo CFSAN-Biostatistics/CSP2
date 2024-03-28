@@ -81,18 +81,12 @@ if(!output_directory.getParent().isDirectory()){
     output_directory.mkdirs()
 }
 
-// Set headers
-assembly_header = "Isolate_ID\tRead_Type\tRead_Location\tAssembly_Path\n"
-isolate_data_header = "Isolate_ID\tIsolate_Type\tAssembly_Path\tContig_Count\tAssembly_Bases\tN50\tN90\tL50\tL90\tSHA256\n"
-screen_header = "Query_ID\tReference_ID\tScreening_Category\tCSP2_Screen_SNPs\tQuery_Percent_Aligned\tReference_Percent_Aligned\tQuery_Contig_Count\tQuery_Assembly_Bases\tReferenence_Contig_Count\tReference_Assembly_Bases\tRaw_SNPs\tPurged_Length\tPurged_Identity\tPurged_LengthIdentity\tPurged_Invalid\tPurged_Indel\tPurged_Duplicate\tPurged_Het\tPurged_Density\tFiltered_Query_Edge\tFiltered_Ref_Edge\tFiltered_Both_Edge\tKmer_Similarity\tShared_Kmers\tQuery_Unique_Kmers\tReference_Unique_Kmers\tMUMmer_gSNPs\tMUMmer_gIndels\n"
-
 // Set MUMmer and SNP directories
 mummer_directory = file("${output_directory}/MUMmer_Output")
 snpdiffs_directory = file("${output_directory}/snpdiffs")
 snp_directory = file("${output_directory}/SNP_Analysis")
 
 // Set paths for output files 
-snpdiffs_summary_file = file("${output_directory}/Raw_Alignment_Summary.tsv")
 isolate_data_file = file("${output_directory}/Isolate_Data.tsv")
 screening_results_file = file("${output_directory}/Screening_Results.tsv")
 
@@ -102,15 +96,12 @@ if(params.runmode == "assemble"){
 
     log_directory = file("${output_directory}")
     assembly_directory = file("${output_directory}")
-    assembly_log = file("${log_directory}/Assembly_Data.tsv")
 
-    // Set paths for log files
-    user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
-    snpdiffs_list_file = file("${log_directory}/All_SNPDiffs.txt")
+    // Set dummy paths for log files
     screen_log_dir = file("${log_directory}/Screening_Logs")
     snp_log_dir = file("${log_directory}/SNP_Logs")
-    
-    assembly_log.write("${assembly_header}")
+    ref_id_file = file("${log_directory}/Reference_IDs.txt")
+
 } else{
 
     // Get reference mode
@@ -120,27 +111,26 @@ if(params.runmode == "assemble"){
         ref_mode = true
     }
     
+    // Set directories
     log_directory = file("${output_directory}/logs")
     assembly_directory = file("${output_directory}/Assemblies")
-    assembly_log = file("${log_directory}/Assembly_Data.tsv")
+    ref_id_file = file("${log_directory}/Reference_IDs.txt")
 
-    // Set paths for log files
-    user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
-    snpdiffs_list_file = file("${log_directory}/All_SNPDiffs.txt")
-    screen_log_dir = file("${log_directory}/Screening_Logs")
-    snp_log_dir = file("${log_directory}/SNP_Logs")
-
+    // Create directories
     log_directory.mkdirs()
     mummer_directory.mkdirs()
     snpdiffs_directory.mkdirs()
 
-    // Establish Isolate_Data.tsv
-    isolate_data_file.write("${isolate_data_header}")
+    // Touch Reference_IDs.txt to establish it
+    file(ref_id_file).text = ''
 
+    // Set paths for log subdirectories
+    screen_log_dir = file("${log_directory}/Screening_Logs")
+    snp_log_dir = file("${log_directory}/SNP_Logs")
+    
     // If --reads/--ref_reads are provided, prepare a directory for assemblies
     if((params.reads != "") || (params.ref_reads != "")){
         assembly_directory.mkdirs()
-        assembly_log.write("${assembly_header}")    
     }
 
     // If runmode is snp, prepare a directory for SNP analysis + logs
@@ -152,32 +142,20 @@ if(params.runmode == "assemble"){
     // If runmode is screen, prepare a directory for screening logs
     if(params.runmode == "screen"){
         screen_log_dir.mkdirs()
-        
-        // Establish Screening_Results.tsv
-        screening_results_file.write("${screen_header}")
     }
 }
 
 // Parameterize variables to pass between scripts
 params.output_directory = file(output_directory)
 params.log_directory = file(log_directory)
-params.assembly_directory = file(assembly_directory)
-
-params.assembly_log = file(assembly_log)
-
-params.mummer_directory = file(mummer_directory)
-
-params.snpdiffs_directory = file(snpdiffs_directory)
-params.snpdiffs_list_file = file(snpdiffs_list_file)
-params.snpdiffs_summary_file = file(snpdiffs_summary_file)
-params.user_snpdiffs_list = file(user_snpdiffs_list)
-
-params.snp_directory = file(snp_directory)
-params.isolate_data_file = file(isolate_data_file)
-params.screening_results_file = file(screening_results_file)
-
 params.screen_log_dir = file(screen_log_dir)
 params.snp_log_dir = file(snp_log_dir)
+params.assembly_directory = file(assembly_directory)
+params.mummer_directory = file(mummer_directory)
+params.snpdiffs_directory = file(snpdiffs_directory)
+params.snp_directory = file(snp_directory)
+
+params.ref_id_file = file(ref_id_file)
 
 params.ref_mode = ref_mode
 
@@ -210,11 +188,15 @@ workflow{
     // Read in data
     input_data = fetchData()
 
-    // Create channel for pre-aligned data
-    already_aligned = input_data.snpdiff_data
+    query_data = input_data.query_data
+    reference_data = input_data.reference_data
+    snpdiffs_data = input_data.snpdiff_data
+
+    // Create channel for pre-aligned data [(Query_1,Query_2),SNPDiffs_File]
+    prealigned = snpdiffs_data
     .map { it -> tuple([it[0], it[1]].sort().join(','), it[2]) }
     .collect().flatten().collate(2)
-    
+
     // If run mode is 'assemble', tasks are complete
     if((params.runmode == "align") || (params.runmode == "screen")){
 
@@ -223,7 +205,7 @@ workflow{
             
             seen_combinations = []
             
-            to_align = input_data.query_data.combine(input_data.query_data) // Self-combine query data
+            to_align = query_data.combine(query_data) // Self-combine query data
             .collect().flatten().collate(4)
             .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
             .filter{ it -> // Get unique combinations
@@ -236,98 +218,37 @@ workflow{
                 seen_combinations << combination
                 return true
             }}
-        } 
-        
+        }
+
         // If references are provided, align all queries against all references
         else{
-            to_align = input_data.query_data
-            .combine(input_data.reference_data)
+            to_align = query_data
+            .combine(reference_data)
             .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
         }
 
         // Don't align things that are already aligned via --snpdiffs
-        mummer_results = to_align
+        unaligned = to_align
         .map { it -> tuple([it[0], it[2]].sort().join(','),it[0], it[1], it[2], it[3]) }
-        .join(already_aligned,by:0,remainder:true)
+        .join(prealigned,by:0,remainder:true)
         .filter{it -> it[5].toString() == "null"}
         .map{it -> [it[1], it[2], it[3], it[4]]}
-        | alignGenomes | collect | flatten | collate(3)
-        
-        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results)
-        .unique{it->it[2]}
-        .collect().flatten().collate(3)
+        | collect | flatten | collate(4)
+
+        all_snpdiffs = alignGenomes(unaligned,snpdiffs_data)
         .ifEmpty { error "No .snpdiffs to process..." }
-        
-        // Save raw alignment log
-        all_snpdiffs.collect{it[2]} | saveMUMmerLog 
+        .collect().flatten().collate(3)
         
         if(params.runmode == "screen"){
-                        
-            // If references are provided, ensure that all snpdiffs are processed in Query-Reference order
-            // If no references are provided, process snpdiffs as is
-            if(ref_mode){
-
-                ref_list = input_data.reference_data
-                    .unique{it -> it[0]}
-                    .map{it -> "${it[0]}"}
-                    .collect()
-
-                query_list = input_data.query_data
-                    .unique{it -> it[0]}
-                    .map{it -> "${it[0]}"}
-                    .collect()
-
-                all_snpdiffs = all_snpdiffs
-                .branch{it ->
-                    forward: query_list.contains("${it[0]}") && ref_list.contains("${it[1]}")
-                        return(tuple([it[0], it[1]].sort().join(','),it[0],it[1],it[2]))
-                    reverse: ref_list.contains("${it[0]}") && query_list.contains("${it[1]}")
-                        return(tuple([it[0], it[1]].sort().join(','),it[1],it[0],it[2]))
-                    other: true
-                        return(tuple(it[0],it[1],it[2]))}
-
-                // Drop snpdiffs that are in the reverse orientation if a forward orientation exists
-                retained_reverse = all_snpdiffs.reverse
-                .join(all_snpdiffs.forward, by:0, remainder:true)
-                .filter{it -> it[4].toString() == "null"}
-                .map{it -> [it[1], it[2], it[3]]}
-
-                
-                all_snpdiffs.forward
-                .map{it -> [it[1], it[2], it[3]]}
-                .concat(retained_reverse)
-                .concat(all_snpdiffs.other)
-                .unique{it -> it[2]}.collect().flatten().collate(3)
-                | runScreen
-
-                } else{
-                    all_snpdiffs.collect().flatten().collate(3)
-                    | runScreen
-                }
+            runScreen(all_snpdiffs)
         }
+
     } else if(params.runmode == "snp"){
         print("SNP")
     }
 }
 
-process saveMUMmerLog{
-// Takes: Flattened list of snpdiffs files and generates a TSV report via python
-// Returns: Path to list of snpdiffs files
-    executor = 'local'
-    cpus = 1
-    maxForks = 1
 
-    input:
-    val(snpdiffs_paths)
-
-    script:
-    saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
-    snpdiffs_list_file.write(snpdiffs_paths.join('\n') + '\n')
-    """
-    $params.load_python_module
-    python $saveSNPDiffs "${snpdiffs_list_file}" "${snpdiffs_summary_file}"
-    """
-}
 
         
         /*

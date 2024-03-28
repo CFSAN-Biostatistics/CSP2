@@ -4,8 +4,15 @@ from Bio import SeqIO
 import hashlib
 import sys
 import os
+import pandas as pd
 
-def fasta_info(file_path):
+def fasta_info(sample_name,file_path):
+    
+    if not os.path.exists(file_path):
+        sys.exit(f"File {file_path} does not exist.")
+    elif not file_path.lower().endswith(('.fa', '.fasta', '.fna')):
+        sys.exit(f"File {file_path} is not a .fa, .fasta, or .fna file.")
+    
     records = list(SeqIO.parse(file_path, 'fasta'))
     contig_count = int(len(records))
     lengths = sorted([len(record) for record in records], reverse=True)
@@ -31,15 +38,7 @@ def fasta_info(file_path):
         if n50 is not None and n90 is not None:
             break
 
-    return int(contig_count), int(assembly_bases), int(n50),int(l50), int(n90),int(l90), sha256
+    print(f"{sample_name},{file_path},{contig_count},{assembly_bases},{n50},{n90},{l50},{l90},{sha256}")
 
-sample_name = str(sys.argv[1])
-fasta_file = str(sys.argv[2])
-
-if not os.path.exists(fasta_file):
-    sys.exit(f"File {fasta_file} does not exist.")
-elif not fasta_file.lower().endswith(('.fa', '.fasta', '.fna')):
-    sys.exit(f"File {fasta_file} is not a .fa, .fasta, or .fna file.")
-
-contig_count, assembly_bases, n50, l50, n90, l90, sha256 = fasta_info(fasta_file)
-print(f"{sample_name},{fasta_file},{contig_count},{assembly_bases},{n50},{n90},{l50},{l90},{sha256}")
+fasta_tsv = pd.read_csv(sys.argv[1], sep='\t', header=None, names=['Sample_ID','Fasta_Path'])
+[fasta_info(sample_name, file_path) for sample_name, file_path in fasta_tsv.values]

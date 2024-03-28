@@ -380,61 +380,66 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     
     return return_df.drop(columns=['Cat']).rename({'Filter_Cat':'Cat'}, axis=1)
     
-def screenSNPDiffs(query_id,reference_id,snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps):
+def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids):
     
     screen_start_time = time.time()
-    
-    # Establish log file
-    log_file = f"{log_dir}/{query_id}__vs__{reference_id}.log"
-    
+
+    # Set CSP2 variables to NA
+    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
+
     # Ensure snpdiffs file exists
     if not os.path.exists(snpdiffs_file) or not snpdiffs_file.endswith('.snpdiffs'):
         sys.exit(f"Invalid snpdiffs file provided: {snpdiffs_file}")
+        
+    # Ensure header can be read in
+    try:
+        header_data = fetchHeaders(snpdiffs_file)
+        header_query = header_data['Query_ID'][0].replace(trim_name,'')
+        header_ref = header_data['Reference_ID'][0].replace(trim_name,'')
+    except:       
+        sys.exit(f"Error reading headers from snpdiffs file: {snpdiffs_file}")
+        
+    # Check snpdiffs orientation
+    if ref_ids == []:
+        snpdiffs_orientation = 1
+        query_id = header_query
+        reference_id = header_ref
+    elif (header_query not in ref_ids) and (header_ref in ref_ids):
+        snpdiffs_orientation = 1
+        query_id = header_query
+        reference_id = header_ref
+    elif (header_query in ref_ids) and (header_ref not in ref_ids):
+        snpdiffs_orientation = -1
+        query_id = header_ref
+        reference_id = header_query
+        header_data = swapHeader(header_data)
+    else:
+        snpdiffs_orientation = 2
+        query_id = header_query
+        reference_id = header_ref        
 
+    # Establish log file
+    log_file = f"{log_dir}/{query_id}__vs__{reference_id}.log"
     with open(log_file,"w+") as log:
         log.write("Screening Analysis\n")
         log.write(f"Query Isolate: {query_id}\n")
         log.write(f"Reference Isolate: {reference_id}\n")
         log.write(str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))+"\n")
         log.write("-------------------------------------------------------\n\n")
-        
-    # Set CSP2 variables to NA
-    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
-    
-    ##### 01: Read in header data #####
-    with open(log_file,"a+") as log:
-        log.write("Step 1: Reading in snpdiffs header...")
-    
-    try:
-        header_data = fetchHeaders(snpdiffs_file)
-        header_query = header_data['Query_ID'][0].replace(trim_name,'')
-        header_ref = header_data['Reference_ID'][0].replace(trim_name,'')
-        with open(log_file,"a+") as log:
-            log.write("Done!\n")
-    except:       
-        with open(log_file,"a+") as log:
-            log.write(f"Error reading headers from snpdiffs file: {snpdiffs_file}")
-        sys.exit(f"Error reading headers from snpdiffs file: {snpdiffs_file}")
-    
-    # Check snpdiffs orientation
-    if header_query == query_id and header_ref == reference_id:
-        snpdiffs_orientation = 1
-        with open(log_file,"a+") as log:
+        if ref_ids == []:
+            log.write("\t- No explicit references set, processing in forward orientation\n")
+            log.write("-------------------------------------------------------\n\n")    
+        elif snpdiffs_orientation == 1:
             log.write("\t- SNPDiffs file is in the forward orientation\n")
             log.write("-------------------------------------------------------\n\n")
-
-    elif header_query == reference_id and header_ref == query_id:
-        snpdiffs_orientation = -1
-        header_data = swapHeader(header_data)
-        with open(log_file,"a+") as log:
+        elif snpdiffs_orientation == -1:
             log.write("\t- SNPDiffs file is in the reverse orientation\n")
             log.write("-------------------------------------------------------\n\n")
+        else:
+            snpdiffs_orientation = 1
+            log.write("\t- SNPDiffs file not contain a reference and non-reference sample, processing in forward orientation\n")
+            log.write("-------------------------------------------------------\n\n")
 
-    else:
-        with open(log_file,"a+") as log:
-            log.write(f"\t- Error: snpdiffs data (Query: {header_query}, Ref: {header_ref}) does not match query and reference IDs passed from CSP2 ({query_id}, {reference_id})")
-        sys.exit(f"Error: snpdiffs data (Query: {header_query}, Ref: {header_ref}) does not match query and reference IDs passed from CSP2 ({query_id}, {reference_id})")
-    
     
     # Set variables from header data
     raw_snps = int(header_data['SNPs'][0])
@@ -470,14 +475,14 @@ def screenSNPDiffs(query_id,reference_id,snpdiffs_file,trim_name, min_cov, min_l
         screen_category = "SNP_Cutoff"
         with open(log_file,"a+") as log:
             log.write(f"\t- {raw_snps} detected...\n")
-            log.write(f"\t- > 10,000 SNPs detected by MUMmer...Screen halted...\n")
+            log.write("\t- > 10,000 SNPs detected by MUMmer...Screen halted...\n")
             log.write("-------------------------------------------------------\n\n")
    
     else:
     
         ##### 02: Read in BED/SNP data #####
         with open(log_file,"a+") as log:
-                log.write("Step 2: Reading in snpdiffs BED/SNP data...")
+                log.write("Step 1: Reading in snpdiffs BED/SNP data...")
         try:
             bed_df,snp_df = parseSNPDiffs(snpdiffs_file,snpdiffs_orientation)
             with open(log_file,"a+") as log:
@@ -490,7 +495,7 @@ def screenSNPDiffs(query_id,reference_id,snpdiffs_file,trim_name, min_cov, min_l
             
         ##### 03: Filter genome overlaps #####
         with open(log_file,"a+") as log:
-            log.write("Step 3: Filtering for short overlaps and low percent identity...")
+            log.write("Step 2: Filtering for short overlaps and low percent identity...")
         
         good_bed_df = bed_df[(bed_df['Ref_Aligned'] >= min_len) & (bed_df['Perc_Iden'] >= min_iden)].copy()
         
@@ -531,7 +536,7 @@ def screenSNPDiffs(query_id,reference_id,snpdiffs_file,trim_name, min_cov, min_l
             
                 # Filter SNPs
                 with open(log_file,"a+") as log:
-                    log.write("Step 4: Filtering SNPs to get final SNP distances...")
+                    log.write("Step 3: Filtering SNPs to get final SNP distances...")
                 
                 if raw_snps == 0:
                     csp2_screen_snps = purged_length = purged_identity = purged_lengthIdentity = purged_indel = purged_invalid = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = 0
@@ -573,16 +578,20 @@ def screenSNPDiffs(query_id,reference_id,snpdiffs_file,trim_name, min_cov, min_l
     with open(log_file,"a+") as log:
         log.write(f"Screening Time: {screen_end_time - screen_start_time:.2f} seconds\n")
         
-    print(",".join([str(item) for item in [query_id,reference_id,screen_category,csp2_screen_snps,
+    return [str(item) for item in [query_id,reference_id,screen_category,csp2_screen_snps,
             f"{query_percent_aligned:.2f}",f"{reference_percent_aligned:.2f}",
             query_contigs,query_bases,reference_contigs,reference_bases,
             raw_snps,purged_length,purged_identity,purged_lengthIdentity,purged_invalid,purged_indel,purged_duplicate,purged_het,purged_density,
             filtered_query_edge,filtered_ref_edge,filtered_both_edge,
             kmer_similarity,shared_kmers,query_unique_kmers,reference_unique_kmers,
-            mummer_gsnps,mummer_gindels]]))
+            mummer_gsnps,mummer_gindels]]
 
 # Read in arguments
-snpdiff_tsv = pd.read_csv(sys.argv[1], sep='\t', header=None, names=['Query_ID','Reference_ID','SNPdiffs_File'])
+# Read in all lines and ensure each file exists
+snpdiffs_list = [line.strip() for line in open(sys.argv[1], 'r')]
+for snpdiffs_file in snpdiffs_list:
+    if not os.path.exists(snpdiffs_file):
+        sys.exit("Error: File does not exist: " + snpdiffs_file)        
 
 log_dir = os.path.normpath(os.path.abspath(sys.argv[2]))
 
@@ -606,8 +615,27 @@ assert len(density_windows) == len(max_snps)
 
 trim_name = sys.argv[10]
 
+output_file = os.path.abspath(sys.argv[11])
+
+if os.stat(sys.argv[12]).st_size == 0:
+    ref_ids = []
+else:
+    ref_ids = [line.strip() for line in open(sys.argv[12], 'r')]
+
 with concurrent.futures.ProcessPoolExecutor() as executor:
-    results = [executor.submit(screenSNPDiffs,query_id,reference_id,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps) for query_id,reference_id,snp_diff_file in snpdiff_tsv.values]
+    results = [executor.submit(screenSNPDiffs,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids) for snp_diff_file in snpdiffs_list]
+
+# Combine results into a dataframe
+output_columns = ['Query_ID','Reference_ID','Screen_Category','CSP2_Screen_SNPs',
+            'Query_Percent_Aligned','Reference_Percent_Aligned',
+            'Query_Contigs','Query_Bases','Reference_Contigs','Reference_Bases',
+            'Raw_SNPs','Purged_Length','Purged_Identity','Purged_LengthIdentity','Purged_Invalid','Purged_Indel','Purged_Duplicate','Purged_Het','Purged_Density',
+            'Filtered_Query_Edge','Filtered_Ref_Edge','Filtered_Both_Edge',
+            'Kmer_Similarity','Shared_Kmers','Query_Unique_Kmers','Reference_Unique_Kmers',
+            'MUMmer_gSNPs','MUMmer_gIndels']
+
+results_df = pd.DataFrame([item.result() for item in results], columns = output_columns)
+results_df.to_csv(output_file, sep="\t", index=False)
 
 
 

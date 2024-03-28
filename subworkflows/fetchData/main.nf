@@ -4,11 +4,18 @@
 output_directory = file(params.output_directory)
 assembly_directory = file(params.assembly_directory)
 log_directory = file(params.log_directory)
-assembly_log = file(params.assembly_log)
-user_snpdiffs_list = file(params.user_snpdiffs_list)
+
+ref_id_file = file(params.ref_id_file)
+
+// Set ref_mode
 ref_mode = params.ref_mode
 
-// Set paths to accessory scripts
+// Set file headers
+assembly_header = "Isolate_ID\tRead_Type\tRead_Location\tAssembly_Path\n"
+
+// Set paths to accessory files/scripts
+assembly_log = file("${log_directory}/Assembly_Data.tsv")
+user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 findReads = file("${projectDir}/bin/fetchReads.py")
 userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 
@@ -136,7 +143,12 @@ workflow fetchData{
             .filter{it -> it[2].toString() == "Reference"}
             .map{it->tuple(it[0],it[1])}
             .unique{it -> it[0]}.collect().flatten().collate(2)
-        
+
+            // Save reference data to file
+            reference_data
+            .collect{it -> it[0]}
+            | saveRefIDs
+
             if(params.runmode == "screen"){
                 query_data = all_samples
                 .join(all_ref_ids,by:0,remainder:true)
@@ -376,6 +388,19 @@ workflow processRefIDs{
         "${it}".replaceAll(trim_this, "")}
     .flatten()
 }
+process saveRefIDs{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(ref_ids)
+
+    script:
+    ref_id_file.append(ref_ids.join('\n') + '\n')        
+    """
+    """
+}
 
 // Assembly //
 workflow assembleReads{
@@ -440,6 +465,7 @@ process saveAssemblyLog{
     val(assembly_data)
 
     script:
+    assembly_log.write(assembly_header)    
     assembly_log.append(assembly_data.join('\n') + '\n')    
     """
     """
