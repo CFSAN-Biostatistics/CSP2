@@ -177,11 +177,8 @@ params.each { key, value ->
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
-include {runScreen} from "./subworkflows/snpdiffs/main.nf"
-
-//include {saveIsolateLog} from "./subworkflows/logging/main.nf"
-//include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
-//include {runRefChooser} from "./subworkflows/refchooser/main.nf"
+include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
+include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
     
@@ -194,30 +191,41 @@ workflow{
 
     // Create channel for pre-aligned data [(Query_1,Query_2),SNPDiffs_File]
     prealigned = snpdiffs_data
-    .map { it -> tuple([it[0], it[1]].sort().join(','), it[2]) }
-    .collect().flatten().collate(2)
-
+    .map { it -> tuple([it[0], it[1]].sort().join(',').toString(), it[2]) }
+    .unique{it -> it[0]}
+    
     // If run mode is 'assemble', tasks are complete
-    if((params.runmode == "align") || (params.runmode == "screen")){
+    if((params.runmode == "align") || (params.runmode == "screen") || (params.runmode == "snp")){
 
         // If there is no reference data, align all query_data against each other
         if(!ref_mode){
+
+            if((params.runmode == "align") || (params.runmode == "screen")){
+                seen_combinations = []
+                
+                to_align = query_data.combine(query_data) // Self-combine query data
+                .collect().flatten().collate(4)
+                .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+                .filter{ it -> // Get unique combinations
+        
+                combination = ["${it[0]}", "${it[2]}"].sort()
+                
+                if(combination in seen_combinations) {
+                    return false
+                } else {
+                    seen_combinations << combination
+                    return true
+                }}
+            } 
             
-            seen_combinations = []
-            
-            to_align = query_data.combine(query_data) // Self-combine query data
-            .collect().flatten().collate(4)
-            .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
-            .filter{ it -> // Get unique combinations
-    
-            combination = ["${it[0]}", "${it[2]}"].sort()
-            
-            if(combination in seen_combinations) {
-                return false
-            } else {
-                seen_combinations << combination
-                return true
-            }}
+            // If running SNP pipeline without references, run RefChooser to choose references
+            else if(params.runmode == "snp"){
+                reference_data = runRefChooser(query_data)
+                
+                to_align = query_data
+                .combine(reference_data)
+                .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+            }
         }
 
         // If references are provided, align all queries against all references
@@ -229,8 +237,9 @@ workflow{
 
         // Don't align things that are already aligned via --snpdiffs
         unaligned = to_align
-        .map { it -> tuple([it[0], it[2]].sort().join(','),it[0], it[1], it[2], it[3]) }
-        .join(prealigned,by:0,remainder:true)
+        .map { it -> tuple([it[0], it[2]].sort().join(',').toString(),it[0], it[1], it[2], it[3]) }
+        .unique{it -> it[0]}
+        .join(prealigned, by:0, remainder:true)
         .filter{it -> it[5].toString() == "null"}
         .map{it -> [it[1], it[2], it[3], it[4]]}
         | collect | flatten | collate(4)
@@ -241,68 +250,8 @@ workflow{
         
         if(params.runmode == "screen"){
             runScreen(all_snpdiffs)
+        } else if(params.runmode == "snp"){
+            runSNPPipeline(all_snpdiffs,reference_data)
         }
-
-    } else if(params.runmode == "snp"){
-        print("SNP")
     }
 }
-
-
-
-        
-        /*
-        else if(params.runmode == "screen"){
-
-            snpdiff_aligned = 
-            .map { it ->
-            combination = ["${it[0]}", "${it[2]}"].sort()
-            
-            if (combination in pre_aligned) {
-                return false
-            } else {
-                pre_aligned << combination
-                return false
-            }
-            }
-        } else{
-            to_align = input_data.query_data.combine(input_data.reference_data)
-        }
-        mummer_results = input_data.query_data.combine(input_data.reference_data) | alignGenomes | collect | flatten | collate(3)
-        all_snpdiffs = input_data.snpdiff_data.concat(mummer_results).collect().flatten().collate(3)
-        saveMUMmerLog(all_snpdiffs.collect{it[2]})
-
-        runScreen(all_snpdiffs,input_data.reference_data)
-    }
-    else{
-            // If run mode is 'screen' or 'snp' and references are provided, use them. If not, run RefChooser to generate references
-            if(params.ref_reads == "" && params.ref_fasta == ""){ 
-                if(params.snpdiffs == ""){
-                    reference_data = runRefChooser(input_data.query_data) // Run RefChooser to generate references if none provided
-                }else{
-                    mummer_results = Channel.empty() // If snpdiffs are provided without other references, skip alignment
-                }   
-            } else{
-                reference_data = input_data.reference_data
-            }
-
-            mummer_results = input_data.query_data.combine(reference_data) | alignGenomes // Align all queries against each reference and generate snpdiffs
-
-            if(params.runmode == "screen"){
-                input_data.snpdiffs_data.concat(mummer_results) | runScreen // Compare snpdiffs to generate a summary
-            }
-            else if(params.runmode == "snp"){
-                input_data.snpdiffs_data.concat(mummer_results) | runSNPPipeline // Generate pairwise SNP distances and alignments against each reference
-            }
-        } 
-    }
-}
-
-
-
-
-
-
-
-
-*/

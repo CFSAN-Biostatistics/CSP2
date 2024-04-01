@@ -21,7 +21,7 @@ workflow alignGenomes{
     snpdiffs_data
 
     emit:
-    all_snpdiffs
+    return_snpdiffs
 
     main:
     
@@ -30,14 +30,21 @@ workflow alignGenomes{
     .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
     | runMUMmer | splitCsv
     
-    // Combine newly aligned and prealigned
-    all_snpdiffs = sample_pairwise
+    // Combine newly aligned and prealigned, force output of All_SNPDiffs.txt
+    log_hold = sample_pairwise
     .concat(snpdiffs_data)
-    .unique{it -> it[2]}.collect().flatten().collate(3)
-    
-    all_snpdiffs
-    .collect{it->it[2]}
-    | saveMUMmerLog
+    .unique{it -> it[2]}
+    .collect{it -> it[2]}
+
+    snpdiff_files = saveMUMmerLog(log_hold)
+    .collect().flatten().collate(1)
+
+    return_snpdiffs = sample_pairwise
+    .concat(snpdiffs_data)
+    .unique{it -> it[2]}
+    .map{it->tuple(it[2],it[0],it[1])}
+    .join(snpdiff_files,by:0)
+    .map{it->tuple(it[1],it[2],it[0])}
 }
 
 process runMUMmer{
@@ -90,6 +97,9 @@ process saveMUMmerLog{
     maxForks = 1
 
     input:
+    val(snpdiffs_paths)
+
+    output:
     val(snpdiffs_paths)
 
     script:
