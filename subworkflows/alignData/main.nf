@@ -41,8 +41,9 @@ workflow alignGenomes{
 
     return_snpdiffs = sample_pairwise
     .concat(snpdiffs_data)
-    .unique{it -> it[2]}
-    .map{it->tuple(it[2],it[0],it[1])}
+    .map { it -> tuple([it[0], it[1]].sort().join(',').toString(),it[0], it[1], it[2]) }
+    .unique{it -> it[0]}
+    .map{it->tuple(it[3],it[1],it[2])}
     .join(snpdiff_files,by:0)
     .map{it->tuple(it[1],it[2],it[0])}
 }

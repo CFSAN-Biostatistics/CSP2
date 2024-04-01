@@ -33,9 +33,7 @@ def processBED(bed_rows,snpdiffs_orientation):
     bed_columns = ['Ref_Contig','Ref_Start','Ref_End','Ref_Length','Ref_Aligned',
                    'Query_Contig','Query_Start','Query_End','Query_Length','Query_Aligned',
                    'Perc_Iden']
-    
-    uncovered_columns = ['Ref_Contig','Ref_Start','Ref_End']
-    
+        
     reverse_columns = ['Query_Contig','Query_Start','Query_End','Query_Length','Query_Aligned',
                      'Ref_Contig','Ref_Start','Ref_End','Ref_Length','Ref_Aligned',
                      'Perc_Iden']
@@ -53,13 +51,7 @@ def processBED(bed_rows,snpdiffs_orientation):
         if snpdiffs_orientation == -1:
             bed_df = bed_df[reverse_columns].copy()
             bed_df.columns = bed_columns
-            
-        # Gather uncovered loci
-        uncovered_ref_df = bed_df[bed_df['Query_Start'] == "."][['Ref_Contig','Ref_Start','Ref_End']]
-        if uncovered_ref_df.shape[0] > 0:
-            uncovered_ref_df.loc[:,'Ref_Start'] = uncovered_ref_df.loc[:, 'Ref_Start'].astype(int)
-            uncovered_ref_df.loc[:,'Ref_End'] = uncovered_ref_df.loc[:, 'Ref_End'].astype(int)
-        
+
         # Gather covered loci
         covered_bed_df = bed_df[(bed_df['Ref_Start'] != ".") & (bed_df['Query_Start'] != ".")].copy()
         if covered_bed_df.shape[0] > 0:
@@ -68,9 +60,9 @@ def processBED(bed_rows,snpdiffs_orientation):
             for col in float_columns:
                 covered_bed_df.loc[:, col] = covered_bed_df.loc[:, col].astype(float)
         
-        return (covered_bed_df,uncovered_ref_df)
+        return covered_bed_df
     else:
-        return (pd.DataFrame(columns=bed_columns),pd.DataFrame(columns=uncovered_columns))
+        return pd.DataFrame(columns=bed_columns)
 
 def processSNPs(snp_rows,snpdiffs_orientation):
     
@@ -82,7 +74,17 @@ def processSNPs(snp_rows,snpdiffs_orientation):
                 'Ref_Base','Query_Base',
                 'Dist_to_Ref_End','Dist_to_Query_End',
                 'Ref_Aligned','Query_Aligned',
-                'Perc_Iden','Cat']
+                'Query_Direction','Perc_Iden','Cat']
+    
+    return_columns = ['Ref_Contig','Start_Ref','Ref_Pos',
+            'Query_Contig','Start_Query','Query_Pos',
+            'Ref_Loc','Query_Loc',
+            'Ref_Start','Ref_End',
+            'Query_Start','Query_End',
+            'Ref_Base','Query_Base',
+            'Dist_to_Ref_End','Dist_to_Query_End',
+            'Ref_Aligned','Query_Aligned',
+            'Perc_Iden','Cat']
     
     reverse_columns = ['Query_Contig','Start_Query','Query_Pos',
                     'Ref_Contig','Start_Ref','Ref_Pos',
@@ -92,7 +94,10 @@ def processSNPs(snp_rows,snpdiffs_orientation):
                     'Query_Base','Ref_Base',
                     'Dist_to_Query_End','Dist_to_Ref_End',
                     'Query_Aligned','Ref_Aligned',
-                    'Perc_Iden','Cat']
+                    'Query_Direction','Perc_Iden','Cat']
+    
+    reverse_complement = {'A':'T','T':'A','G':'C','C':'G',
+                          'a':'T','t':'A','c':'G','g':'C'}
     
     # Columns to convert to integer
     int_columns = ['Start_Ref', 'Ref_Pos', 'Start_Query', 'Query_Pos',
@@ -108,15 +113,19 @@ def processSNPs(snp_rows,snpdiffs_orientation):
             snp_df = snp_df[reverse_columns].copy()
             snp_df.columns = snp_columns
             
+            # Replace Query_Base and Reference_Base with reverse complement if Query_Direction is -1 and base is in ['A','T','G','C','a','c','t','g']
+            snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
+            snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
+            
         for col in int_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(int)
         for col in float_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(float)
         
     else:
-        snp_df = pd.DataFrame(columns = snp_columns)
+        snp_df = pd.DataFrame(columns = return_columns)
 
-    return snp_df
+    return snp_df[return_columns]
 
 def swapHeader(header_data):
             
@@ -143,9 +152,9 @@ def parseSNPDiffs(snpdiffs_file,snpdiffs_orientation):
         else:
             snp_rows.append(line.strip().split("\t"))
 
-    bed_df,uncovered_df = processBED(bed_rows,snpdiffs_orientation)
+    bed_df = processBED(bed_rows,snpdiffs_orientation)
     snp_df = processSNPs(snp_rows,snpdiffs_orientation)
-    return (bed_df,uncovered_df,snp_df)
+    return (bed_df,snp_df)
 
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
@@ -397,7 +406,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
     screen_start_time = time.time()
 
     # Set CSP2 variables to NA
-    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
+    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_indel = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
     filtered_snp_df = pd.DataFrame()
     good_reference_bed_df = pd.DataFrame()
     
@@ -483,16 +492,11 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         with open(log_file,"a+") as log:
                 log.write("Step 1: Reading in snpdiffs BED/SNP data...")
         try:
-            bed_df,uncovered_df,snp_df = parseSNPDiffs(snpdiffs_file,snpdiffs_orientation)
+            bed_df,snp_df = parseSNPDiffs(snpdiffs_file,snpdiffs_orientation)
             
             with open(log_file,"a+") as log:
                 log.write("Done!\n")
                 log.write("-------------------------------------------------------\n\n")
-            
-            if uncovered_df.shape[0] > 0:
-                uncovered_df.loc[:, 'Query_ID'] = query_id
-            else:
-                uncovered_df = pd.DataFrame(columns=['Ref_Contig','Ref_Start','Ref_End','Query_ID'])
                 
         except:
             with open(log_file,"a+") as log:
@@ -593,59 +597,80 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
             raw_snps,purged_length,purged_identity,purged_lengthIdentity,purged_invalid,purged_indel,purged_duplicate,purged_het,purged_density,
             filtered_query_edge,filtered_ref_edge,filtered_both_edge,
             kmer_similarity,shared_kmers,query_unique_kmers,reference_unique_kmers,
-            mummer_gsnps,mummer_gindels]],good_reference_bed_df,uncovered_df,filtered_snp_df)
+            mummer_gsnps,mummer_gindels]],good_reference_bed_df,filtered_snp_df)
 
-def assessCoverage(query_id,coverage_df,site_list):
+def assessCoverage(query_id,site_list):
     
     if len(site_list) == 0:
         return pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
-    elif coverage_df.shape[0] == 0:
-        uncovered_loc_df = pd.DataFrame({
-            'Ref_Loc': site_list,
-            'Query_ID': [query_id] * len(site_list),
-            'Cat': ["Uncovered"] * len(site_list)
-        })
-        return uncovered_loc_df
     else:
-        coverage_bed = BedTool.from_dataframe(coverage_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
-        snp_bed_df = pd.DataFrame([item.split('/') for item in site_list], columns=['Ref_Contig','Ref_End'])
-        snp_bed_df['Ref_Start'] = snp_bed_df['Ref_End'].astype(int) - 1
-        snp_bed_df['Ref_Loc'] = site_list
-        snp_bed = BedTool.from_dataframe(snp_bed_df[['Ref_Contig','Ref_Start','Ref_End','Ref_Loc']]).sort()
+        coverage_df = pass_filter_coverage_df[pass_filter_coverage_df['Query_ID'] == query_id].copy()
         
-        # Ref_Locs from snp_bed that intersect with coverage_bed go into covered_locs, the rest go into uncovered_locs
-        covered_locs = snp_bed.intersect(coverage_bed, wa=True)
-        uncovered_locs = snp_bed.intersect(coverage_bed, v=True, wa=True)
+        if coverage_df.shape[0] == 0:
+            uncovered_loc_df = pd.DataFrame({
+                'Ref_Loc': site_list,
+                'Query_ID': [query_id] * len(site_list),
+                'Cat': ["Uncovered"] * len(site_list)
+            })
+            return uncovered_loc_df
+        else:
+            coverage_bed = BedTool.from_dataframe(coverage_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
+            snp_bed_df = pd.DataFrame([item.split('/') for item in site_list], columns=['Ref_Contig','Ref_End'])
+            snp_bed_df['Ref_Start'] = snp_bed_df['Ref_End'].astype(int) - 1
+            snp_bed_df['Ref_Loc'] = site_list
+            snp_bed = BedTool.from_dataframe(snp_bed_df[['Ref_Contig','Ref_Start','Ref_End','Ref_Loc']]).sort()
+            
+            # Ref_Locs from snp_bed that intersect with coverage_bed go into covered_locs, the rest go into uncovered_locs
+            covered_locs = snp_bed.intersect(coverage_bed, wa=True)
+            uncovered_locs = snp_bed.intersect(coverage_bed, v=True, wa=True)
 
-        covered_loc_df = pd.DataFrame({
-            'Ref_Loc': [snp.fields[3] for snp in covered_locs],
-            'Query_ID': [query_id] * covered_locs.count(),
-            'Cat': ["Ref_Base"] * covered_locs.count()
-        }) if covered_locs.count() > 0 else pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
+            covered_loc_df = pd.DataFrame({
+                'Ref_Loc': [snp.fields[3] for snp in covered_locs],
+                'Query_ID': [query_id] * covered_locs.count(),
+                'Cat': ["Ref_Base"] * covered_locs.count()
+            }) if covered_locs.count() > 0 else pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
 
-        uncovered_loc_df = pd.DataFrame({
-            'Ref_Loc': [snp.fields[3] for snp in uncovered_locs],
-            'Query_ID': [query_id] * uncovered_locs.count(),
-            'Cat': ["Uncovered"] * uncovered_locs.count()
-        }) if uncovered_locs.count() > 0 else pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
-        
-        return pd.concat([covered_loc_df.drop_duplicates(['Ref_Loc']),uncovered_loc_df])
+            uncovered_loc_df = pd.DataFrame({
+                'Ref_Loc': [snp.fields[3] for snp in uncovered_locs],
+                'Query_ID': [query_id] * uncovered_locs.count(),
+                'Cat': ["Uncovered"] * uncovered_locs.count()
+            }) if uncovered_locs.count() > 0 else pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
+            
+            return pd.concat([covered_loc_df.drop_duplicates(['Ref_Loc']),uncovered_loc_df])
 
-def getPairwise(query_1, query_2, pair_df):
-
-    if pair_df.empty:
-        return pd.DataFrame([[query_1, query_2, np.nan, 0]], columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
-
-    cocalled_df = pair_df.groupby('Ref_Loc').filter(lambda x: len(x) == 2)
-
-    if cocalled_df.empty:
-        distance = np.nan
+def getPairwise(query_1,query_2):
+    
+    # Check if query_1_id and query_2_id are in base_df index
+    if not (query_1 in base_df.index and query_2 in base_df.index):
+        return pd.DataFrame([[query_1, query_2, np.nan, 0]],
+                            columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
     else:
-        snp_counts = cocalled_df.groupby('Ref_Loc')['Query_Base'].nunique()
-        distance = (snp_counts == 2).sum()        
+        query_1_pull = base_df.loc[query_1]
+        if isinstance(query_1_pull, pd.Series):
+            query_1_df = query_1_pull.to_frame().T
+        else:
+            query_1_df = query_1_pull
+            
+        query_2_pull = base_df.loc[query_2]
+        if isinstance(query_2, pd.Series):
+            query_2_df = query_2_pull.to_frame().T
+        else:
+            query_2_df = query_2_pull
 
-    return pd.DataFrame([[query_1, query_2, distance, len(cocalled_df)]],
-                        columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
+        joined_df = query_1_df.merge(query_2_df, on='Ref_Loc', how='inner')
+        if joined_df.shape[0] == 0:
+            return pd.DataFrame([[query_1, query_2, np.nan, 0]],columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
+        else:
+            # Count rows in joined_df where Query_Base_X != Query_Base_Y
+            snp_differences = joined_df[joined_df['Query_Base_x'] != joined_df['Query_Base_y']].shape[0]
+            return pd.DataFrame([[query_1, query_2, snp_differences, joined_df.shape[0]]], columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
+
+
+
+
+
+
+
 
 
 
@@ -744,11 +769,8 @@ results_df.to_csv(reference_screening_file, sep="\t", index=False)
 # Get reference bed dfs
 covered_df = pd.concat([item.result()[1] for item in results])
 
-# Get uncovered dfs
-uncovered_df = pd.concat([item.result()[2] for item in results])
-
 # Get snp dfs
-filtered_snp_df = pd.concat([item.result()[3] for item in results])
+filtered_snp_df = pd.concat([item.result()[2] for item in results])
 
 # Separate isolates that pass QC
 pass_qc_isolates = list(set(results_df[results_df['Screen_Category'] == "Pass"]['Query_ID']))
@@ -782,6 +804,8 @@ with open(log_file,"a+") as log:
 
 # Remove samples that failed QC
 pass_filter_snps = filtered_snp_df[filtered_snp_df['Query_ID'].isin(pass_qc_isolates)].copy()
+
+global pass_filter_coverage_df
 pass_filter_coverage_df = covered_df[covered_df['Query_ID'].isin(pass_qc_isolates)].copy()
 
 # Note SNPs lost irrevocably to reference edge trimming
@@ -864,10 +888,10 @@ else:
     
     if len(isolates_with_missing) > 0:
         
-        isolate_data = [(isolate, pass_filter_coverage_df[pass_filter_coverage_df['Query_ID'] == isolate].copy(), list(set(snp_list) - ref_loc_sets.get(isolate, set()))) for isolate in isolates_with_missing]        
+        isolate_data = [(isolate, list(set(snp_list) - ref_loc_sets.get(isolate, set()))) for isolate in isolates_with_missing]        
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            results = [executor.submit(assessCoverage, query, coverage, sites) for query, coverage, sites in isolate_data]
+            results = [executor.submit(assessCoverage, query, sites) for query, sites in isolate_data]
 
         coverage_df = pd.concat([item.result() for item in results])
      
@@ -885,8 +909,12 @@ else:
         if covered_df.shape[0] > 0:
             ref_base_snp_df = covered_df.merge(ref_base_df[['Ref_Loc','Query_Base']], on='Ref_Loc', how='left')
             missing_df = pd.concat([missing_df,ref_base_snp_df[['Ref_Loc','Query_ID','Query_Base','Cat']]])
-        
+    
     final_snp_df = pd.concat([snp_base_df,purged_snp_df,missing_df]).sort_values(by=['Ref_Loc','Query_ID']).reset_index(drop=True)
+    
+    # Reduce Multibase indels to one site
+    multibase_indel_df = final_snp_df[final_snp_df['Cat'] == 'Purged_Multibase_Indel'].drop_duplicates(subset=['Ref_Loc','Query_ID','Cat'], keep='first')
+    final_snp_df = pd.concat([multibase_indel_df, final_snp_df[final_snp_df['Cat'] != 'Purged_Multibase_Indel']])    
     snp_counts = final_snp_df.groupby('Query_ID')['Ref_Loc'].count().reset_index().rename(columns={'Ref_Loc':'SNP_Count'})
 
     # Assert that all snp_counts == snp_count
@@ -1002,16 +1030,19 @@ with open(log_file,"a+") as log:
 
 # Get pairwise comparisons between all pass_qc_isolates and reference_id
 pairwise_combinations = [sorted(x) for x in list(combinations([reference_id] + pass_qc_isolates, 2))]
-
-pairwise_data = [(pairwise[0], pairwise[1], final_snp_df.loc[final_snp_df['Query_ID'].isin(pairwise) & final_snp_df['Query_Base'].isin(['A', 'T', 'G', 'C','a','t','g','c'])].copy()) for pairwise in pairwise_combinations]
+#pairwise_data = [(pairwise[0], pairwise[1], final_snp_df.loc[final_snp_df['Query_ID'].isin(pairwise) & final_snp_df['Query_Base'].isin(['A', 'T', 'G', 'C','a','t','g','c'])].copy()) for pairwise in pairwise_combinations]
 
 if snp_count == 0:
     pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
     pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
     pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
 else:
+    global base_df
+    base_df = final_snp_df[np.isin(final_snp_df['Query_Base'].values, ['A', 'C', 'T', 'G','a','c','t','g'])]
+    base_df = base_df.set_index('Query_ID')
+    
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = [executor.submit(getPairwise, query_1, query_2, pair_df) for query_1, query_2, pair_df in pairwise_data]
+        results = [executor.submit(getPairwise, query_1, query_2) for query_1, query_2 in pairwise_combinations]
     
     pairwise_df = pd.concat([item.result() for item in results])
     pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
@@ -1024,9 +1055,10 @@ else:
             preserved_pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
             preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
         else:
-            preserved_pairwise_data = [(pairwise[0], pairwise[1], final_snp_df.loc[final_snp_df['Ref_Loc'].isin(locs_pass_missing) & final_snp_df['Query_ID'].isin(pairwise) & final_snp_df['Query_Base'].isin(['A', 'T', 'G', 'C','a','t','g','c'])].copy()) for pairwise in pairwise_combinations]
+            #preserved_pairwise_data = [(pairwise[0], pairwise[1], final_snp_df.loc[final_snp_df['Ref_Loc'].isin(locs_pass_missing) & final_snp_df['Query_ID'].isin(pairwise) & final_snp_df['Query_Base'].isin(['A', 'T', 'G', 'C','a','t','g','c'])].copy()) for pairwise in pairwise_combinations]
+            base_df = base_df[base_df['Ref_Loc'].isin(locs_pass_missing)].copy()
             with concurrent.futures.ProcessPoolExecutor() as executor:
-                preserved_results = [executor.submit(getPairwise, query_1, query_2, pair_df) for query_1, query_2, pair_df in preserved_pairwise_data]
+                preserved_results = [executor.submit(getPairwise, query_1, query_2) for query_1, query_2 in pairwise_combinations]
             preserved_pairwise_df = pd.concat([item.result() for item in preserved_results])
             preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
 

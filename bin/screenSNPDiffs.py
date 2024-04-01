@@ -70,7 +70,17 @@ def processSNPs(snp_rows,snpdiffs_orientation):
                 'Ref_Base','Query_Base',
                 'Dist_to_Ref_End','Dist_to_Query_End',
                 'Ref_Aligned','Query_Aligned',
-                'Perc_Iden','Cat']
+                'Query_Direction','Perc_Iden','Cat']
+    
+    return_columns = ['Ref_Contig','Start_Ref','Ref_Pos',
+            'Query_Contig','Start_Query','Query_Pos',
+            'Ref_Loc','Query_Loc',
+            'Ref_Start','Ref_End',
+            'Query_Start','Query_End',
+            'Ref_Base','Query_Base',
+            'Dist_to_Ref_End','Dist_to_Query_End',
+            'Ref_Aligned','Query_Aligned',
+            'Perc_Iden','Cat']
     
     reverse_columns = ['Query_Contig','Start_Query','Query_Pos',
                     'Ref_Contig','Start_Ref','Ref_Pos',
@@ -80,7 +90,10 @@ def processSNPs(snp_rows,snpdiffs_orientation):
                     'Query_Base','Ref_Base',
                     'Dist_to_Query_End','Dist_to_Ref_End',
                     'Query_Aligned','Ref_Aligned',
-                    'Perc_Iden','Cat']
+                    'Query_Direction','Perc_Iden','Cat']
+    
+    reverse_complement = {'A':'T','T':'A','G':'C','C':'G',
+                          'a':'T','t':'A','c':'G','g':'C'}
     
     # Columns to convert to integer
     int_columns = ['Start_Ref', 'Ref_Pos', 'Start_Query', 'Query_Pos',
@@ -96,15 +109,20 @@ def processSNPs(snp_rows,snpdiffs_orientation):
             snp_df = snp_df[reverse_columns].copy()
             snp_df.columns = snp_columns
             
+            # Replace Query_Base and Reference_Base with reverse complement if Query_Direction is -1 and base is in ['A','T','G','C','a','c','t','g']
+            snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
+            snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
+
+            
         for col in int_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(int)
         for col in float_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(float)
         
     else:
-        snp_df = pd.DataFrame(columns = snp_columns)
+        snp_df = pd.DataFrame(columns = return_columns)
 
-    return snp_df
+    return snp_df[return_columns]
 
 def swapHeader(header_data):
             
