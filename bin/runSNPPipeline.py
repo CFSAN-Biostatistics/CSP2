@@ -326,8 +326,8 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
             for i in range(0,len(density_windows)):
                 window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
                 window_df = window_bed.to_dataframe()
-                window_df = window_df[window_df['name'] > max_snps[i]]
                 if window_df.shape[0] > 0:
+                    window_df = window_df[window_df['name'] > max_snps[i]]
                     density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
                     density_bed = BedTool.from_dataframe(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Start','Ref_End']])
 
