@@ -71,6 +71,16 @@ def processSNPs(snp_rows,snpdiffs_orientation):
                 'Dist_to_Ref_End','Dist_to_Query_End',
                 'Ref_Aligned','Query_Aligned',
                 'Query_Direction','Perc_Iden','Cat']
+        
+    reverse_columns = ['Query_Contig','Start_Query','Query_Pos',
+                    'Ref_Contig','Start_Ref','Ref_Pos',
+                    'Query_Loc','Ref_Loc',
+                    'Query_Start','Query_End',
+                    'Ref_Start','Ref_End',
+                    'Query_Base','Ref_Base',
+                    'Dist_to_Query_End','Dist_to_Ref_End',
+                    'Query_Aligned','Ref_Aligned',
+                    'Query_Direction','Perc_Iden','Cat']
     
     return_columns = ['Ref_Contig','Start_Ref','Ref_Pos',
             'Query_Contig','Start_Query','Query_Pos',
@@ -81,16 +91,6 @@ def processSNPs(snp_rows,snpdiffs_orientation):
             'Dist_to_Ref_End','Dist_to_Query_End',
             'Ref_Aligned','Query_Aligned',
             'Perc_Iden','Cat']
-    
-    reverse_columns = ['Query_Contig','Start_Query','Query_Pos',
-                    'Ref_Contig','Start_Ref','Ref_Pos',
-                    'Query_Loc','Ref_Loc',
-                    'Query_Start','Query_End',
-                    'Ref_Start','Ref_End',
-                    'Query_Base','Ref_Base',
-                    'Dist_to_Query_End','Dist_to_Ref_End',
-                    'Query_Aligned','Ref_Aligned',
-                    'Query_Direction','Perc_Iden','Cat']
     
     reverse_complement = {'A':'T','T':'A','G':'C','C':'G',
                           'a':'T','t':'A','c':'G','g':'C'}
@@ -403,7 +403,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
     screen_start_time = time.time()
 
     # Set CSP2 variables to NA
-    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
+    csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_indel = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
 
     # Ensure snpdiffs file exists
     if not os.path.exists(snpdiffs_file) or not snpdiffs_file.endswith('.snpdiffs'):

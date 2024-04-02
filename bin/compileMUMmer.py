@@ -210,19 +210,19 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         if snp_file.shape[0] == 0:
             snp_coords = pd.DataFrame(columns=return_columns)
         else:
-            snp_coords = makeSNPCoords(snp_file,coords_file)
+            snp_coords = makeSNPCoords(snp_file,coords_file,snp_file.shape[0])
             snp_coords['Cat'] = "SNP"
         
         if indel_file.shape[0] == 0:
             indel_coords = pd.DataFrame(columns=return_columns)
         else:
-            indel_coords = makeSNPCoords(indel_file,coords_file)
+            indel_coords = makeSNPCoords(indel_file,coords_file,indel_file.shape[0])
             indel_coords['Cat'] = "Indel"
         
         if invalid_file.shape[0] == 0:
             invalid_coords = pd.DataFrame(columns=return_columns)
         else:
-            invalid_coords = makeSNPCoords(invalid_file,coords_file)
+            invalid_coords = makeSNPCoords(invalid_file,coords_file,invalid_file.shape[0])
             invalid_coords['Cat'] = "Invalid"
                   
         return_df = pd.concat([snp_coords,indel_coords,invalid_coords],ignore_index=True)[return_columns]
@@ -230,13 +230,19 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         assert return_df.shape[0] == total_snp_count
         return return_df
     
-def makeSNPCoords(snp_df, coords_df):
+def makeSNPCoords(snp_df, coords_df, row_count):
     snp_coords = pd.merge(snp_df, coords_df, how='left').dropna()
+    
     condition = ((snp_coords['Ref_Start'] <= snp_coords['Ref_Pos']) & 
                  (snp_coords['Ref_Pos'] <= snp_coords['Ref_End']) & 
                  (snp_coords['Query_Start'] <= snp_coords['Query_Pos']) & 
                  (snp_coords['Query_Pos'] <= snp_coords['Query_End']))
     snp_coords = snp_coords[condition]
+    
+    if row_count != snp_coords.shape[0]:
+        snp_coords.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=False, inplace=True)
+        snp_coords.drop_duplicates(subset=['Ref_Loc','Query_Loc'], keep='first', inplace=True)
+            
     return snp_coords
     
 def fasta_info(file_path):

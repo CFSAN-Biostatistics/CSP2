@@ -149,7 +149,7 @@ workflow fetchData{
             .collect{it -> it[0]}
             | saveRefIDs
 
-            if(params.runmode == "screen"){
+            if(params.runmode == "screen" || params.runmode == "align"){
                 query_data = all_samples
                 .join(all_ref_ids,by:0,remainder:true)
                 .filter{it -> it[2].toString() != "Reference"}

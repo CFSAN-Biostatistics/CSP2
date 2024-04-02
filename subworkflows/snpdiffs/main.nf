@@ -11,7 +11,10 @@ ref_mode = params.ref_mode
 
 // Set paths for output files 
 all_snpdiffs_list = file("${log_directory}/All_SNPDiffs.txt")
+snp_dirs_list = file("${log_directory}/SNP_Dirs.txt")
 screening_results_file = file("${output_directory}/Screening_Results.tsv")
+isolate_data_file = file("${output_directory}/Isolate_Data.tsv")
+snpdiffs_summary_file = file("${output_directory}/Raw_MUMmer_Summary.tsv")
 
 // Get QC thresholds
 min_cov = params.min_cov.toFloat()
@@ -20,6 +23,7 @@ min_iden = params.min_iden.toFloat()
 reference_edge = params.ref_edge.toInteger()
 query_edge = params.query_edge.toInteger()
 max_missing = params.max_missing.toFloat()
+n_ref = params.n_ref.toInteger()
 
 workflow runScreen {
     
@@ -69,12 +73,34 @@ workflow runSNPPipeline{
     .groupTuple(by:0)
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | runSnpPipeline
+    .collect()
+    | compileResults
+
+
+}
+
+process compileResults{
+    
+    input:
+    val(snp_directories)
+
+    script:
+
+    compile_script = file("${projectDir}/bin/compileSNPResults.py")
+    snp_dirs_list.write(snp_directories.join("\n")+ "\n")
+    """
+    $params.load_python_module
+    python $compile_script "${snp_dirs_list}" "${snp_directory}" "${isolate_data_file}" "${snpdiffs_summary_file}"
+    """
 }
 
 process runSnpPipeline{
 
     input:
     tuple val(reference_id),val(diff_files)
+
+    output:
+    stdout
 
     script:
 
@@ -91,6 +117,7 @@ process runSnpPipeline{
     $params.load_python_module
     $params.load_bedtools_module
     python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}"
+    echo $snp_dir
     """
 }
 
