@@ -4,7 +4,7 @@ import sys
 import os
 import pandas as pd
 import re
-from pybedtools import BedTool,Interval
+from pybedtools import BedTool,helpers,Interval
 import warnings
 import numpy as np
 import hashlib
@@ -313,6 +313,9 @@ reference_fasta = str(sys.argv[4])
 mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
 snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
 
+if sys.argv[7] != "":
+    helpers.set_tempdir(sys.argv[7])
+
 # Get query data
 query_data = [query] + fasta_info(query_fasta)
 query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
@@ -374,7 +377,9 @@ if percent_ref_aligned > 0:
         total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]
         total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
         
-            
+# Clean up pybedtools temp
+helpers.cleanup(verbose=False, remove_all=False)
+
 # Create header
 percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
 percent_query_aligned = f"{percent_query_aligned:.2f}" if percent_query_aligned != "NA" else percent_query_aligned

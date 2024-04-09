@@ -6,6 +6,13 @@ mummer_directory = file(params.mummer_directory)
 snpdiffs_directory = file(params.snpdiffs_directory)
 log_directory = file(params.log_directory)
 
+if(params.tmp_dir == ""){
+    temp_dir = ""
+}
+else{
+    temp_dir = file(params.temp_dir)
+}
+
 ref_mode = params.ref_mode
 ref_id_file = file(params.ref_id_file)
 
@@ -86,7 +93,7 @@ process runMUMmer{
         rm -rf ${mummer_directory}/${report_id}.unref
         rm -rf ${mummer_directory}/${report_id}.unqry
 
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}"    
+        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}" 
         """
     }
 }

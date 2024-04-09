@@ -4,7 +4,7 @@ import sys
 import os
 import pandas as pd
 import datetime
-from pybedtools import BedTool
+from pybedtools import BedTool,helpers
 import concurrent.futures
 import time
 
@@ -642,8 +642,14 @@ if os.stat(sys.argv[12]).st_size == 0:
 else:
     ref_ids = [line.strip() for line in open(sys.argv[12], 'r')]
 
+if sys.argv[13] != "":
+    helpers.set_tempdir(sys.argv[13])
+    
 with concurrent.futures.ProcessPoolExecutor() as executor:
     results = [executor.submit(screenSNPDiffs,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids) for snp_diff_file in snpdiffs_list]
+
+# Clean up pybedtools temp
+helpers.cleanup(verbose=False, remove_all=False)
 
 # Combine results into a dataframe
 output_columns = ['Query_ID','Reference_ID','Screen_Category','CSP2_Screen_SNPs',

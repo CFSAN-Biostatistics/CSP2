@@ -3,7 +3,9 @@
 // Set directory structure
 output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
+
 assembly_file = file("${log_directory}/Query_Assemblies.txt")
+ref_id_file = file(params.ref_id_file)
 
 workflow runRefChooser{
     take:
@@ -28,6 +30,11 @@ workflow runRefChooser{
     .join(refchooser_results, by:0)
     .map{tuple(it[1],it[0])}
     .unique{it -> it[0]}.collect().flatten().collate(2)
+
+    // Save reference data to file
+    reference_data
+    .collect{it -> it[0]}
+    | saveRefIDs
 }
 
 process refChooser{
@@ -59,5 +66,19 @@ process refChooser{
     else
         echo -n "\$column_data"
     fi
+    """
+}
+
+process saveRefIDs{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(ref_ids)
+
+    script:
+    ref_id_file.append(ref_ids.join('\n') + '\n')        
+    """
     """
 }

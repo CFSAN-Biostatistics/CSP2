@@ -5,6 +5,13 @@ screen_log_dir = file(params.screen_log_dir)
 snp_log_dir = file(params.snp_log_dir)
 snp_directory = file(params.snp_directory)
 
+if(params.tmp_dir == ""){
+    temp_dir = ""
+}
+else{
+    temp_dir = file(params.temp_dir)
+}
+
 ref_id_file = file(params.ref_id_file)
 
 ref_mode = params.ref_mode
@@ -49,7 +56,7 @@ process screenSNPDiffs{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $screenDiffs "${all_snpdiffs_list}" "${screen_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${screening_results_file}" "${ref_id_file}"
+    python $screenDiffs "${all_snpdiffs_list}" "${screen_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${screening_results_file}" "${ref_id_file}" "${temp_dir}"
     """
 } 
 
@@ -66,20 +73,22 @@ workflow runSNPPipeline{
     stacked_snpdiffs = query_snpdiffs.concat(ref_snpdiffs)
     .collect().flatten().collate(2)
 
-    stacked_snpdiffs
+    snp_dirs = stacked_snpdiffs
     .combine(reference_data)
     .filter{it -> it[0].toString() == it[2].toString()}
     .map{it -> tuple(it[0],it[1])}
     .groupTuple(by:0)
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | runSnpPipeline
-    .collect()
-    | compileResults
 
-
+    snp_dirs.collect() | compileResults
 }
 
 process compileResults{
+
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
     
     input:
     val(snp_directories)
@@ -116,9 +125,7 @@ process runSnpPipeline{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}"
-    echo $snp_dir
+    python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}" "${temp_dir}"
+    echo -n $snp_dir
     """
 }
-
-

@@ -4,7 +4,7 @@ import sys
 import os
 import pandas as pd
 import datetime
-from pybedtools import BedTool
+from pybedtools import BedTool,helpers
 import concurrent.futures
 import time
 from Bio.Seq import Seq
@@ -666,19 +666,6 @@ def getPairwise(query_1,query_2):
             return pd.DataFrame([[query_1, query_2, snp_differences, joined_df.shape[0]]], columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Read in arguments
 start_time = time.time()
 reference_id = str(sys.argv[1])
@@ -734,6 +721,9 @@ assert len(density_windows) == len(max_snps)
 
 trim_name = sys.argv[12]
 max_missing = float(sys.argv[13])
+
+if sys.argv[14] != "":
+    helpers.set_tempdir(sys.argv[14])
 
 # Establish output files
 reference_screening_file = f"{output_directory}/Reference_Screening.tsv"
@@ -1072,6 +1062,9 @@ idx = sorted(set(preserved_pairwise_df['Query_1']).union(preserved_pairwise_df['
 mirrored_distance_df = preserved_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
 mirrored_distance_df.index.name = ''
 mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
+
+# Clean up pybedtools temp
+helpers.cleanup(verbose=False, remove_all=False)
 
 end_time = time.time()
 with open(log_file,"a+") as log:

@@ -81,6 +81,18 @@ if(!output_directory.getParent().isDirectory()){
     output_directory.mkdirs()
 }
 
+if (params.tmp_dir != "") {
+    temp_dir = file(params.tmp_dir)
+    if(!temp_dir.getParent().isDirectory()){
+        error "Parent directory for output (--tmp_dir) is not a valid directory [${temp_dir.getParent()}]..."
+    } else if(!temp_dir.isDirectory()){
+        temp_dir.mkdirs()
+    }
+    params.temp_dir = file(temp_dir)
+} else{
+    params.temp_dir = ""
+}
+
 // Set MUMmer and SNP directories
 mummer_directory = file("${output_directory}/MUMmer_Output")
 snpdiffs_directory = file("${output_directory}/snpdiffs")
