@@ -7,6 +7,10 @@ import datetime
 from pybedtools import BedTool,helpers
 import concurrent.futures
 import time
+import uuid
+import shutil
+import traceback
+
 
 def fetchHeaders(snpdiffs_file):
     
@@ -218,6 +222,10 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     pass_filter = raw_snp_df[(raw_snp_df['Ref_Aligned'] >= min_len) & (raw_snp_df['Perc_Iden'] >= min_iden)].copy().reset_index(drop=True)
     reject_filter = pd.concat([reject_length,reject_iden,reject_lenIden]).reset_index(drop=True)
     
+    # Reduce any multibase indels to a single positions
+    multisnp_reject_df = reject_filter.groupby('Ref_Loc').filter(lambda x: len(x['Ref_Base'].tolist()) > 1 & all(x['Ref_Base'] == '.')).drop_duplicates(subset=['Ref_Loc'], keep='first')
+    reject_filter = pd.concat([reject_filter.loc[~reject_filter['Ref_Loc'].isin(multisnp_reject_df['Ref_Loc'].tolist())],multisnp_reject_df]).reset_index(drop=True)
+    
     # Find rows in pass_filter where either Ref_Loc or Query_Loc occur more than once
     with open(log_file,"a+") as log:
         log.write("\n\t- Filtering SNPs and Indels to remove duplicate mappings or heterozygotes...\n")
@@ -400,6 +408,8 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     
 def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids):
     
+    helpers.set_tempdir(temp_dir)
+
     screen_start_time = time.time()
 
     # Set CSP2 variables to NA
@@ -595,7 +605,10 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
     screen_end_time = time.time()
     with open(log_file,"a+") as log:
         log.write(f"Screening Time: {screen_end_time - screen_start_time:.2f} seconds\n")
-        
+    
+    # Clean up pybedtools temp
+    helpers.cleanup(verbose=False, remove_all=False)
+    
     return [str(item) for item in [query_id,reference_id,screen_category,csp2_screen_snps,
             f"{query_percent_aligned:.2f}",f"{reference_percent_aligned:.2f}",
             query_contigs,query_bases,reference_contigs,reference_bases,
@@ -642,26 +655,36 @@ if os.stat(sys.argv[12]).st_size == 0:
 else:
     ref_ids = [line.strip() for line in open(sys.argv[12], 'r')]
 
-if sys.argv[13] != "":
-    helpers.set_tempdir(sys.argv[13])
-    
-with concurrent.futures.ProcessPoolExecutor() as executor:
-    results = [executor.submit(screenSNPDiffs,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids) for snp_diff_file in snpdiffs_list]
+random_temp_id = str(uuid.uuid4())
+global temp_dir
+temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[13]))}/{random_temp_id}"
+try:
+    os.mkdir(temp_dir)
+    helpers.set_tempdir(temp_dir)
+except OSError as e:
+    print(f"Error: Failed to create directory '{temp_dir}': {e}")
 
-# Clean up pybedtools temp
-helpers.cleanup(verbose=False, remove_all=False)
+try:    
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = [executor.submit(screenSNPDiffs,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids) for snp_diff_file in snpdiffs_list]
 
-# Combine results into a dataframe
-output_columns = ['Query_ID','Reference_ID','Screen_Category','CSP2_Screen_SNPs',
-            'Query_Percent_Aligned','Reference_Percent_Aligned',
-            'Query_Contigs','Query_Bases','Reference_Contigs','Reference_Bases',
-            'Raw_SNPs','Purged_Length','Purged_Identity','Purged_LengthIdentity','Purged_Invalid','Purged_Indel','Purged_Duplicate','Purged_Het','Purged_Density',
-            'Filtered_Query_Edge','Filtered_Ref_Edge','Filtered_Both_Edge',
-            'Kmer_Similarity','Shared_Kmers','Query_Unique_Kmers','Reference_Unique_Kmers',
-            'MUMmer_gSNPs','MUMmer_gIndels']
+    # Clean up pybedtools temp
+    shutil.rmtree(temp_dir)
 
-results_df = pd.DataFrame([item.result() for item in results], columns = output_columns)
-results_df.to_csv(output_file, sep="\t", index=False)
+    # Combine results into a dataframe
+    output_columns = ['Query_ID','Reference_ID','Screen_Category','CSP2_Screen_SNPs',
+                'Query_Percent_Aligned','Reference_Percent_Aligned',
+                'Query_Contigs','Query_Bases','Reference_Contigs','Reference_Bases',
+                'Raw_SNPs','Purged_Length','Purged_Identity','Purged_LengthIdentity','Purged_Invalid','Purged_Indel','Purged_Duplicate','Purged_Het','Purged_Density',
+                'Filtered_Query_Edge','Filtered_Ref_Edge','Filtered_Both_Edge',
+                'Kmer_Similarity','Shared_Kmers','Query_Unique_Kmers','Reference_Unique_Kmers',
+                'MUMmer_gSNPs','MUMmer_gIndels']
+
+    results_df = pd.DataFrame([item.result() for item in results], columns = output_columns)
+    results_df.to_csv(output_file, sep="\t", index=False)
+except:
+    print("Exception occurred:\n", traceback.format_exc())
+    shutil.rmtree(temp_dir)    
 
 
 

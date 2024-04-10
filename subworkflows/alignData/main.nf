@@ -5,13 +5,7 @@ output_directory = file(params.output_directory)
 mummer_directory = file(params.mummer_directory)
 snpdiffs_directory = file(params.snpdiffs_directory)
 log_directory = file(params.log_directory)
-
-if(params.tmp_dir == ""){
-    temp_dir = ""
-}
-else{
-    temp_dir = file(params.temp_dir)
-}
+temp_dir = file(params.temp_dir)
 
 ref_mode = params.ref_mode
 ref_id_file = file(params.ref_id_file)
@@ -35,9 +29,9 @@ workflow alignGenomes{
     // Align anything that needs aligning
     sample_pairwise = to_align
     .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
-    | runMUMmer | splitCsv
+    | runMUMmer 
+    | splitCsv
     
-    // Combine newly aligned and prealigned, force output of All_SNPDiffs.txt
     log_hold = sample_pairwise
     .concat(snpdiffs_data)
     .unique{it -> it[2]}
@@ -65,7 +59,7 @@ process runMUMmer{
 
     output:
     stdout
-
+    
     script:
 
     report_id = "${query_name}__vs__${ref_name}"
@@ -93,7 +87,7 @@ process runMUMmer{
         rm -rf ${mummer_directory}/${report_id}.unref
         rm -rf ${mummer_directory}/${report_id}.unqry
 
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}" 
+        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}"
         """
     }
 }

@@ -4,13 +4,7 @@ log_directory = file(params.log_directory)
 screen_log_dir = file(params.screen_log_dir)
 snp_log_dir = file(params.snp_log_dir)
 snp_directory = file(params.snp_directory)
-
-if(params.tmp_dir == ""){
-    temp_dir = ""
-}
-else{
-    temp_dir = file(params.temp_dir)
-}
+temp_dir = file(params.temp_dir)
 
 ref_id_file = file(params.ref_id_file)
 

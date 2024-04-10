@@ -10,6 +10,9 @@ import numpy as np
 import hashlib
 from Bio import SeqIO
 import subprocess
+import uuid
+import traceback
+import shutil
 
 warnings.filterwarnings("ignore")
 
@@ -303,7 +306,7 @@ def compare_kmers(query_file,reference_file):
     return [len(ref_kmers),len(query_kmers),
                 unique_ref,unique_query,
                 intersection,similarity]
-    
+
 #### 01: Read in arguments ####
 
 query = str(sys.argv[1])
@@ -313,138 +316,149 @@ reference_fasta = str(sys.argv[4])
 mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
 snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
 
-if sys.argv[7] != "":
-    helpers.set_tempdir(sys.argv[7])
+random_temp_id = str(uuid.uuid4())
+global temp_dir
+temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[7]))}/{random_temp_id}"
+try:
+    os.mkdir(temp_dir)
+    helpers.set_tempdir(temp_dir)
+except OSError as e:
+    print(f"Error: Failed to create directory '{temp_dir}': {e}")
 
-# Get query data
-query_data = [query] + fasta_info(query_fasta)
-query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
-                                             'Query_N50','Query_N90','Query_L50','Query_L90','Query_SHA256'],query_data)]
+try:
+    # Get query data
+    query_data = [query] + fasta_info(query_fasta)
+    query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
+                                                'Query_N50','Query_N90','Query_L50','Query_L90','Query_SHA256'],query_data)]
 
-# Get reference data
-reference_data = [reference] + fasta_info(reference_fasta)
-reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
-                                                 'Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256'],reference_data)]
+    # Get reference data
+    reference_data = [reference] + fasta_info(reference_fasta)
+    reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
+                                                    'Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256'],reference_data)]
 
-# Get kmer distance
-[ref_kmers,query_kmers,
- unique_ref_kmers,unique_query_kmers,
- kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
+    # Get kmer distance
+    [ref_kmers,query_kmers,
+    unique_ref_kmers,unique_query_kmers,
+    kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
 
-# Create reference BED file using fasta seq lengths
-query_chr_bed = fasta_to_bedtool(query_fasta)
-reference_chr_bed = fasta_to_bedtool(reference_fasta)
+    # Create reference BED file using fasta seq lengths
+    query_chr_bed = fasta_to_bedtool(query_fasta)
+    reference_chr_bed = fasta_to_bedtool(reference_fasta)
 
-# Set report ID
-report_id = query + "__vs__" + reference
-snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
+    # Set report ID
+    report_id = query + "__vs__" + reference
+    snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
 
-# Create NA variables for all downstream options
-median_percent_identity = "NA"
-median_alignment_length = "NA"
+    # Create NA variables for all downstream options
+    median_percent_identity = "NA"
+    median_alignment_length = "NA"
 
-total_snp_count = "NA"
-total_indel_count = "NA"
-total_invalid_count = "NA"
+    total_snp_count = "NA"
+    total_indel_count = "NA"
+    total_invalid_count = "NA"
 
-#### 02: Read in MUMmer report data ####
-[ref_bases,percent_ref_aligned,
-            query_bases,percent_query_aligned,
-            g_snps,g_indels,
-            ref_breakpoints,query_breakpoints,
-            ref_relocations,query_relocations,
-            ref_translocations,query_translocations,
-            ref_inversions,query_inversions,
-            ref_insertions,query_insertions,
-            ref_tandem,query_tandem] = parseMUmmerReport(mummer_dir,report_id)
+    #### 02: Read in MUMmer report data ####
+    [ref_bases,percent_ref_aligned,
+                query_bases,percent_query_aligned,
+                g_snps,g_indels,
+                ref_breakpoints,query_breakpoints,
+                ref_relocations,query_relocations,
+                ref_translocations,query_translocations,
+                ref_inversions,query_inversions,
+                ref_insertions,query_insertions,
+                ref_tandem,query_tandem] = parseMUmmerReport(mummer_dir,report_id)
 
-if percent_ref_aligned > 0:
-    
-    #### 03: Process MUMmer coords file ####
-    coords_file = parseMUmmerCoords(mummer_dir,report_id,reference_chr_bed,query_chr_bed)
-    aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
-    if aligned_coords.shape[0] > 0:
-        aligned_coords['Perc_Iden'] = aligned_coords['Perc_Iden'].astype(float)
-        aligned_coords['Ref_Aligned'] = aligned_coords['Ref_Aligned'].astype(int)
-
-        median_percent_identity = np.median(aligned_coords['Perc_Iden'])
-        median_alignment_length = np.median(aligned_coords['Ref_Aligned'])
-
-        ##### 04: Process MUMmer SNP file ####
-        processed_snps = parseMUmmerSNPs(mummer_dir,report_id,aligned_coords)
+    if percent_ref_aligned > 0:
         
-        total_snp_count = processed_snps[processed_snps['Cat'] == "SNP"].shape[0]
-        total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]
-        total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
-        
-# Clean up pybedtools temp
-helpers.cleanup(verbose=False, remove_all=False)
+        #### 03: Process MUMmer coords file ####
+        coords_file = parseMUmmerCoords(mummer_dir,report_id,reference_chr_bed,query_chr_bed)
+        aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
+        if aligned_coords.shape[0] > 0:
+            aligned_coords['Perc_Iden'] = aligned_coords['Perc_Iden'].astype(float)
+            aligned_coords['Ref_Aligned'] = aligned_coords['Ref_Aligned'].astype(int)
 
-# Create header
-percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
-percent_query_aligned = f"{percent_query_aligned:.2f}" if percent_query_aligned != "NA" else percent_query_aligned
-median_percent_identity = f"{median_percent_identity:.2f}" if median_percent_identity != "NA" else median_percent_identity
-median_alignment_length = f"{median_alignment_length:.2f}" if median_alignment_length != "NA" else median_alignment_length
-total_snp_count = f"{total_snp_count:.0f}" if total_snp_count != "NA" else total_snp_count
-total_indel_count = f"{total_indel_count:.0f}" if total_indel_count != "NA" else total_indel_count
-total_invalid_count = f"{total_invalid_count:.0f}" if total_invalid_count != "NA" else total_invalid_count
-ref_breakpoints = f"{ref_breakpoints:.0f}"
-ref_relocations = f"{ref_relocations:.0f}"
-ref_translocations = f"{ref_translocations:.0f}"
-ref_inversions = f"{ref_inversions:.0f}"
-ref_insertions = f"{ref_insertions:.0f}"
-ref_tandem = f"{ref_tandem:.0f}"
-query_breakpoints = f"{query_breakpoints:.0f}"
-query_relocations = f"{query_relocations:.0f}"
-query_translocations = f"{query_translocations:.0f}"
-query_inversions = f"{query_inversions:.0f}"
-query_insertions = f"{query_insertions:.0f}"
-query_tandem = f"{query_tandem:.0f}"
-g_snps = f"{g_snps:.0f}"
-g_indels = f"{g_indels:.0f}"
-ref_kmers = f"{ref_kmers:.0f}"
-query_kmers = f"{query_kmers:.0f}"
-unique_ref_kmers = f"{unique_ref_kmers:.0f}"
-unique_query_kmers = f"{unique_query_kmers:.0f}"
-kmer_intersection = f"{kmer_intersection:.0f}"
-kmer_similarity = f"{kmer_similarity:.2f}" 
+            median_percent_identity = np.median(aligned_coords['Perc_Iden'])
+            median_alignment_length = np.median(aligned_coords['Ref_Aligned'])
 
-snpdiffs_header=[]
-snpdiffs_header.append("#\t" +
-                       "\t".join(query_string) +
-                       "\t" + "\t".join(reference_string) +
-                       "\t" + "\t".join([
-"SNPs:"+total_snp_count,  
-"Reference_Percent_Aligned:"+percent_ref_aligned,
-"Query_Percent_Aligned:"+percent_query_aligned,
-"Median_Percent_Identity:"+median_percent_identity,
-"Median_Alignment_Length:"+median_alignment_length,
-"Kmer_Similarity:"+kmer_similarity,    
-"Shared_Kmers:"+kmer_intersection,
-"Reference_Unique_Kmers:"+unique_ref_kmers,
-"Query_Unique_Kmers:"+unique_query_kmers,
-"Reference_Breakpoints:"+ref_breakpoints,
-"Query_Breakpoints:"+query_breakpoints,
-"Reference_Relocations:"+ref_relocations,
-"Query_Relocations:"+query_relocations,
-"Reference_Translocations:"+ref_translocations,
-"Query_Translocations:"+query_translocations,
-"Reference_Inversions:"+ref_inversions,
-"Query_Inversions:"+query_inversions,
-"Reference_Insertions:"+ref_insertions,
-"Query_Insertions:"+query_insertions,
-"Reference_Tandem:"+ref_tandem,
-"Query_Tandem:"+query_tandem,
-"Indels:"+total_indel_count,
-"Invalid:"+total_invalid_count,
-"gSNPs:"+g_snps,
-"gIndels:"+g_indels]))
+            ##### 04: Process MUMmer SNP file ####
+            processed_snps = parseMUmmerSNPs(mummer_dir,report_id,aligned_coords)
+            
+            total_snp_count = processed_snps[processed_snps['Cat'] == "SNP"].shape[0]
+            total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]
+            total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
+            
+    # Clean up pybedtools temp
+    shutil.rmtree(temp_dir)
 
-with open(snpdiffs_file,"w") as file:
-    file.write("\n".join(snpdiffs_header) + "\n")
-    for index, row in coords_file.iterrows():
-        file.write("##\t" + "\t".join(map(str, row))+"\n")
-    for index, row in processed_snps.iterrows():
-        file.write("\t".join(map(str, row))+"\n")
+    # Create header
+    percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
+    percent_query_aligned = f"{percent_query_aligned:.2f}" if percent_query_aligned != "NA" else percent_query_aligned
+    median_percent_identity = f"{median_percent_identity:.2f}" if median_percent_identity != "NA" else median_percent_identity
+    median_alignment_length = f"{median_alignment_length:.2f}" if median_alignment_length != "NA" else median_alignment_length
+    total_snp_count = f"{total_snp_count:.0f}" if total_snp_count != "NA" else total_snp_count
+    total_indel_count = f"{total_indel_count:.0f}" if total_indel_count != "NA" else total_indel_count
+    total_invalid_count = f"{total_invalid_count:.0f}" if total_invalid_count != "NA" else total_invalid_count
+    ref_breakpoints = f"{ref_breakpoints:.0f}"
+    ref_relocations = f"{ref_relocations:.0f}"
+    ref_translocations = f"{ref_translocations:.0f}"
+    ref_inversions = f"{ref_inversions:.0f}"
+    ref_insertions = f"{ref_insertions:.0f}"
+    ref_tandem = f"{ref_tandem:.0f}"
+    query_breakpoints = f"{query_breakpoints:.0f}"
+    query_relocations = f"{query_relocations:.0f}"
+    query_translocations = f"{query_translocations:.0f}"
+    query_inversions = f"{query_inversions:.0f}"
+    query_insertions = f"{query_insertions:.0f}"
+    query_tandem = f"{query_tandem:.0f}"
+    g_snps = f"{g_snps:.0f}"
+    g_indels = f"{g_indels:.0f}"
+    ref_kmers = f"{ref_kmers:.0f}"
+    query_kmers = f"{query_kmers:.0f}"
+    unique_ref_kmers = f"{unique_ref_kmers:.0f}"
+    unique_query_kmers = f"{unique_query_kmers:.0f}"
+    kmer_intersection = f"{kmer_intersection:.0f}"
+    kmer_similarity = f"{kmer_similarity:.2f}" 
 
-print(",".join([query,reference,snpdiffs_file]))
+    snpdiffs_header=[]
+    snpdiffs_header.append("#\t" +
+                        "\t".join(query_string) +
+                        "\t" + "\t".join(reference_string) +
+                        "\t" + "\t".join([
+    "SNPs:"+total_snp_count,  
+    "Reference_Percent_Aligned:"+percent_ref_aligned,
+    "Query_Percent_Aligned:"+percent_query_aligned,
+    "Median_Percent_Identity:"+median_percent_identity,
+    "Median_Alignment_Length:"+median_alignment_length,
+    "Kmer_Similarity:"+kmer_similarity,    
+    "Shared_Kmers:"+kmer_intersection,
+    "Reference_Unique_Kmers:"+unique_ref_kmers,
+    "Query_Unique_Kmers:"+unique_query_kmers,
+    "Reference_Breakpoints:"+ref_breakpoints,
+    "Query_Breakpoints:"+query_breakpoints,
+    "Reference_Relocations:"+ref_relocations,
+    "Query_Relocations:"+query_relocations,
+    "Reference_Translocations:"+ref_translocations,
+    "Query_Translocations:"+query_translocations,
+    "Reference_Inversions:"+ref_inversions,
+    "Query_Inversions:"+query_inversions,
+    "Reference_Insertions:"+ref_insertions,
+    "Query_Insertions:"+query_insertions,
+    "Reference_Tandem:"+ref_tandem,
+    "Query_Tandem:"+query_tandem,
+    "Indels:"+total_indel_count,
+    "Invalid:"+total_invalid_count,
+    "gSNPs:"+g_snps,
+    "gIndels:"+g_indels]))
+
+    with open(snpdiffs_file,"w") as file:
+        file.write("\n".join(snpdiffs_header) + "\n")
+        for index, row in coords_file.iterrows():
+            file.write("##\t" + "\t".join(map(str, row))+"\n")
+        for index, row in processed_snps.iterrows():
+            file.write("\t".join(map(str, row))+"\n")
+
+    print(",".join([query,reference,snpdiffs_file]))
+
+except:
+    print("Exception occurred:\n", traceback.format_exc())
+    shutil.rmtree(temp_dir)   

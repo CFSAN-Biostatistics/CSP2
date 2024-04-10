@@ -81,16 +81,16 @@ if(!output_directory.getParent().isDirectory()){
     output_directory.mkdirs()
 }
 
-if (params.tmp_dir != "") {
-    temp_dir = file(params.tmp_dir)
-    if(!temp_dir.getParent().isDirectory()){
-        error "Parent directory for output (--tmp_dir) is not a valid directory [${temp_dir.getParent()}]..."
-    } else if(!temp_dir.isDirectory()){
-        temp_dir.mkdirs()
-    }
-    params.temp_dir = file(temp_dir)
+tmp_dir = file(params.tmp_dir)
+
+if(tmp_dir.isDirectory()){
+    temp_dir = file("${tmp_dir}/CSP2_${new java.util.Date().getTime()}_tmp")
+    temp_dir.mkdirs()
+} else if(tmp_dir.getParent().isDirectory()){
+    tmp_dir.mkdirs()
+    temp_dir = file(tmp_dir)
 } else{
-    params.temp_dir = ""
+    error "Parent directory for temp directory --tmp_dir (${params.tmp_dir}) is not a valid directory [${temp_dir.getParent()}]..."
 }
 
 // Set MUMmer and SNP directories
@@ -166,7 +166,7 @@ params.assembly_directory = file(assembly_directory)
 params.mummer_directory = file(mummer_directory)
 params.snpdiffs_directory = file(snpdiffs_directory)
 params.snp_directory = file(snp_directory)
-
+params.temp_dir = file(temp_dir)
 params.ref_id_file = file(ref_id_file)
 
 params.ref_mode = ref_mode
