@@ -8,7 +8,6 @@ from pybedtools import BedTool,helpers
 import concurrent.futures
 import time
 import uuid
-import shutil
 import traceback
 
 
@@ -161,7 +160,9 @@ def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
 def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps):
-
+    if temp_dir != "":
+        helpers.set_tempdir(temp_dir)
+        
     total_snp_count = raw_snp_df.shape[0]
     orig_cols = raw_snp_df.columns
     
@@ -404,11 +405,13 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     merged_df = return_df[orig_cols].merge(raw_snp_df[orig_cols], how='outer', indicator=True)
     assert merged_df[merged_df['_merge'] == 'both'].shape[0] == return_df.shape[0]
     
+    helpers.cleanup(verbose=False,remove_all = False)
     return return_df.drop(columns=['Cat']).rename({'Filter_Cat':'Cat'}, axis=1)
     
 def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids):
     
-    helpers.set_tempdir(temp_dir)
+    if temp_dir != "":
+        helpers.set_tempdir(temp_dir)
 
     screen_start_time = time.time()
 
@@ -603,6 +606,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
                         log.write("-------------------------------------------------------\n\n")
     
     screen_end_time = time.time()
+    helpers.cleanup(verbose=False, remove_all=False)
+
     with open(log_file,"a+") as log:
         log.write(f"Screening Time: {screen_end_time - screen_start_time:.2f} seconds\n")
     
@@ -655,21 +660,24 @@ if os.stat(sys.argv[12]).st_size == 0:
 else:
     ref_ids = [line.strip() for line in open(sys.argv[12], 'r')]
 
-random_temp_id = str(uuid.uuid4())
 global temp_dir
-temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[13]))}/{random_temp_id}"
-try:
-    os.mkdir(temp_dir)
-    helpers.set_tempdir(temp_dir)
-except OSError as e:
-    print(f"Error: Failed to create directory '{temp_dir}': {e}")
+if sys.argv[13] != "":
+    random_temp_id = str(uuid.uuid4())
+    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[13]))}/{random_temp_id}"
+    try:
+        os.mkdir(temp_dir)
+        helpers.set_tempdir(temp_dir)
+    except OSError as e:
+        print(f"Error: Failed to create directory '{temp_dir}': {e}")
+else:
+    temp_dir = ""
 
 try:    
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = [executor.submit(screenSNPDiffs,snp_diff_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,ref_ids) for snp_diff_file in snpdiffs_list]
 
     # Clean up pybedtools temp
-    shutil.rmtree(temp_dir)
+    helpers.cleanup(verbose=False,remove_all = False)
 
     # Combine results into a dataframe
     output_columns = ['Query_ID','Reference_ID','Screen_Category','CSP2_Screen_SNPs',
@@ -684,7 +692,7 @@ try:
     results_df.to_csv(output_file, sep="\t", index=False)
 except:
     print("Exception occurred:\n", traceback.format_exc())
-    shutil.rmtree(temp_dir)    
+    helpers.cleanup(verbose=False,remove_all = False)
 
 
 

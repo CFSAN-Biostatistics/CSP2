@@ -5,7 +5,11 @@ output_directory = file(params.output_directory)
 mummer_directory = file(params.mummer_directory)
 snpdiffs_directory = file(params.snpdiffs_directory)
 log_directory = file(params.log_directory)
-temp_dir = file(params.temp_dir)
+
+if params.tmp_dir == "":
+    temp_dir == ""
+else:
+    temp_dir = file(params.temp_dir)
 
 ref_mode = params.ref_mode
 ref_id_file = file(params.ref_id_file)

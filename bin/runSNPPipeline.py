@@ -14,7 +14,6 @@ from Bio import AlignIO
 from itertools import combinations
 import numpy as np
 import uuid
-import shutil
 import traceback
 
 def fetchHeaders(snpdiffs_file):
@@ -164,6 +163,9 @@ def calculate_total_length(bedtool):
 
 def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps):
 
+    if temp_dir != "":
+        helpers.set_tempdir(temp_dir)
+        
     total_snp_count = raw_snp_df.shape[0]
     orig_cols = raw_snp_df.columns
     
@@ -405,12 +407,15 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     return_df = pd.concat([pass_filter,reject_filter]).reset_index(drop=True).sort_values(by=['Ref_Loc'])
     merged_df = return_df[orig_cols].merge(raw_snp_df[orig_cols], how='outer', indicator=True)
     assert merged_df[merged_df['_merge'] == 'both'].shape[0] == return_df.shape[0]
+    helpers.cleanup(verbose=False,remove_all = False)
     
     return return_df.drop(columns=['Cat']).rename({'Filter_Cat':'Cat'}, axis=1)
     
 def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps,reference_id,log_directory):
     
     screen_start_time = time.time()
+    if temp_dir != "":
+        helpers.set_tempdir(temp_dir)
 
     # Set CSP2 variables to NA
     csp2_screen_snps = purged_length = purged_identity = purged_invalid = purged_indel = purged_lengthIdentity = purged_duplicate = purged_het = purged_density = filtered_ref_edge = filtered_query_edge = filtered_both_edge = "NA"
@@ -611,6 +616,9 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 
 def assessCoverage(query_id,site_list):
     
+    if temp_dir != "":
+        helpers.set_tempdir(temp_dir)
+        
     if len(site_list) == 0:
         return pd.DataFrame(columns=['Ref_Loc','Query_ID','Cat'])
     else:
@@ -650,28 +658,6 @@ def assessCoverage(query_id,site_list):
             helpers.cleanup(verbose=False, remove_all=False)
             
             return pd.concat([covered_loc_df.drop_duplicates(['Ref_Loc']),uncovered_loc_df])
-
-def getPairwise2(query_1,query_2,base_df_1, base_df_2,filter_locs = []):
-
-    query_1_df = base_df_1.to_frame().T if isinstance(base_df_1, pd.Series) else base_df_1
-    query_2_df = base_df_2.to_frame().T if isinstance(base_df_2, pd.Series) else base_df_2
-
-    joined_df = query_1_df.merge(query_2_df, on='Ref_Loc', how='inner')
-    if joined_df.shape[0] == 0:
-        if len(filter_locs) > 0:
-            return [[query_1, query_2, np.nan, 0,'Raw'],
-                    [query_1, query_2, np.nan, 0,'Preserved']]
-        else:
-            return [query_1, query_2, np.nan, 0,'Raw']
-    else:
-        snp_differences = joined_df[joined_df['Query_Base_x'] != joined_df['Query_Base_y']].shape[0]
-        if len(filter_locs) > 0:
-            preserved_df = joined_df.loc[joined_df['Ref_Loc'].isin(filter_locs)]
-            preserved_snp_differences = preserved_df.loc[preserved_df['Query_Base_x'] != preserved_df['Query_Base_y']].shape[0] if preserved_df.shape[0] > 0 else np.nan
-            return [[query_1, query_2, snp_differences, joined_df.shape[0],'Raw'],
-                    [query_1,query_2,preserved_snp_differences,preserved_df.shape[0],'Preserved']]
-        else:
-            return [query_1, query_2, snp_differences, joined_df.shape[0],'Raw']
 
 def getPairwise(pair, type = "Raw"):
     
@@ -744,12 +730,16 @@ max_missing = float(sys.argv[13])
 random_temp_id = str(uuid.uuid4())
 
 global temp_dir
-temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[14]))}/{random_temp_id}"
-try:
-    os.mkdir(temp_dir)
-    helpers.set_tempdir(temp_dir)
-except OSError as e:
-    print(f"Error: Failed to create directory '{temp_dir}': {e}")
+if sys.argv[14] != "":
+    random_temp_id = str(uuid.uuid4())
+    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[14]))}/{random_temp_id}"
+    try:
+        os.mkdir(temp_dir)
+        helpers.set_tempdir(temp_dir)
+    except OSError as e:
+        print(f"Error: Failed to create directory '{temp_dir}': {e}")
+else:
+    temp_dir = ""
 
 try:
     # Establish output files
@@ -1096,7 +1086,7 @@ try:
     mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
 
     # Clean up pybedtools temp
-    shutil.rmtree(temp_dir)
+    helpers.cleanup(verbose=False,remove_all = False)
 
     end_time = time.time()
     with open(log_file,"a+") as log:
@@ -1121,7 +1111,7 @@ try:
 
 except:
     print("Exception occurred:\n", traceback.format_exc())
-    shutil.rmtree(temp_dir)    
+    helpers.cleanup(verbose=False,remove_all = False)
 
 
 

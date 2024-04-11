@@ -12,7 +12,6 @@ from Bio import SeqIO
 import subprocess
 import uuid
 import traceback
-import shutil
 
 warnings.filterwarnings("ignore")
 
@@ -316,14 +315,17 @@ reference_fasta = str(sys.argv[4])
 mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
 snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
 
-random_temp_id = str(uuid.uuid4())
 global temp_dir
-temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[7]))}/{random_temp_id}"
-try:
-    os.mkdir(temp_dir)
-    helpers.set_tempdir(temp_dir)
-except OSError as e:
-    print(f"Error: Failed to create directory '{temp_dir}': {e}")
+if sys.argv[7] != "":
+    random_temp_id = str(uuid.uuid4())
+    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[7]))}/{random_temp_id}"
+    try:
+        os.mkdir(temp_dir)
+        helpers.set_tempdir(temp_dir)
+    except OSError as e:
+        print(f"Error: Failed to create directory '{temp_dir}': {e}")
+else:
+    temp_dir = ""
 
 try:
     # Get query data
@@ -388,7 +390,7 @@ try:
             total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
             
     # Clean up pybedtools temp
-    shutil.rmtree(temp_dir)
+    helpers.cleanup(verbose=False,remove_all = False)
 
     # Create header
     percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
@@ -461,4 +463,4 @@ try:
 
 except:
     print("Exception occurred:\n", traceback.format_exc())
-    shutil.rmtree(temp_dir)   
+    helpers.cleanup(verbose=False,remove_all = False)
