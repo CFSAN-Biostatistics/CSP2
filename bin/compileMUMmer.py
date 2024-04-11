@@ -12,6 +12,7 @@ from Bio import SeqIO
 import subprocess
 import uuid
 import traceback
+import shutil
 
 warnings.filterwarnings("ignore")
 
@@ -463,4 +464,7 @@ try:
 
 except:
     print("Exception occurred:\n", traceback.format_exc())
-    helpers.cleanup(verbose=False,remove_all = False)
+finally:
+    helpers.cleanup(verbose=False, remove_all=False)
+    if temp_dir != "":
+        shutil.rmtree(temp_dir)

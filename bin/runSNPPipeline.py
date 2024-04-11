@@ -15,6 +15,7 @@ from itertools import combinations
 import numpy as np
 import uuid
 import traceback
+import shutil
 
 def fetchHeaders(snpdiffs_file):
     
@@ -1111,8 +1112,10 @@ try:
 
 except:
     print("Exception occurred:\n", traceback.format_exc())
-    helpers.cleanup(verbose=False,remove_all = False)
-
+finally:
+    helpers.cleanup(verbose=False, remove_all=False)
+    if temp_dir != "":
+        shutil.rmtree(temp_dir)
 
 
 

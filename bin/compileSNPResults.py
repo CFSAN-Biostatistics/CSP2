@@ -310,7 +310,7 @@ else:
 
 # Compare SNPs across refs
 if len(reference_ids) == 1:
-    isolate_stdev_stats = pd.DataFrame(columns =['Isolate_ID','Isolate_Type','Measure','Min','Value','Max','StdDev','Zscore','QC','Count'])
+    isolate_stdev_stats = pd.DataFrame(columns =['Isolate_ID','Isolate_Type','Measure','Min','Mean','Max','StdDev','Zscore','QC','Count'])
     with open(log_file,"a+") as log:
         log.write("- 1 reference provided, SNP distances have no comparisons\n")
 else:

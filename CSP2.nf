@@ -81,22 +81,23 @@ if(!output_directory.getParent().isDirectory()){
     output_directory.mkdirs()
 }
 
-if params.tmp_dir == "":
-    params.temp_dir == ""
-else:
-    tmp_dir = file(params.tmp_dir)
-    if(tmp_dir.isDirectory()){
-        temp_dir = file("${tmp_dir}/CSP2_${new java.util.Date().getTime()}_tmp")
-        temp_dir.mkdirs()
-        params.temp_dir == file(temp_dir)
+if(params.tmp_dir != ""){
+    tempdir = file(params.tmp_dir)
 
-    } else if(tmp_dir.getParent().isDirectory()){
-        tmp_dir.mkdirs()
-        temp_dir = file(tmp_dir)
-        params.temp_dir == file(temp_dir)
+    if(tempdir.isDirectory()){
+        temp_dir = file("${tempdir}/CSP2_${new java.util.Date().getTime()}_tmp")
+        temp_dir.mkdirs()
+        params.temp_dir = file(temp_dir)
+
+    } else if(tempdir.getParent().isDirectory()){
+        tempdir.mkdirs()
+        params.temp_dir = tempdir
     } else{
-        error "Parent directory for temp directory --tmp_dir (${params.tmp_dir}) is not a valid directory [${temp_dir.getParent()}]..."
+        error "Parent directory for temp directory --tmp_dir (${params.tmp_dir}) is not a valid directory..."
     }
+} else{
+    params.temp_dir = ""
+}
 
 // Set MUMmer and SNP directories
 mummer_directory = file("${output_directory}/MUMmer_Output")
