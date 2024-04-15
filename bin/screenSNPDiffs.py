@@ -475,6 +475,9 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
     
     # Set variables from header data
     raw_snps = int(header_data['SNPs'][0])
+    raw_indels = int(header_data['Indels'][0])
+    raw_invalid = int(header_data['Invalid'][0])
+    
     kmer_similarity = float(header_data['Kmer_Similarity'][0])
     shared_kmers = int(header_data['Shared_Kmers'][0])
     query_unique_kmers = int(header_data['Query_Unique_Kmers'][0])
@@ -501,13 +504,13 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
             log.write(f"\t- Query covers less than --min_cov ({min_cov}%)...Screen halted...\n")
             log.write("-------------------------------------------------------\n\n")
 
-    elif raw_snps > 10000:
+    elif raw_snps + raw_indels + raw_invalid > 10000:
         query_percent_aligned = raw_query_percent_aligned
         reference_percent_aligned = raw_ref_percent_aligned
         screen_category = "SNP_Cutoff"
         with open(log_file,"a+") as log:
             log.write(f"\t- {raw_snps} detected...\n")
-            log.write("\t- > 10,000 SNPs detected by MUMmer...Screen halted...\n")
+            log.write("\t- > 10,000 SNPs, indels, or invalid sites detected by MUMmer...Screen halted...\n")
             log.write("-------------------------------------------------------\n\n")
    
     else:

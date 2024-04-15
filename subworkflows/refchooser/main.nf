@@ -5,6 +5,7 @@ output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
 
 assembly_file = file("${log_directory}/Query_Assemblies.txt")
+refchooser_matrix = file("${log_directory}/Refchooser_Matrix.tsv")
 ref_id_file = file(params.ref_id_file)
 
 workflow runRefChooser{
@@ -58,6 +59,7 @@ process refChooser{
     $params.load_refchooser_module
     cd $log_directory
     refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
+    refchooser maxtrix $assembly_file sketch_dir $refchooser_matrix
 
     column_data=\$(head -$head_count refchooser_results.txt | tail -$ref_count | cut -f7)
     head -$head_count refchooser_results.txt | tail -$ref_count | cut -f2,3,6,7,8 | grep -v Mean_Distance > refchooser.tsv
