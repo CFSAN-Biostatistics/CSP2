@@ -195,6 +195,12 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         snp_file['Start_Ref'] = snp_file['Ref_Pos'] - 1
         snp_file['Start_Query'] = snp_file['Query_Pos'] - 1
         
+        snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'], snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
+        snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
+        
+        snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
+        snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]   
+        
         total_snp_count = snp_file.shape[0]
 
         valid_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
@@ -208,15 +214,6 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
             return (snp_file.shape[0],indel_file.shape[0],invalid_file.shape[0])
         
         else:            
-            snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'], snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
-            snp_file['Dist_to_Ref_End'] = snp_file['Dist_to_Ref_End'].astype(int)            
-            
-            snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
-            snp_file['Dist_to_Query_End'] = snp_file['Dist_to_Query_End'].astype(int)            
-
-            snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
-            snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]    
-
             if snp_file.shape[0] == 0:
                 snp_coords = pd.DataFrame(columns=return_columns)
             else:
@@ -236,7 +233,7 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
                 invalid_coords['Cat'] = "Invalid"
                     
             return_df = pd.concat([snp_coords,indel_coords,invalid_coords],ignore_index=True)[return_columns]
-            
+         
             assert return_df.shape[0] == total_snp_count
             return return_df
     
