@@ -184,12 +184,17 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         'SNP_Buffer','Dist_to_End','Ref_Length','Query_Length',
         'Ref_Direction','Query_Direction','Ref_Contig','Query_Contig'])
     
-    int_columns = ['Start_Ref', 'Ref_Pos', 'Start_Query', 'Query_Pos', 'Ref_Start','Ref_End', 'Query_Start', 'Query_End',
-                'Dist_to_Ref_End', 'Dist_to_Query_End', 'Ref_Aligned', 'Query_Aligned']
-    
+    int_columns = ['Ref_Pos', 'Query_Pos', 'Dist_to_End','Ref_Length', 'Query_Length']
+                
     if snp_file.shape[0] == 0:
         return pd.DataFrame(columns=return_columns)
     else:
+        for col in int_columns:
+            snp_file.loc[:, col] = snp_file.loc[:, col].astype(float).astype(int)
+        
+        snp_file['Start_Ref'] = snp_file['Ref_Pos'] - 1
+        snp_file['Start_Query'] = snp_file['Query_Pos'] - 1
+        
         total_snp_count = snp_file.shape[0]
 
         valid_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
@@ -202,16 +207,15 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         if total_snp_count >= 10000:
             return (snp_file.shape[0],indel_file.shape[0],invalid_file.shape[0])
         
-        else:
-            snp_file['Start_Ref'] = snp_file['Ref_Pos'].astype(int) - 1
-            snp_file['Start_Query'] = snp_file['Query_Pos'].astype(int) - 1
+        else:            
+            snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'], snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
+            snp_file['Dist_to_Ref_End'] = snp_file['Dist_to_Ref_End'].astype(int)            
             
-            snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'],snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
             snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
+            snp_file['Dist_to_Query_End'] = snp_file['Dist_to_Query_End'].astype(int)            
 
             snp_file['Ref_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Ref_Contig, snp_file.Ref_Pos))]
             snp_file['Query_Loc'] = ["/".join([str(x[0]),str(x[1])]) for x in list(zip(snp_file.Query_Contig, snp_file.Query_Pos))]    
-
 
             if snp_file.shape[0] == 0:
                 snp_coords = pd.DataFrame(columns=return_columns)
@@ -234,9 +238,6 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
             return_df = pd.concat([snp_coords,indel_coords,invalid_coords],ignore_index=True)[return_columns]
             
             assert return_df.shape[0] == total_snp_count
-            
-            for col in int_columns:
-                return_df.loc[:, col] = return_df.loc[:, col].astype(float).astype(int)
             return return_df
     
 def makeSNPCoords(snp_df, coords_df, row_count):
