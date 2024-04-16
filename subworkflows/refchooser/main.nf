@@ -59,8 +59,8 @@ process refChooser{
     $params.load_refchooser_module
     cd $log_directory
     
-    refchooser metrics --sort Score $assembly_file sketch_dir > refchooser_results.txt
-    refchooser maxtrix $assembly_file sketch_dir > refchooser_matrix.txt
+    refchooser metrics --sort Score $assembly_file ${log_directory}/sketch_dir > ${log_directory}/refchooser_results.txt
+    refchooser matrix $assembly_file ${log_directory}/sketch_dir ${log_directory}/refchooser_matrix.txt
     
     $params.unload_refchooser_module
     $params.load_python_module

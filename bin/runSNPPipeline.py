@@ -59,7 +59,7 @@ def processBED(bed_rows,snpdiffs_orientation):
         covered_bed_df = bed_df[(bed_df['Ref_Start'] != ".") & (bed_df['Query_Start'] != ".")].copy()
         if covered_bed_df.shape[0] > 0:
             for col in int_columns:
-                covered_bed_df.loc[:, col] = covered_bed_df.loc[:, col].astype(int)
+                covered_bed_df.loc[:, col] = covered_bed_df.loc[:, col].astype(float).astype(int)
             for col in float_columns:
                 covered_bed_df.loc[:, col] = covered_bed_df.loc[:, col].astype(float)
         
@@ -121,7 +121,7 @@ def processSNPs(snp_rows,snpdiffs_orientation):
             snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
             
         for col in int_columns:
-            snp_df.loc[:, col] = snp_df.loc[:, col].astype(int)
+            snp_df.loc[:, col] = snp_df.loc[:, col].astype(float).astype(int)
         for col in float_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(float)
         
@@ -181,11 +181,11 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     unique_query_snps = raw_snp_df['Query_Loc'].unique()
     
     ref_snp_bed_df = pd.DataFrame([item.split('/') for item in unique_ref_snps], columns=['Ref_Contig','Ref_End'])
-    ref_snp_bed_df['Ref_Start'] = ref_snp_bed_df['Ref_End'].astype(int) - 1
+    ref_snp_bed_df['Ref_Start'] = ref_snp_bed_df['Ref_End'].astype(float).astype(int) - 1
     ref_snp_bed = BedTool.from_dataframe(ref_snp_bed_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
     
     query_snp_bed_df = pd.DataFrame([item.split('/') for item in unique_query_snps], columns=['Query_Contig','Query_End'])
-    query_snp_bed_df['Query_Start'] = query_snp_bed_df['Query_End'].astype(int) - 1
+    query_snp_bed_df['Query_Start'] = query_snp_bed_df['Query_End'].astype(float).astype(int) - 1
     query_snp_bed = BedTool.from_dataframe(query_snp_bed_df[['Query_Contig','Query_Start','Query_End']]).sort()
     
     # Get the coverage counts for each SNP
@@ -329,7 +329,7 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
         
         if len(ref_locs) > 0:
             density_df = pd.DataFrame([item.split('/') for item in ref_locs], columns=['Ref_Contig','Ref_End'])
-            density_df['Ref_Start'] = density_df['Ref_End'].astype(int) - 1
+            density_df['Ref_Start'] = density_df['Ref_End'].astype(float).astype(int) - 1
             density_df['Ref_Loc'] = ref_locs
             density_bed = BedTool.from_dataframe(density_df[['Ref_Contig','Ref_Start','Ref_End']])
 
@@ -514,10 +514,10 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
                 log.write("Done!\n")
                 log.write("-------------------------------------------------------\n\n")
                 
-        except:
+        except Exception as e:
             with open(log_file,"a+") as log:
-                log.write(f"Error reading BED/SNP data from file: {snpdiffs_file}")
-            sys.exit(f"Error reading BED/SNP data from file: {snpdiffs_file}")
+                log.write(f"\nError reading BED/SNP data from file: {snpdiffs_file}\n{str(e)}")
+            sys.exit(f"Error reading BED/SNP data from file: {snpdiffs_file}\n{str(e)}")
             
         ##### 03: Filter genome overlaps #####
         with open(log_file,"a+") as log:
@@ -638,7 +638,7 @@ def assessCoverage(query_id,site_list):
         else:
             coverage_bed = BedTool.from_dataframe(coverage_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
             snp_bed_df = pd.DataFrame([item.split('/') for item in site_list], columns=['Ref_Contig','Ref_End'])
-            snp_bed_df['Ref_Start'] = snp_bed_df['Ref_End'].astype(int) - 1
+            snp_bed_df['Ref_Start'] = snp_bed_df['Ref_End'].astype(float).astype(int) - 1
             snp_bed_df['Ref_Loc'] = site_list
             snp_bed = BedTool.from_dataframe(snp_bed_df[['Ref_Contig','Ref_Start','Ref_End','Ref_Loc']]).sort()
             
@@ -954,7 +954,7 @@ try:
         
         # Get isolate coverage stats
         min_isolate_cols = ['Query_ID','SNP','Ref_Base','Percent_Missing','Purged','Uncovered']
-        isolate_coverage_df = final_snp_df.groupby('Query_ID')['Cat'].value_counts().unstack().fillna(0).astype(int).reset_index().drop(columns=['Reference_Isolate'])
+        isolate_coverage_df = final_snp_df.groupby('Query_ID')['Cat'].value_counts().unstack().fillna(0).astype(float).astype(int).reset_index().drop(columns=['Reference_Isolate'])
         isolate_coverage_df.loc[isolate_coverage_df['Query_ID'] == reference_id, 'Ref_Base'] = snp_count
         
         if "Rescued_SNP" not in isolate_coverage_df.columns.tolist():

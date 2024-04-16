@@ -89,7 +89,7 @@ else:
     clusters = kmeans.labels_
 
     cluster_df = pd.DataFrame({'Isolate_ID': pruned_distance_matrix.index, 'Cluster': clusters}).merge(mean_distance_df, left_on='Isolate_ID', right_on='Assembly',how='left')
-    cluster_size_df = cluster_df['Cluster'].value_counts().reset_index()
+    cluster_size_df = cluster_df['Cluster'].value_counts().reset_index().rename(columns={'index':'Cluster','Cluster':'count'})
     cluster_size_df['Prop'] = cluster_size_df['count']/cluster_size_df['count'].sum()
     cluster_df = pd.merge(cluster_df, cluster_size_df[['Cluster','Prop']], on='Cluster')
 
