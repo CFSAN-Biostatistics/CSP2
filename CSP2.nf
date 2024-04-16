@@ -183,6 +183,7 @@ params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -
 params.load_bbtools_module = params.bbtools_module == "" ? "" : "module load -s ${params.bbtools_module}"
 params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${params.mummer_module}"
 params.load_refchooser_module = params.refchooser_module == "" ? "" : "module load -s ${params.refchooser_module}"
+params.unload_refchooser_module = params.refchooser_module == "" ? "" : "module unload -s ${params.refchooser_module}"
 
 // Save params to log file
 params.each { key, value ->
