@@ -35,6 +35,7 @@ else:
 
 # Read in all lines and ensure each file exists
 snpdiffs_list = [line.strip() for line in open(snpdiffs_list_file, 'r')]
+snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
         sys.exit("Error: File does not exist: " + snpdiffs_file)

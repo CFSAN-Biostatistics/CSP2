@@ -119,7 +119,7 @@ def processSNPs(snp_rows,snpdiffs_orientation):
             # Replace Query_Base and Reference_Base with reverse complement if Query_Direction is -1 and base is in ['A','T','G','C','a','c','t','g']
             snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Query_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
             snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'] = snp_df.loc[snp_df['Query_Direction'] == '-1','Ref_Base'].apply(lambda x: reverse_complement[x] if x in reverse_complement else x)
-            
+        
         for col in int_columns:
             snp_df.loc[:, col] = snp_df.loc[:, col].astype(float).astype(int)
         for col in float_columns:
@@ -696,6 +696,7 @@ with open(log_file,"w+") as log:
     
 # Read in all lines and ensure each file exists
 snpdiffs_list = [line.strip() for line in open(sys.argv[3], 'r')]
+snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
         sys.exit("Error: File does not exist: " + snpdiffs_file)

@@ -179,14 +179,13 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
                 'Ref_Aligned','Query_Aligned',
                 'Query_Direction','Perc_Iden','Cat']
     
-    coords_columns = ['Ref_Contig','Ref_Start','Ref_End',
-                      'Query_Contig','Query_Start','Query_End',
-                      'Ref_Aligned','Query_Aligned','Perc_Iden']
-
     snp_file = pd.read_csv(mum_snps_dir+"/"+report_id+".snps",sep="\t",index_col=False,
         names=['Ref_Pos','Ref_Base','Query_Base','Query_Pos',
         'SNP_Buffer','Dist_to_End','Ref_Length','Query_Length',
         'Ref_Direction','Query_Direction','Ref_Contig','Query_Contig'])
+    
+    int_columns = ['Start_Ref', 'Ref_Pos', 'Start_Query', 'Query_Pos', 'Ref_Start','Ref_End', 'Query_Start', 'Query_End',
+                'Dist_to_Ref_End', 'Dist_to_Query_End', 'Ref_Aligned', 'Query_Aligned']
     
     if snp_file.shape[0] == 0:
         return pd.DataFrame(columns=return_columns)
@@ -204,8 +203,8 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
             return (snp_file.shape[0],indel_file.shape[0],invalid_file.shape[0])
         
         else:
-            snp_file['Start_Ref'] = snp_file['Ref_Pos'] - 1
-            snp_file['Start_Query'] = snp_file['Query_Pos'] - 1
+            snp_file['Start_Ref'] = snp_file['Ref_Pos'].astype(int) - 1
+            snp_file['Start_Query'] = snp_file['Query_Pos'].astype(int) - 1
             
             snp_file['Dist_to_Ref_End'] = [min([x,y]) for x,y in zip(snp_file['Ref_Pos'],snp_file['Ref_Length'] - snp_file['Ref_Pos'])]
             snp_file['Dist_to_Query_End'] = [min([x,y]) for x,y in zip(snp_file['Query_Pos'],snp_file['Query_Length'] - snp_file['Query_Pos'])]
@@ -235,6 +234,9 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
             return_df = pd.concat([snp_coords,indel_coords,invalid_coords],ignore_index=True)[return_columns]
             
             assert return_df.shape[0] == total_snp_count
+            
+            for col in int_columns:
+                return_df.loc[:, col] = return_df.loc[:, col].astype(float).astype(int)
             return return_df
     
 def makeSNPCoords(snp_df, coords_df, row_count):

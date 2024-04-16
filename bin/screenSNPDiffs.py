@@ -629,6 +629,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 # Read in arguments
 # Read in all lines and ensure each file exists
 snpdiffs_list = [line.strip() for line in open(sys.argv[1], 'r')]
+snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
         sys.exit("Error: File does not exist: " + snpdiffs_file)        

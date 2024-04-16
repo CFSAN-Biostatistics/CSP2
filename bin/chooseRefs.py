@@ -12,31 +12,35 @@ from itertools import combinations
 def getOptimalK(data, ref_count):
     
     silhouette_scores = []
-    prev_score = None
     
     kmeans_1 = KMeans(n_clusters=1, random_state=0, n_init='auto').fit(data)
     kmeans_2 = KMeans(n_clusters=2, random_state=0, n_init='auto').fit(data)
     
+    # Compare 1 vs. 2
     inertia_1 = kmeans_1.inertia_
     inertia_2 = kmeans_2.inertia_
-
     if inertia_1 > inertia_2:
         negative_movements = 1
     else:
         negative_movements = 0
-        
-    for k in range(2, ref_count + 2):
+    
+    # Add k2 data
+    labels = kmeans_2.labels_
+    score = silhouette_score(data, labels)
+    silhouette_scores.append(score)
+    prev_score = score
+    
+    for k in range(3, ref_count + 3):
         kmeans = KMeans(n_clusters=k, random_state=0, n_init='auto').fit(data)
         labels = kmeans.labels_
         score = silhouette_score(data, labels)
-        silhouette_scores.append(score)
-        
-        if prev_score is None:
-            pass
-        elif score < prev_score:
+
+        if score < prev_score:
             negative_movements += 1
         else:
             negative_movements = 0
+        
+        silhouette_scores.append(score)
         
         # Stop if two consecutive negative movements occur
         if negative_movements == 2:
