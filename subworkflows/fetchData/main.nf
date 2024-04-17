@@ -32,18 +32,34 @@ workflow fetchData{
 
     main:
 
+    // Get any excluded IDs
+    ("${params.exclude}" != "" ? processExclude() : Channel.empty()).set{exclude_ids}    
+    
     // Process snpdiffs alignments
     // If assembly file cannot be found, it will be 'null'
     ("${params.snpdiffs}" != "" ? processSNPDiffs() : Channel.empty()).set{user_snpdiffs}
 
+    excluded_snpdiffs = user_snpdiffs.map{it -> tuple(it[1],it[0])}
+    .concat(user_snpdiffs.map{it -> tuple(it[10],it[0])})
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[2].toString() == "Exclude"}
+    .unique{it -> it[1]}
+    .map{it -> tuple(it[1],"Exclude")}
+
     // Generate return channel: 3-item tuple (Query_ID, Reference_ID, SNPDiff_Path)
     snpdiff_data = user_snpdiffs
-    .map{it -> tuple(it[1],it[10],it[0])}
+    .map{it -> tuple(it[0],it[1],it[10])}
+    .join(excluded_snpdiffs,by:0,remainder:true)
+    .filter{it -> it[3].toString() != "Exclude"}
+    .unique{it -> it[0]}
+    .map{it -> tuple(it[1],it[2],it[0])}
     .collect().flatten().collate(3)
 
     // Get assembly data from snpdiffs
     snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[1],it[2])}
     .concat(user_snpdiffs.map{it-> tuple(it[10],it[11])})
+    .join(excluded_snpdiffs,by:0,remainder:true)
+    .filter(it -> it[2].toString() != "Exclude")
     .map{it -> tuple(it[0],it[1],'SNPDiff')}
     .collect().flatten().collate(3)
 
@@ -60,7 +76,11 @@ workflow fetchData{
     .map{it -> tuple(it[0],it[1])}
     .concat(query_fasta)
     .concat(ref_fasta)
-    .unique{it->it[0]}.collect().flatten().collate(2)
+    .unique{it -> it[0]}
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[2].toString() != "Exclude"}
+    .map{it->tuple(it[0],it[1])}
+    .collect().flatten().collate(2)
 
     // Process any data provided as reads
     // Returns 3-item tuples with the following format: (Isolate_ID, Read_Type, Read_Path)
@@ -69,7 +89,11 @@ workflow fetchData{
 
     all_reads = query_reads
     .concat(ref_reads)
-    .unique{it->it[0]}.collect().flatten().collate(3)
+    .unique{it->it[0]}
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[3].toString() != "Exclude"}
+    .map{it->tuple(it[0],it[1],it[2])}            
+    .collect().flatten().collate(3)
 
     // Figure out if any assembly is necessary
     fasta_read_combo = all_reads.join(pre_assembled,by:0,remainder: true) |
@@ -95,8 +119,11 @@ workflow fetchData{
         user_fastas = query_fasta
         .concat(ref_fasta)
         .concat(assembled_reads)
-        .unique{it->it[0]}.collect().flatten().collate(2)
-        .map{it -> tuple(it[0],it[1],'User')}
+        .unique{it -> it[0]}
+        .join(exclude_ids,by:0,remainder:true)
+        .filter{it -> it[2].toString() != "Exclude"}
+        .map{it->tuple(it[0],it[1],'User')}
+        .collect().flatten().collate(3)
         .join(assembled_snpdiffs,by:0,remainder:true)
         .filter{it -> it[3].toString() == "null"}
         .map{it->tuple(it[0],it[1])}
@@ -125,7 +152,10 @@ workflow fetchData{
         // If no reference data is provided return a blank channel
         if(!ref_mode){
             reference_data = Channel.empty()
-            all_samples.set{query_data}
+            
+            query_data = all_samples                
+            .unique{it -> it[0]}
+            .collect().flatten().collate(2)
 
         } else{
 
@@ -137,12 +167,16 @@ workflow fetchData{
             .concat(user_ref_ids)
             .unique{it-> it[0]}.collect().flatten().collate(1)
             .map{it -> tuple(it[0],"Reference")}
+            .join(exclude_ids,by:0,remainder:true)
+            .filter{it -> it[2].toString() != "Exclude"}
+            .map{it -> tuple(it[0],it[1])}
 
             reference_data = all_samples
             .join(all_ref_ids,by:0,remainder:true)
             .filter{it -> it[2].toString() == "Reference"}
             .map{it->tuple(it[0],it[1])}
-            .unique{it -> it[0]}.collect().flatten().collate(2)
+            .unique{it -> it[0]}
+            .collect().flatten().collate(2)
 
             // Save reference data to file
             reference_data
@@ -154,10 +188,13 @@ workflow fetchData{
                 .join(all_ref_ids,by:0,remainder:true)
                 .filter{it -> it[2].toString() != "Reference"}
                 .map{it->tuple(it[0],it[1])}
-                .unique{it -> it[0]}.collect().flatten().collate(2)
+                .unique{it -> it[0]}
+                .collect().flatten().collate(2)
             } else if(params.runmode == "snp"){
                 query_data = all_samples
-                .unique{it -> it[0]}.collect().flatten().collate(2)
+                .unique{it -> it[0]}
+
+                .collect().flatten().collate(2)
             }
         }
     }
@@ -388,6 +425,24 @@ workflow processRefIDs{
         "${it}".replaceAll(trim_this, "")}
     .flatten()
 }
+
+// Fetch reference IDs //
+workflow processExclude{
+
+    emit:
+    exclude_ids
+    
+    main:
+    def trim_this = "${params.trim_name}"
+
+    exclude_ids = params.exclude
+    .tokenize(',')
+    .unique()
+    .collect { it ->
+        "${it}".replaceAll(trim_this, "")}
+    .map{it -> tuple(it.toString(),"Exclude")}
+}
+
 process saveRefIDs{
     executor = 'local'
     cpus = 1
