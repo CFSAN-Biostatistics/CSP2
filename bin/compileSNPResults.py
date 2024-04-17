@@ -100,9 +100,10 @@ def getWarnings(df):
 # Read in arguments
 start_time = time.time()
 snp_dirs = [line.strip() for line in open(sys.argv[1], 'r')]
-raw_snp_distance_files = list(chain.from_iterable([glob.glob(snp_dir + '/*snp_distance_pairwise.tsv') for snp_dir in snp_dirs]))
-screening_files = list(chain.from_iterable([glob.glob(snp_dir + '/*Reference_Screening.tsv') for snp_dir in snp_dirs]))
+raw_snp_distance_files = list(chain.from_iterable([glob.glob(snp_dir + '/snp_distance_pairwise.tsv') for snp_dir in snp_dirs]))
+screening_files = list(chain.from_iterable([glob.glob(snp_dir + '/Reference_Screening.tsv') for snp_dir in snp_dirs]))
 
+# Set paths
 output_directory = sys.argv[2]
 log_file = f"{output_directory}/Compilation.log"
 mean_isolate_file = f"{output_directory}/Mean_Assembly_Stats.tsv"
@@ -134,7 +135,7 @@ raw_snp_distance_df = pd.concat([pd.read_csv(file, sep='\t').assign(Reference_ID
 raw_snp_distance_df['Comparison'] = raw_snp_distance_df.apply(lambda row: ';'.join(sorted([str(row['Query_1']), str(row['Query_2'])])), axis=1)
 
 # Check for preserved data
-preserved_snp_distance_files = list(chain.from_iterable([glob.glob(snp_dir + '/*snp_distance_pairwise_preserved.tsv') for snp_dir in snp_dirs]))
+preserved_snp_distance_files = list(chain.from_iterable([glob.glob(snp_dir + '/snp_distance_pairwise_preserved.tsv') for snp_dir in snp_dirs]))
 if len(preserved_snp_distance_files) == 0:
     has_preserved = False
 else:
@@ -243,7 +244,7 @@ raw_cocalled_df = raw_snp_distance_df[['Comparison','Query_1','Query_2','Referen
 isolate_cocalled_df = pd.DataFrame(columns = ['Isolate_ID','Count','Min','Mean','Max','StdDev'])
 
 for isolate in snp_isolates:
-    temp_cocalled = raw_cocalled_df[(raw_cocalled_df['Query_1'] == isolate) | (raw_cocalled_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison']).assign(Isolate_ID = isolate)
+    temp_cocalled = raw_cocalled_df[(raw_cocalled_df['Query_1'] == isolate) | (raw_cocalled_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison','Reference_ID']).assign(Isolate_ID = isolate)
     temp_cocalled = temp_cocalled.groupby(['Isolate_ID'])['SNPs_Cocalled'].agg(Count = "count", Min = "min", Value = "mean", Max = "max",StdDev = 'std').reset_index()
     isolate_cocalled_df = pd.concat([isolate_cocalled_df,temp_cocalled])
 
@@ -261,7 +262,7 @@ if has_preserved:
     isolate_preserved_cocalled_df = pd.DataFrame(columns = ['Isolate_ID','Count','Min','Mean','Max','StdDev'])
 
     for isolate in snp_isolates:
-        temp_cocalled = preserved_cocalled_df[(preserved_cocalled_df['Query_1'] == isolate) | (preserved_cocalled_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison']).assign(Isolate_ID = isolate)
+        temp_cocalled = preserved_cocalled_df[(preserved_cocalled_df['Query_1'] == isolate) | (preserved_cocalled_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison','Reference_ID']).assign(Isolate_ID = isolate)
         temp_cocalled = temp_cocalled.groupby(['Isolate_ID'])['SNPs_Cocalled'].agg(Count = "count", Min = "min", Value = "mean", Max = "max",StdDev = 'std').reset_index()
         isolate_preserved_cocalled_df = pd.concat([isolate_preserved_cocalled_df,temp_cocalled])
 
@@ -283,11 +284,11 @@ if has_preserved:
     preserved_snp_df = preserved_snp_distance_df[['Comparison','Query_1','Query_2','Reference_ID','SNP_Distance']].rename(columns = {'SNP_Distance':'Preserved_SNP_Distance'})
     snp_df = pd.merge(raw_snp_df,preserved_snp_df,how="left",on=['Comparison','Query_1','Query_2','Reference_ID'])
     snp_df['Preserved_Diff'] = abs(snp_df['Preserved_SNP_Distance'] - snp_df['Raw_SNP_Distance'])
-    
+        
     isolate_snp_df = pd.DataFrame(columns = ['Isolate_ID','Count','Min','Value','Max','StdDev'])
 
     for isolate in snp_isolates:
-        temp_snp = snp_df[(snp_df['Query_1'] == isolate) | (snp_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison']).assign(Isolate_ID = isolate)
+        temp_snp = snp_df[(snp_df['Query_1'] == isolate) | (snp_df['Query_2'] == isolate)].drop_duplicates(subset=['Comparison','Reference_ID']).assign(Isolate_ID = isolate)
         temp_snp = temp_snp.groupby(['Isolate_ID'])['Preserved_Diff'].agg(Count = "count", Min = "min", Value = "mean", Max = "max",StdDev = 'std').reset_index()
         isolate_snp_df = pd.concat([isolate_snp_df,temp_snp])
 
