@@ -312,7 +312,7 @@ def compare_kmers(query_file,reference_file):
                 intersection,similarity]
 
 #### 01: Read in arguments ####
-
+run_failed = False
 query = str(sys.argv[1])
 query_fasta = str(sys.argv[2])
 reference = str(sys.argv[3])
@@ -328,6 +328,7 @@ if sys.argv[7] != "":
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)
     except OSError as e:
+        run_failed = True
         print(f"Error: Failed to create directory '{temp_dir}': {e}")
 else:
     temp_dir = ""
@@ -471,8 +472,11 @@ try:
     print(",".join([query,reference,snpdiffs_file]))
 
 except:
+    run_failed = True
     print("Exception occurred:\n", traceback.format_exc())
 finally:
     helpers.cleanup(verbose=False, remove_all=False)
     if temp_dir != "":
         shutil.rmtree(temp_dir)
+    if run_failed:
+        sys.exit(1)

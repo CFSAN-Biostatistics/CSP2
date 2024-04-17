@@ -421,6 +421,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 
     # Ensure snpdiffs file exists
     if not os.path.exists(snpdiffs_file) or not snpdiffs_file.endswith('.snpdiffs'):
+        run_failed = True
         sys.exit(f"Invalid snpdiffs file provided: {snpdiffs_file}")
         
     # Ensure header can be read in
@@ -428,7 +429,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         header_data = fetchHeaders(snpdiffs_file)
         header_query = header_data['Query_ID'][0].replace(trim_name,'')
         header_ref = header_data['Reference_ID'][0].replace(trim_name,'')
-    except:       
+    except:
+        run_failed = True       
         sys.exit(f"Error reading headers from snpdiffs file: {snpdiffs_file}")
         
     # Check snpdiffs orientation
@@ -526,6 +528,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         except:
             with open(log_file,"a+") as log:
                 log.write(f"Error reading BED/SNP data from file: {snpdiffs_file}")
+            run_failed = True
             sys.exit(f"Error reading BED/SNP data from file: {snpdiffs_file}")
             
         ##### 03: Filter genome overlaps #####
@@ -627,11 +630,15 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
             mummer_gsnps,mummer_gindels]]
 
 # Read in arguments
+global run_failed
+run_failed = False
+
 # Read in all lines and ensure each file exists
 snpdiffs_list = [line.strip() for line in open(sys.argv[1], 'r')]
 snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
+        run_failed = True
         sys.exit("Error: File does not exist: " + snpdiffs_file)        
 
 snpdiffs_list = list(set(snpdiffs_list))
@@ -673,6 +680,7 @@ if sys.argv[13] != "":
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)
     except OSError as e:
+        run_failed = True
         print(f"Error: Failed to create directory '{temp_dir}': {e}")
 else:
     temp_dir = ""
@@ -696,11 +704,15 @@ try:
     results_df = pd.DataFrame([item.result() for item in results], columns = output_columns)
     results_df.to_csv(output_file, sep="\t", index=False)
 except:
+    run_failed = True
     print("Exception occurred:\n", traceback.format_exc())
 finally:
     helpers.cleanup(verbose=False, remove_all=False)
     if temp_dir != "":
         shutil.rmtree(temp_dir)
+    if run_failed:
+        sys.exit(1)
+
 
 
 
