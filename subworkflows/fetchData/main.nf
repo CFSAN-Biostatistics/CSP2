@@ -31,9 +31,8 @@ workflow fetchData{
     snpdiff_data
 
     main:
-
     // Get any excluded IDs
-    ("${params.exclude}" != "" ? processExclude() : Channel.empty()).set{exclude_ids}    
+    ("${params.exclude}" != "" ? processExclude() : Channel.empty()).set{exclude_ids} 
     
     // Process snpdiffs alignments
     // If assembly file cannot be found, it will be 'null'
@@ -41,8 +40,7 @@ workflow fetchData{
 
     excluded_snpdiffs = user_snpdiffs.map{it -> tuple(it[1],it[0])}
     .concat(user_snpdiffs.map{it -> tuple(it[10],it[0])})
-    .join(exclude_ids,by:0,remainder:true)
-    .filter{it -> it[2].toString() == "Exclude"}
+    .join(exclude_ids,by:0)
     .unique{it -> it[1]}
     .map{it -> tuple(it[1],"Exclude")}
 
@@ -50,6 +48,7 @@ workflow fetchData{
     snpdiff_data = user_snpdiffs
     .map{it -> tuple(it[0],it[1],it[10])}
     .join(excluded_snpdiffs,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
     .filter{it -> it[3].toString() != "Exclude"}
     .unique{it -> it[0]}
     .map{it -> tuple(it[1],it[2],it[0])}
@@ -58,8 +57,9 @@ workflow fetchData{
     // Get assembly data from snpdiffs
     snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[1],it[2])}
     .concat(user_snpdiffs.map{it-> tuple(it[10],it[11])})
-    .join(excluded_snpdiffs,by:0,remainder:true)
-    .filter(it -> it[2].toString() != "Exclude")
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
+    .filter{it -> it[2].toString() != "Exclude"} 
     .map{it -> tuple(it[0],it[1],'SNPDiff')}
     .collect().flatten().collate(3)
 
@@ -78,6 +78,7 @@ workflow fetchData{
     .concat(ref_fasta)
     .unique{it -> it[0]}
     .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
     .filter{it -> it[2].toString() != "Exclude"}
     .map{it->tuple(it[0],it[1])}
     .collect().flatten().collate(2)
@@ -91,6 +92,7 @@ workflow fetchData{
     .concat(ref_reads)
     .unique{it->it[0]}
     .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
     .filter{it -> it[3].toString() != "Exclude"}
     .map{it->tuple(it[0],it[1],it[2])}            
     .collect().flatten().collate(3)
@@ -121,6 +123,7 @@ workflow fetchData{
         .concat(assembled_reads)
         .unique{it -> it[0]}
         .join(exclude_ids,by:0,remainder:true)
+        .filter{it -> it[0].toString() != "null"}
         .filter{it -> it[2].toString() != "Exclude"}
         .map{it->tuple(it[0],it[1],'User')}
         .collect().flatten().collate(3)
@@ -168,6 +171,7 @@ workflow fetchData{
             .unique{it-> it[0]}.collect().flatten().collate(1)
             .map{it -> tuple(it[0],"Reference")}
             .join(exclude_ids,by:0,remainder:true)
+            .filter{it -> it[0].toString() != "null"}
             .filter{it -> it[2].toString() != "Exclude"}
             .map{it -> tuple(it[0],it[1])}
 
@@ -193,7 +197,6 @@ workflow fetchData{
             } else if(params.runmode == "snp"){
                 query_data = all_samples
                 .unique{it -> it[0]}
-
                 .collect().flatten().collate(2)
             }
         }
@@ -435,12 +438,11 @@ workflow processExclude{
     main:
     def trim_this = "${params.trim_name}"
 
-    exclude_ids = params.exclude
+    exclude_ids = Channel.from(params.exclude
     .tokenize(',')
-    .unique()
-    .collect { it ->
-        "${it}".replaceAll(trim_this, "")}
+    .collect { it -> "${it}".replaceAll(trim_this, "")})
     .map{it -> tuple(it.toString(),"Exclude")}
+    .unique{it -> it[0]}
 }
 
 process saveRefIDs{
