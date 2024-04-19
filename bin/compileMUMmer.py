@@ -466,8 +466,11 @@ try:
         file.write("\n".join(snpdiffs_header) + "\n")
         for index, row in coords_file.iterrows():
             file.write("##\t" + "\t".join(map(str, row))+"\n")
-        for index, row in processed_snps.iterrows():
-            file.write("\t".join(map(str, row))+"\n")
+        if isinstance(processed_snps, tuple):
+            pass
+        else:
+            for index, row in processed_snps.iterrows():
+                file.write("\t".join(map(str, row))+"\n")
 
     print(",".join([query,reference,snpdiffs_file]))
 
