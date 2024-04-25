@@ -166,155 +166,89 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
 
     if temp_dir != "":
         helpers.set_tempdir(temp_dir)
-        
+    
+    # Grab raw data    
     total_snp_count = raw_snp_df.shape[0]
     orig_cols = raw_snp_df.columns
     
-    # Create BED files for query and reference
-    query_df = bed_df[['Query_Contig','Query_Start','Query_End','Ref_Aligned','Perc_Iden']].copy()
-    ref_df = bed_df[['Ref_Contig','Ref_Start','Ref_End','Ref_Aligned','Perc_Iden']].copy()
-    
-    query_df = query_df[(query_df['Ref_Aligned'] >= min_len) & (query_df['Perc_Iden'] >= min_iden)].copy()
-    ref_df = ref_df[(ref_df['Ref_Aligned'] >= min_len) & (ref_df['Perc_Iden'] >= min_iden)].copy()
-
+    # Get unique SNPs relative to the reference genome
     unique_ref_snps = raw_snp_df['Ref_Loc'].unique()
-    unique_query_snps = raw_snp_df['Query_Loc'].unique()
-    
-    ref_snp_bed_df = pd.DataFrame([item.split('/') for item in unique_ref_snps], columns=['Ref_Contig','Ref_End'])
-    ref_snp_bed_df['Ref_Start'] = ref_snp_bed_df['Ref_End'].astype(float).astype(int) - 1
-    ref_snp_bed = BedTool.from_dataframe(ref_snp_bed_df[['Ref_Contig','Ref_Start','Ref_End']]).sort()
-    
-    query_snp_bed_df = pd.DataFrame([item.split('/') for item in unique_query_snps], columns=['Query_Contig','Query_End'])
-    query_snp_bed_df['Query_Start'] = query_snp_bed_df['Query_End'].astype(float).astype(int) - 1
-    query_snp_bed = BedTool.from_dataframe(query_snp_bed_df[['Query_Contig','Query_Start','Query_End']]).sort()
-    
-    # Get the coverage counts for each SNP
-    intersected_query = query_snp_bed.intersect(BedTool.from_dataframe(query_df[['Query_Contig','Query_Start','Query_End']]), c=True)
-    intersected_ref = ref_snp_bed.intersect(BedTool.from_dataframe(ref_df[['Ref_Contig','Ref_Start','Ref_End']]), c=True)
-    
-    query_snp_dict = {f"{interval.chrom}/{interval.end}": int(interval[-1]) for interval in intersected_query}
-    ref_snp_dict = {f"{interval.chrom}/{interval.end}": int(interval[-1]) for interval in intersected_ref}
+    unique_snp_count = len(unique_ref_snps)
     
     with open(log_file,"a+") as log:
-        log.write(f"\n\t- Raw SNP + Indel Count: {total_snp_count}\n")
-        log.write("\n\t- Filtering SNPs and Indels that fall on short/poor alignments...\n")
+        log.write(f"\n\t- Raw SNP + indel count: {total_snp_count}\n")
+        log.write(f"\n\t- Unique SNP positions in reference genome: {unique_snp_count}\n")
     
     # Set all sites to SNP
     raw_snp_df['Filter_Cat'] = "SNP"
     
     # Filter out SNPs based on --min_len and --min_iden
-    reject_length = raw_snp_df[(raw_snp_df['Ref_Aligned'] < min_len) & (raw_snp_df['Perc_Iden'] >= min_iden)].copy()
-    reject_iden = raw_snp_df[(raw_snp_df['Ref_Aligned'] >= min_len) & (raw_snp_df['Perc_Iden'] < min_iden)].copy()
-    reject_lenIden = raw_snp_df[(raw_snp_df['Ref_Aligned'] < min_len) & (raw_snp_df['Perc_Iden'] < min_iden)].copy()
+    reject_length = raw_snp_df.loc[(raw_snp_df['Ref_Aligned'] < min_len) & (raw_snp_df['Perc_Iden'] >= min_iden)].copy()
+    reject_iden = raw_snp_df.loc[(raw_snp_df['Ref_Aligned'] >= min_len) & (raw_snp_df['Perc_Iden'] < min_iden)].copy()
+    reject_lenIden = raw_snp_df.loc[(raw_snp_df['Ref_Aligned'] < min_len) & (raw_snp_df['Perc_Iden'] < min_iden)].copy()
     
     if reject_length.shape[0] > 0:
         reject_length['Filter_Cat'] = "Purged_Length"
     with open(log_file,"a+") as log:
         log.write(f"\t\t- Purged (Alignment Length): {reject_length.shape[0]}\n")
 
-            
     if reject_iden.shape[0] > 0:
         reject_iden['Filter_Cat'] = "Purged_Identity"
     with open(log_file,"a+") as log:
         log.write(f"\t\t- Purged (Alignment Identity): {reject_iden.shape[0]}\n")
-
 
     if reject_lenIden.shape[0] > 0:
         reject_lenIden['Filter_Cat'] = "Purged_LengthIdentity"
     with open(log_file,"a+") as log:
         log.write(f"\t\t- Purged (Alignment Length + Identity): {reject_lenIden.shape[0]}\n")
 
-    pass_filter = raw_snp_df[(raw_snp_df['Ref_Aligned'] >= min_len) & (raw_snp_df['Perc_Iden'] >= min_iden)].copy().reset_index(drop=True)
+    pass_filter = raw_snp_df.loc[(raw_snp_df['Ref_Aligned'] >= min_len) & (raw_snp_df['Perc_Iden'] >= min_iden)].copy().reset_index(drop=True)
     reject_filter = pd.concat([reject_length,reject_iden,reject_lenIden]).reset_index(drop=True)
     
-    # Reduce any multibase indels to a single positions
-    multisnp_reject_df = reject_filter.groupby('Ref_Loc').filter(lambda x: len(x['Ref_Base'].tolist()) > 1 & all(x['Ref_Base'] == '.')).drop_duplicates(subset=['Ref_Loc'], keep='first')
-    reject_filter = pd.concat([reject_filter.loc[~reject_filter['Ref_Loc'].isin(multisnp_reject_df['Ref_Loc'].tolist())],multisnp_reject_df]).reset_index(drop=True)
-
-    # Find rows in pass_filter where either Ref_Loc or Query_Loc occur more than once
-    with open(log_file,"a+") as log:
-        log.write("\n\t- Filtering SNPs and Indels to remove duplicate mappings or heterozygotes...\n")
+    # Invalid processing
+    reject_invalid = pass_filter[pass_filter['Cat'] == "Invalid"].copy()
+    if reject_invalid.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Invalid Base): {reject_invalid.shape[0]}\n")
+        reject_invalid['Filter_Cat'] = "Purged_Invalid"
+        reject_filter = pd.concat([reject_filter,reject_invalid]).reset_index(drop=True)
+        pass_filter = pass_filter.loc[pass_filter['Cat'] != "Invalid"].copy()
     
-    ref_loc_counts = pass_filter['Ref_Loc'].value_counts().reset_index().rename(columns={'Ref_Loc':'SNP_Count','index':'Ref_Loc',})
-    query_loc_counts = pass_filter['Query_Loc'].value_counts().reset_index().rename(columns={'Query_Loc':'SNP_Count','index':'Query_Loc'})
-
-    solo_ref_locs = ref_loc_counts[ref_loc_counts['SNP_Count'] == 1]['Ref_Loc']
-    dup_ref_locs = ref_loc_counts[ref_loc_counts['SNP_Count'] > 1]['Ref_Loc']
-
-    solo_query_locs = query_loc_counts[query_loc_counts['SNP_Count'] == 1]['Query_Loc']
-    dup_query_locs = query_loc_counts[query_loc_counts['SNP_Count'] > 1]['Query_Loc']
-
-    check_dup_df = pass_filter[(~pass_filter['Ref_Loc'].isin(solo_ref_locs)) | (~pass_filter['Query_Loc'].isin(solo_query_locs))].copy()
-    pass_filter = pass_filter[(pass_filter['Ref_Loc'].isin(solo_ref_locs)) & (pass_filter['Query_Loc'].isin(solo_query_locs))].copy()
+    # Indel processing
+    reject_indel = pass_filter[pass_filter['Cat'] == "Indel"].copy()
+    if reject_indel.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Indel): {reject_indel.shape[0]}\n")
+        reject_indel['Filter_Cat'] = "Purged_Indel"
+        reject_filter = pd.concat([reject_filter,reject_indel]).reset_index(drop=True)
+        pass_filter = pass_filter.loc[pass_filter['Cat'] != "Indel"].copy()
     
-    # For any locs that have more than one SNP, keep the SNP with the highest Ref_Aligned and Perc_Iden
-    if len(dup_ref_locs) > 0:
-        for ref_loc in dup_ref_locs:
-            ref_loc_overlaps = ref_snp_dict[ref_loc]
-            ref_loc_df = check_dup_df[check_dup_df['Ref_Loc'] == ref_loc].copy()
-            
-            if (ref_loc_df['Ref_Base'] == ".").all():
-                if ref_loc_overlaps > 1:
-                    ref_loc_df['Filter_Cat'] = "Purged_Heterozygous_Ref"
-                    reject_filter = pd.concat([reject_filter,ref_loc_df]).reset_index(drop=True)
-                else:
-                    ref_loc_df['Filter_Cat'] = "Purged_Multibase_Indel"
-                    reject_filter = pd.concat([reject_filter,ref_loc_df]).reset_index(drop=True)
-            elif ref_loc_df.shape[0] != ref_loc_overlaps:
-                ref_loc_df['Filter_Cat'] = "Purged_Heterozygous_Ref"
-                reject_filter = pd.concat([reject_filter,ref_loc_df]).reset_index(drop=True)
-            elif ref_loc_df['Query_Base'].nunique() > 1:
-                ref_loc_df['Filter_Cat'] = "Purged_Heterozygous"
-                reject_filter = pd.concat([reject_filter,ref_loc_df]).reset_index(drop=True)
-            else:
-                best_snp = ref_loc_df.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=[False, False]).head(1)
-                pass_filter = pd.concat([pass_filter,best_snp]).reset_index(drop=True)
+    # Check for heterozygous SNPs
+    check_heterozygous = pass_filter.groupby('Ref_Loc').filter(lambda x: x['Query_Base'].nunique() > 1)
+    if check_heterozygous.shape[0] > 0:
+        reject_heterozygous = pass_filter.loc[pass_filter['Ref_Loc'].isin(check_heterozygous['Ref_Loc'])].copy()
+        reject_heterozygous['Filter_Cat'] = "Purged_Heterozygous"
+        reject_filter = pd.concat([reject_filter,reject_heterozygous]).reset_index(drop=True)
+        pass_filter = pass_filter.loc[~pass_filter['Ref_Loc'].isin(check_heterozygous['Ref_Loc'])].copy()
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Heterozygotes): {reject_heterozygous.shape[0]}\n")    
+    
+    # Check for duplicate SNPs and take the longest, best hit
+    check_duplicates = pass_filter.groupby('Ref_Loc').filter(lambda x: x.shape[0] > 1)
+    if check_duplicates.shape[0] > 0:
+        best_snp = check_duplicates.groupby('Ref_Loc').apply(lambda x: x.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=[False, False]).head(1))
+        pass_filter = pd.concat([pass_filter,best_snp]).reset_index(drop=True)
                 
-                # Add remaining rows to reject_filter with the Filter_Cat of "Purged_Duplicate"
-                dup_snps = ref_loc_df[~ref_loc_df.apply(lambda x: x in best_snp, axis=1)]
-                dup_snps['Filter_Cat'] = "Purged_Duplicate"
-                reject_filter = pd.concat([reject_filter,dup_snps]).reset_index(drop=True)
+        # Add remaining rows to reject_filter with the Filter_Cat of "Purged_Duplicate"
+        dup_snps = check_duplicates[~check_duplicates.apply(lambda x: x in best_snp, axis=1)]
+        dup_snps['Filter_Cat'] = "Purged_Duplicate"
+        reject_filter = pd.concat([reject_filter,dup_snps]).reset_index(drop=True)
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Duplicates): {dup_snps.shape[0]}\n")    
     
-    if len(dup_query_locs) > 0:
-        for query_loc in dup_query_locs:
-            query_loc_overlaps = query_snp_dict[query_loc]
-            query_loc_df = check_dup_df[check_dup_df['Query_Loc'] == query_loc].copy()
-            
-            # If query_loc_df['Ref_Base'] contains more than one value, or there are more overlaps than SNPs, all are heterozygotes
-            if (query_loc_df['Query_Base'] == ".").all():
-                if query_loc_overlaps > 1:
-                    query_loc_df['Filter_Cat'] = "Purged_Heterozygous_Ref"
-                    reject_filter = pd.concat([reject_filter,query_loc_df]).reset_index(drop=True)
-                else:
-                    query_loc_df['Filter_Cat'] = "Purged_Multibase_Indel"
-                    reject_filter = pd.concat([reject_filter,query_loc_df]).reset_index(drop=True)
-            elif query_loc_df.shape[0] != query_loc_overlaps:
-                query_loc_df['Filter_Cat'] = "Purged_Heterozygous_Ref"
-                reject_filter = pd.concat([reject_filter,query_loc_df])
-            elif query_loc_df['Ref_Base'].nunique() > 1:
-                query_loc_df['Filter_Cat'] = "Purged_Heterozygous"
-                reject_filter = pd.concat([reject_filter,query_loc_df])
-            else:                
-                best_snp = query_loc_df.sort_values(by=['Ref_Aligned', 'Perc_Iden'], ascending=[False, False]).head(1)
-                pass_filter = pd.concat([pass_filter,best_snp])
-                
-                # Add remaining rows to reject_filter with the Filter_Cat of "Purged_Duplicate"
-                dup_snps = query_loc_df[~query_loc_df.apply(lambda x: x in best_snp, axis=1)]
-                dup_snps['Filter_Cat'] = "Purged_Duplicate"
-                reject_filter = pd.concat([reject_filter,dup_snps])
-
-    purged_mindel_count = reject_filter[reject_filter['Filter_Cat'] == "Purged_Multibase_Indel"].shape[0]
-    purged_dup_count = reject_filter[reject_filter['Filter_Cat'] == "Purged_Duplicate"].shape[0]
-    purged_het_count = reject_filter[reject_filter['Filter_Cat'].isin(["Purged_Heterozygous","Purged_Heterozygous_Ref"])].shape[0]
-
     # Assert that Ref_Loc and Query_Loc are unique in pass_filter
     assert pass_filter['Ref_Loc'].nunique() == pass_filter.shape[0]
     assert pass_filter['Query_Loc'].nunique() == pass_filter.shape[0]
-        
-    with open(log_file,"a+") as log:
-        log.write(f"\t\t- Purged (Duplicate): {purged_dup_count}\n")
-        log.write(f"\t\t- Purged (Heterozygote): {purged_het_count}\n")
-        log.write(f"\t\t- Purged (Multibase Indel): {purged_mindel_count}\n")
     
     # Density filtering
     density_locs = []
@@ -323,85 +257,49 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     if len(density_windows) == 0:
         with open(log_file,"a+") as log:
             log.write("\n\t- Density filtering disabled...\n")
-    else:
-        with open(log_file,"a+") as log:
-            log.write("\n\t- Filtering SNPs based on reference genome density...\n")
-        
-        if len(ref_locs) > 0:
-            density_df = pd.DataFrame([item.split('/') for item in ref_locs], columns=['Ref_Contig','Ref_End'])
-            density_df['Ref_Start'] = density_df['Ref_End'].astype(float).astype(int) - 1
-            density_df['Ref_Loc'] = ref_locs
-            density_bed = BedTool.from_dataframe(density_df[['Ref_Contig','Ref_Start','Ref_End']])
+    elif len(ref_locs) > 0:
+        density_df = pd.DataFrame([item.split('/') for item in ref_locs], columns=['Ref_Contig','Ref_End'])
+        density_df['Ref_Start'] = density_df['Ref_End'].astype(float).astype(int) - 1
+        density_df['Ref_Loc'] = ref_locs
+        density_bed = BedTool.from_dataframe(density_df[['Ref_Contig','Ref_Start','Ref_End']])
 
-            for i in range(0,len(density_windows)):
-                window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
-                window_df = window_bed.to_dataframe()
-                if window_df.shape[0] > 0:
-                    window_df = window_df[window_df['name'] > max_snps[i]]
-                    density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
-                    density_bed = BedTool.from_dataframe(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Start','Ref_End']])
+        for i in range(0,len(density_windows)):
+            window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
+            window_df = window_bed.to_dataframe()
+            if window_df.shape[0] > 0:
+                window_df = window_df[window_df['name'] > max_snps[i]]
+                density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
+                density_bed = BedTool.from_dataframe(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Start','Ref_End']])
 
-    reject_density = pass_filter[pass_filter['Ref_Loc'].isin(density_locs)].copy()
-    pass_filter = pass_filter[~pass_filter['Ref_Loc'].isin(density_locs)].copy()
-    
+    reject_density = pass_filter[pass_filter['Ref_Loc'].isin(density_locs)].copy()    
     if reject_density.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Density): {reject_density.shape[0]}\n")
         reject_density['Filter_Cat'] = "Purged_Density"
         reject_filter = pd.concat([reject_filter,reject_density]).reset_index(drop=True)
-    
-    with open(log_file,"a+") as log:
-        log.write(f"\t\t- Purged (Density): {reject_density.shape[0]}\n")
-    
-    with open(log_file,"a+") as log:
-        log.write("\n\t- Filtering invalid sites...\n")
-    
-    reject_invalid = pass_filter[pass_filter['Cat'] == "Invalid"].copy()
-    
-    if reject_invalid.shape[0] > 0:
-        reject_invalid['Filter_Cat'] = "Purged_Invalid"
-        reject_filter = pd.concat([reject_filter,reject_invalid]).reset_index(drop=True)
-    
-    with open(log_file,"a+") as log:
-        log.write(f"\t\t- Purged (Invalid): {reject_invalid.shape[0]}\n")
-    
-    pass_filter = pass_filter[pass_filter['Cat'] != "Invalid"].copy()
-    
-    with open(log_file,"a+") as log:
-        log.write("\n\t- Filtering indel sites...\n")
-    
-    reject_indel = pass_filter[(pass_filter['Cat'] == "Indel")].copy()
-    
-    if reject_indel.shape[0] > 0:
-        reject_indel['Filter_Cat'] = "Purged_SNP_Indel"
-        reject_filter = pd.concat([reject_filter,reject_indel]).reset_index(drop=True)
-                                                              
-    with open(log_file,"a+") as log:
-        log.write(f"\t\t- Purged (SNP Indel): {reject_indel.shape[0]}\n")
-    
-    pass_filter = pass_filter[pass_filter['Cat'] != "Indel"].copy()
-            
-    with open(log_file,"a+") as log:
-        log.write("\n\t- Filtering for SNPs near query and reference edges...\n")
-    
+        pass_filter = pass_filter[~pass_filter['Ref_Loc'].isin(density_locs)].copy()
+
     reject_query_edge = pass_filter[(pass_filter['Dist_to_Query_End'] < query_edge) & (pass_filter['Dist_to_Ref_End'] >= ref_edge)].copy()
     reject_ref_edge = pass_filter[(pass_filter['Dist_to_Ref_End'] < ref_edge) & (pass_filter['Dist_to_Query_End'] >= query_edge)].copy()
     reject_both_edge = pass_filter[(pass_filter['Dist_to_Query_End'] < query_edge) & (pass_filter['Dist_to_Ref_End'] < ref_edge)].copy()
     
     if reject_query_edge.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Query Edge): {reject_query_edge.shape[0]}\n")
         reject_query_edge['Filter_Cat'] = "Filtered_Query_Edge"
         reject_filter = pd.concat([reject_filter,reject_query_edge]).reset_index(drop=True)
     
     if reject_ref_edge.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Ref Edge): {reject_ref_edge.shape[0]}\n")
         reject_ref_edge['Filter_Cat'] = "Filtered_Ref_Edge"
         reject_filter = pd.concat([reject_filter,reject_ref_edge]).reset_index(drop=True)
-        
+    
     if reject_both_edge.shape[0] > 0:
+        with open(log_file,"a+") as log:
+            log.write(f"\t\t- Purged (Both Edge): {reject_both_edge.shape[0]}\n")
         reject_both_edge['Filter_Cat'] = "Filtered_Both_Edge"
         reject_filter = pd.concat([reject_filter,reject_both_edge]).reset_index(drop=True)
-        
-    with open(log_file,"a+") as log:
-        log.write(f"\t\t- Purged (Ref Edge): {reject_ref_edge.shape[0]}\n")
-        log.write(f"\t\t- Purged (Query Edge): {reject_query_edge.shape[0]}\n")
-        log.write(f"\t\t- Purged (Both Edge): {reject_both_edge.shape[0]}\n")
         
     pass_filter = pass_filter[(pass_filter['Dist_to_Query_End'] >= query_edge) & (pass_filter['Dist_to_Ref_End'] >= ref_edge)].copy()
     
@@ -578,16 +476,15 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 
                 else:
                     filtered_snp_df = filterSNPs(snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_edge, density_windows, max_snps)
+                    
                     csp2_screen_snps = filtered_snp_df[filtered_snp_df.Cat == "SNP"].shape[0]
                     purged_length = filtered_snp_df[filtered_snp_df.Cat == "Purged_Length"].shape[0]
                     purged_identity = filtered_snp_df[filtered_snp_df.Cat == "Purged_Identity"].shape[0]
                     purged_lengthIdentity = filtered_snp_df[filtered_snp_df.Cat == "Purged_LengthIdentity"].shape[0]
-                    
-                    purged_duplicate = filtered_snp_df[filtered_snp_df.Cat == "Purged_Duplicate"].shape[0]
-                    purged_het = filtered_snp_df[filtered_snp_df['Cat'].isin(["Purged_Heterozygous", "Purged_Heterozygous_Ref"])].shape[0]                    
                     purged_invalid = filtered_snp_df[filtered_snp_df.Cat == "Purged_Invalid"].shape[0]
-                    purged_indel = filtered_snp_df[filtered_snp_df['Cat'].isin(["Purged_SNP_Indel", "Purged_Multibase_Indel"])].shape[0]                    
-
+                    purged_indel = filtered_snp_df[filtered_snp_df.Cat == "Purged_Indel"].shape[0]
+                    purged_het = filtered_snp_df[filtered_snp_df.Cat == "Purged_Heterozygous"].shape[0]                    
+                    purged_duplicate = filtered_snp_df[filtered_snp_df.Cat == "Purged_Duplicate"].shape[0]
                     purged_density = filtered_snp_df[filtered_snp_df.Cat == "Purged_Density"].shape[0]
                     filtered_query_edge = filtered_snp_df[filtered_snp_df.Cat == "Filtered_Query_Edge"].shape[0]
                     filtered_ref_edge = filtered_snp_df[filtered_snp_df.Cat == "Filtered_Ref_Edge"].shape[0]
@@ -1133,6 +1030,3 @@ finally:
         shutil.rmtree(temp_dir)
     if run_failed:
         sys.exit(1)
-
-
-
