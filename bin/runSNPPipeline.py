@@ -586,7 +586,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
                     purged_duplicate = filtered_snp_df[filtered_snp_df.Cat == "Purged_Duplicate"].shape[0]
                     purged_het = filtered_snp_df[filtered_snp_df['Cat'].isin(["Purged_Heterozygous", "Purged_Heterozygous_Ref"])].shape[0]                    
                     purged_invalid = filtered_snp_df[filtered_snp_df.Cat == "Purged_Invalid"].shape[0]
-                    purged_indel = filtered_snp_df[filtered_snp_df['Cat'].isin(["SNP_Indel", "Multibase_Indel"])].shape[0]                    
+                    purged_indel = filtered_snp_df[filtered_snp_df['Cat'].isin(["Purged_SNP_Indel", "Purged_Multibase_Indel"])].shape[0]                    
 
                     purged_density = filtered_snp_df[filtered_snp_df.Cat == "Purged_Density"].shape[0]
                     filtered_query_edge = filtered_snp_df[filtered_snp_df.Cat == "Filtered_Query_Edge"].shape[0]
