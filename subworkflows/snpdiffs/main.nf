@@ -79,7 +79,7 @@ workflow runSNPPipeline{
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | runSnpPipeline
 
-    snp_dirs.collect() | compileResults
+    //snp_dirs.collect() | compileResults
 }
 
 process compileResults{
