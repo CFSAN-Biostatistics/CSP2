@@ -586,9 +586,7 @@ def getPairwise(pair, type = "Raw"):
 
 def getFinalPurge(df):
     # Returns the 'farthest along' category for a given Ref_Loc
-    if "Filtered_Query_Edge" in df['Cat'].values:
-        return "Purged_Edge"
-    elif "Purged_Density" in df['Cat'].values:
+    if "Purged_Density" in df['Cat'].values:
         return "Purged_Density"
     elif "Purged_Heterozygous" in df['Cat'].values:
         return "Purged_Heterozygous"
@@ -867,7 +865,7 @@ try:
         else:
             uncovered_count_df = pd.DataFrame(columns=['Ref_Loc','Uncovered_Count'])
 
-        possible_purged_cols = ['Purged_Length','Purged_Identity','Purged_Invalid','Purged_Indel','Purged_Heterozygous','Purged_Density','Purged_Edge']
+        possible_purged_cols = ['Purged_Length','Purged_Identity','Purged_Invalid','Purged_Indel','Purged_Heterozygous','Purged_Density']
         if purged_snp_df.shape[0] > 0:
             purged_count_df = final_snp_df[final_snp_df['Cat'].isin(possible_purged_cols)].groupby('Ref_Loc')['Query_ID'].count().reset_index().rename(columns={'Query_ID':'Purged_Count'}).copy()
         else:
