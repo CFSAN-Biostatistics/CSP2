@@ -831,6 +831,7 @@ try:
         ref_loc_sets = covered_snps.groupby('Query_ID')['Ref_Loc'].apply(set).to_dict()
         isolates_with_missing = [isolate for isolate in pass_qc_isolates if len(set(snp_list) - ref_loc_sets.get(isolate, set())) > 0]
         
+        uncovered_df = pd.DataFrame()
         if len(isolates_with_missing) > 0:
             isolate_data = [(isolate, list(set(snp_list) - ref_loc_sets.get(isolate, set()))) for isolate in isolates_with_missing]        
             
