@@ -13,6 +13,7 @@ import subprocess
 import uuid
 import traceback
 import shutil
+import time
 
 warnings.filterwarnings("ignore")
 
@@ -293,14 +294,29 @@ def fasta_to_bedtool(fasta_file):
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
-def compare_kmers(query_file,reference_file):
-    ref_kmers = set()
-    ref_process = subprocess.run(["kmercountexact.sh", f"in={reference_file}", "threads=1","fastadump=f", "out=stdout", "|", "cut", "-f1"], capture_output=True, text=True)
-    ref_kmers.update(ref_process.stdout.strip().split('\n'))
+def get_kmers(command, retries=5, delay=2):
+    kmer_set = set()
+    for attempt in range(retries):
+        
+        process = subprocess.run(command, capture_output=True, text=True)
+        kmer_set.update(process.stdout.strip().split('\n'))
+        
+        if len(kmer_set) > 1:
+            return kmer_set
+        else:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise RuntimeError(f"Command failed after {retries} attempts: {command}")
+    return None
 
-    query_kmers = set()
-    query_process = subprocess.run(["kmercountexact.sh", f"in={query_file}", "threads=1","fastadump=f", "out=stdout", "|", "cut", "-f1"], capture_output=True, text=True)
-    query_kmers.update(query_process.stdout.strip().split('\n'))
+def compare_kmers(query_file,reference_file):
+
+    ref_command = ["kmercountexact.sh", f"in={reference_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
+    query_command = ["kmercountexact.sh", f"in={query_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
+
+    ref_kmers = get_kmers(ref_command)
+    query_kmers = get_kmers(query_command)
     
     intersection = len(ref_kmers.intersection(query_kmers))
     similarity = 100*(intersection/(len(ref_kmers) + len(query_kmers) - intersection))
