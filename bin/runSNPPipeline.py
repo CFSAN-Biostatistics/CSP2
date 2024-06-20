@@ -571,18 +571,37 @@ def assessCoverage(query_id,site_list):
             
             return pd.concat([covered_loc_df.drop_duplicates(['Ref_Loc']),uncovered_loc_df])
 
-def getPairwise(pair, type = "Raw"):
+def getPairwise(chunk, sequences, ids):
+    results = []
     
-    if type == "Preserved":
-        seq1 = [record.seq for record in preserved_alignment if record.id == pair[0]][0]
-        seq2 = [record.seq for record in preserved_alignment if record.id == pair[1]][0]
-    else:
-        seq1 = [record.seq for record in alignment if record.id == pair[0]][0]
-        seq2 = [record.seq for record in alignment if record.id == pair[1]][0]
+    for i, j in chunk:
+        seq1, seq2 = sequences[i], sequences[j]
+        actg_mask1 = np.isin(seq1, list('ACTGactg'))
+        actg_mask2 = np.isin(seq2, list('ACTGactg'))
+        cocalled_mask = actg_mask1 & actg_mask2
+        
+        snps_cocalled = np.sum(cocalled_mask)
+        snp_distance = np.sum((seq1 != seq2) & cocalled_mask)
+        
+        results.append([ids[i], ids[j], snp_distance, snps_cocalled])
     
-    snps_cocalled = sum((base1 in 'ACTGactg' and base2 in 'ACTGactg') for base1, base2 in zip(seq1, seq2))
-    snp_distance = sum((base1 in 'ACTGactg' and base2 in 'ACTGactg' and base1 != base2) for base1, base2 in zip(seq1, seq2)) if snps_cocalled > 0 else np.nan
-    return [pair[0],pair[1],snp_distance,snps_cocalled]
+    return results
+
+def parallelAlignment(alignment, chunk_size=5000):
+    sequences = [np.array(list(record.seq)) for record in alignment]
+    ids = [record.id for record in alignment]
+    pairwise_combinations = list(combinations(range(len(sequences)), 2))
+
+    # Create chunks of pairwise combinations
+    chunks = [pairwise_combinations[i:i + chunk_size] for i in range(0, len(pairwise_combinations), chunk_size)]
+
+    results = []
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        future_to_chunk = {executor.submit(getPairwise, chunk, sequences, ids): chunk for chunk in chunks}
+        for future in concurrent.futures.as_completed(future_to_chunk):
+            chunk_results = future.result()
+            results.extend(chunk_results)
+    return results
 
 def getFinalPurge(df):
     # Returns the 'farthest along' category for a given Ref_Loc
@@ -917,7 +936,6 @@ try:
         
         seq_records = [SeqRecord(Seq(''.join(row)), id=query,description='') for query,row in alignment_df.iterrows()]
         
-        global alignment
         alignment = MultipleSeqAlignment(seq_records)
         AlignIO.write(alignment,raw_alignment,"fasta")
 
@@ -926,7 +944,6 @@ try:
             log.write(f"\t- Saved alignment of {snp_count} SNPs to {raw_alignment}\n")
             log.write(f"\t- Saved ordered loc list to {raw_loclist}\n")
         
-        global preserved_alignment
         if max_missing == float(100):
             locs_pass_missing = csp2_ordered
             preserved_alignment = alignment
@@ -971,7 +988,7 @@ try:
 
     # Get pairwise comparisons between all pass_qc_isolates and reference_id
     pairwise_combinations = [sorted(x) for x in list(combinations([reference_id] + pass_qc_isolates, 2))]
-        
+
     if snp_count == 0:
         pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
         preserved_pairwise_df = pairwise_df.copy()
@@ -980,11 +997,7 @@ try:
         preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
         
     else:
-        raw_distance_results = []
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = {executor.submit(getPairwise, pair) for pair in pairwise_combinations}
-            for future in concurrent.futures.as_completed(futures):
-                raw_distance_results.append(future.result())
+        raw_distance_results = parallelAlignment(alignment)
         raw_pairwise_df = pd.DataFrame(raw_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
         raw_pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
 
@@ -995,11 +1008,7 @@ try:
             preserved_pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
             preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
         else:
-            preserved_distance_results = []
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                futures = {executor.submit(getPairwise, pair,"Preserved") for pair in pairwise_combinations}
-                for future in concurrent.futures.as_completed(futures):
-                    preserved_distance_results.append(future.result())
+            preserved_distance_results = parallelAlignment(preserved_alignment)
             preserved_pairwise_df = pd.DataFrame(preserved_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
             preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
     
