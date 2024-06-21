@@ -8,9 +8,16 @@ import hashlib
 def checkLineExists(file_path, sha256):
     if not os.path.exists(file_path):
         return False
-    with open(file_path, 'rb') as file:
-        file_sha256 = hashlib.sha256(file.read()).hexdigest()
-    return file_sha256 == sha256
+    try:
+        with open(file_path, 'rb') as file:
+            file_hash = hashlib.sha256()
+            chunk_size = 8192  # Read in 8KB chunks
+            while chunk := file.read(chunk_size):
+                file_hash.update(chunk)
+        return file_hash.hexdigest() == sha256
+    except Exception as e:
+        print(f"Error reading file: {file_path}: {str(e)}")
+        return False
 
 def processHeader(header_row,snpdiffs_path):
     header_cols = [item.split(':')[0] for item in header_row]
@@ -39,7 +46,7 @@ for snpdiffs_file in snpdiffs_list:
             header_rows.append(processHeader(top_line,snpdiffs_path))
     except:
         sys.exit("Error: Unable to read file: " + snpdiffs_file)
-
+        
 # Create header df
 try:
     all_snpdiffs_data = pd.concat(header_rows,ignore_index=True)
@@ -59,14 +66,18 @@ if ((query_sha_counts > 1).any() or (reference_sha_counts > 1).any()):
 elif (file_counts > 1).any():
     print(all_snpdiffs_data[all_snpdiffs_data['SNPDiffs_File'].isin(file_counts[file_counts > 1].index)])
     sys.exit("The same SNPDiffs file is listed multiple times")
-
 else:
+    results = []
     for index, row in all_snpdiffs_data.iterrows():
+
         query_assembly = os.path.abspath(row['Query_Assembly']) if checkLineExists(row['Query_Assembly'], row['Query_SHA256']) else "null"
         reference_assembly = os.path.abspath(row['Reference_Assembly']) if checkLineExists(row['Reference_Assembly'], row['Reference_SHA256']) else "null"
         
-        print(",".join([row['SNPDiffs_File'],
+        result = ",".join([row['SNPDiffs_File'],
                        row['Query_ID'], query_assembly,str(row['Query_Contig_Count']),str(row['Query_Assembly_Bases']),
                        str(row['Query_N50']),str(row['Query_N90']),str(row['Query_L50']),str(row['Query_L90']),row['Query_SHA256'],
                        row['Reference_ID'],reference_assembly,str(row['Reference_Contig_Count']),str(row['Reference_Assembly_Bases']),
-                       str(row['Reference_N50']),str(row['Reference_N90']),str(row['Reference_L50']),str(row['Reference_L90']),row['Reference_SHA256']]))
+                       str(row['Reference_N50']),str(row['Reference_N90']),str(row['Reference_L50']),str(row['Reference_L90']),row['Reference_SHA256']])
+        results.append(result)
+    for result in results:
+        print(result)
