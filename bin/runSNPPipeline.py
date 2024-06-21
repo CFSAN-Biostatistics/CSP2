@@ -1001,6 +1001,13 @@ try:
         pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
         preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
         
+        # Create matrix
+        idx = sorted(set(pairwise_df['Query_1']).union(pairwise_df['Query_2']))
+        mirrored_distance_df = pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
+        mirrored_distance_df.index.name = ''
+        mirrored_distance_df.to_csv(raw_matrix,sep="\t")
+        mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
+
     else:
         raw_distance_results = parallelAlignment(alignment)
         raw_pairwise_df = pd.DataFrame(raw_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
@@ -1017,16 +1024,16 @@ try:
             preserved_pairwise_df = pd.DataFrame(preserved_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
             preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
     
-    # Create matrix
-    idx = sorted(set(raw_pairwise_df['Query_1']).union(raw_pairwise_df['Query_2']))
-    mirrored_distance_df = raw_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
-    mirrored_distance_df.index.name = ''
-    mirrored_distance_df.to_csv(raw_matrix,sep="\t")
-    
-    idx = sorted(set(preserved_pairwise_df['Query_1']).union(preserved_pairwise_df['Query_2']))
-    mirrored_distance_df = preserved_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
-    mirrored_distance_df.index.name = ''
-    mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
+        # Create matrix
+        idx = sorted(set(raw_pairwise_df['Query_1']).union(raw_pairwise_df['Query_2']))
+        mirrored_distance_df = raw_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
+        mirrored_distance_df.index.name = ''
+        mirrored_distance_df.to_csv(raw_matrix,sep="\t")
+        
+        idx = sorted(set(preserved_pairwise_df['Query_1']).union(preserved_pairwise_df['Query_2']))
+        mirrored_distance_df = preserved_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
+        mirrored_distance_df.index.name = ''
+        mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
 
     # Clean up pybedtools temp
     helpers.cleanup(verbose=False,remove_all = False)
