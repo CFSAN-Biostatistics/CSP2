@@ -267,17 +267,22 @@ def filterSNPs(raw_snp_df,bed_df,log_file, min_len, min_iden, ref_edge, query_ed
     elif len(ref_locs) > 0:
         density_df = pd.DataFrame([item.split('/') for item in ref_locs], columns=['Ref_Contig','Ref_End'])
         density_df['Ref_Start'] = density_df['Ref_End'].astype(float).astype(int) - 1
-        density_df['Ref_Loc'] = ref_locs
         density_bed = BedTool.from_dataframe(density_df[['Ref_Contig','Ref_Start','Ref_End']])
 
+        # For each density window, remove all SNPs that fall in a window with > max_snps
         for i in range(0,len(density_windows)):
-            window_bed = density_bed.window(density_bed,c=True, w=density_windows[i])
-            window_df = window_bed.to_dataframe()
-            if window_df.shape[0] > 0:
-                window_df = window_df[window_df['name'] > max_snps[i]]
-                density_locs = density_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_df.chrom, window_df.end))]
-                density_bed = BedTool.from_dataframe(density_df[~density_df.Ref_Loc.isin(density_locs)][['Ref_Contig','Ref_Start','Ref_End']])
-
+            window_df = density_bed.window(density_bed,c=True, w=density_windows[i]).to_dataframe()
+            problematic_windows = window_df[window_df['name'] > max_snps[i]].copy()
+            if not problematic_windows.empty:
+                temp_locs = []            
+                for _, row in problematic_windows.iterrows():
+                        purge_window_df = window_df[window_df['chrom'] == row['chrom']].copy()
+                        purge_window_df['Dist'] = abs(purge_window_df['end'] - row['end'])
+                        window_snps = purge_window_df.sort_values(by=['Dist'],ascending=True).head(row['name'])
+                        temp_locs = temp_locs + ["/".join([str(x[0]),str(x[1])]) for x in list(zip(window_snps.chrom, window_snps.end))]
+                density_locs.extend(list(set(temp_locs)))
+    
+    density_locs = list(set(density_locs))
     reject_density = pass_filter[pass_filter['Ref_Loc'].isin(density_locs)].copy() 
        
     if reject_density.shape[0] > 0:
