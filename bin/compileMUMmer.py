@@ -186,13 +186,17 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         'Ref_Direction','Query_Direction','Ref_Contig','Query_Contig'])
     
     int_columns = ['Ref_Pos', 'Query_Pos', 'Dist_to_End','Ref_Length', 'Query_Length']
-                
+    contig_columns = ['Ref_Contig','Query_Contig']
+    
     if snp_file.shape[0] == 0:
         return pd.DataFrame(columns=return_columns)
     else:
         for col in int_columns:
             snp_file.loc[:, col] = snp_file.loc[:, col].astype(float).astype(int)
-        
+        for col in contig_columns:
+            snp_file.loc[:, col] = snp_file.loc[:, col].astype(str)
+            coords_file.loc[:, col] = coords_file.loc[:, col].astype(str)
+            
         snp_file['Start_Ref'] = snp_file['Ref_Pos'] - 1
         snp_file['Start_Query'] = snp_file['Query_Pos'] - 1
         
