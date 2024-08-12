@@ -21,12 +21,6 @@ isolate_data_file = file("${output_directory}/Isolate_Data.tsv")
 snpdiffs_summary_file = file("${output_directory}/Raw_MUMmer_Summary.tsv")
 mummerScript = file("$projectDir/bin/compileMUMmer.py")
 
-if(params.load_python_module == "" && params.load_python_module == "" && params.load_bedtools_module == "" && params.load_bbtools_module == ""){
-    params.purge_modules = ""
-} else{
-    params.purge_modules = "module purge"
-}
-
 workflow alignGenomes{
     take:
     to_align
