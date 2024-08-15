@@ -63,7 +63,8 @@ The following software are required to run CSP2. Software version used during CS
   - [RefChooser](https://pypi.org/project/refchooser/)  
     - [MASH](https://github.com/marbl/Mash/releases)  
 - [BEDTools](https://bedtools.readthedocs.io/en/latest/) (2.26.0)  
-- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)  
+- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)
+- [BBTools](https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbmap-guide/) (38.94)  
 - [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
   
 ---
