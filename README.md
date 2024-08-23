@@ -9,7 +9,7 @@
 **US Food and Drug Administration**  
   
 **Current Release**: [v.0.9.0 (Dec-20-2023)](https://github.com/CFSAN-Biostatistics/CSP2/releases/tag/v.0.9.0)  
-**Last Push**: Dec-21-2023  
+**Last Push**: Aug-15-2024
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
@@ -63,7 +63,8 @@ The following software are required to run CSP2. Software version used during CS
   - [RefChooser](https://pypi.org/project/refchooser/)  
     - [MASH](https://github.com/marbl/Mash/releases)  
 - [BEDTools](https://bedtools.readthedocs.io/en/latest/) (2.26.0)  
-- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)  
+- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)
+- [BBTools](https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbmap-guide/) (38.94)  
 - [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
   
 ---
