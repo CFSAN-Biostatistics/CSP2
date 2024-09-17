@@ -197,6 +197,7 @@ include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
 include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
 include {runRefChooser} from "./subworkflows/refchooser/main.nf"
+include {runNewRefChooser} from "./subworkflows/new_refchooser/main.nf"
 
 workflow{
     
