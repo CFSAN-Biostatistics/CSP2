@@ -3,8 +3,12 @@
 // Set directory structure
 output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
+mash_directory = file(params.mash_directory)
 
 assembly_file = file("${log_directory}/Query_Assemblies.txt")
+sketch_file = file("${mash_directory}/Mash_Sketches.txt")
+mash_triangle = file("${mash_directory}/Mash_Triangle")
+
 ref_id_file = file(params.ref_id_file)
 
 ref_script = file("$projectDir/bin/chooseRefs.py")
@@ -18,25 +22,48 @@ workflow runNewRefChooser{
 
     main:
 
-    // Run RefChooser
-    refchooser_results = query_data
+    // Run MASH
+    mash_triangle = query_data
     .unique{it -> it[1]}
-    .collect{it -> it[1]}
-    | refChooser 
-    | splitCsv | collect | flatten | collate(1) 
-    | map{it -> tuple(it[0].toString(),null)}
-   
-    // Set reference_data channel 
-    reference_data = query_data
-    .map{it -> tuple(it[1].toString(),it[0])}
-    .join(refchooser_results, by:0)
-    .map{tuple(it[1],it[0])}
-    .unique{it -> it[0]}.collect().flatten().collate(2)
-
-    // Save reference data to file
-    reference_data
+    | mashSkech    
     .collect{it -> it[0]}
-    | saveRefIDs
+    | saveMashPaths
+    | mashTriangle
+}
+
+process mashTriangle{
+
+    input:
+    val(sketch_file)
+
+    output:
+    stdout
+
+    script:
+    """
+    $params.load_mash_module
+    mash triangle -p ${params.cores} -l $sketch_file > $mash_triangle
+    echo $mash_triangle
+    """
+}
+
+process mashSkech{
+    cpus = 1
+
+    input:
+    tuple val(query_name),val(query_fasta)
+    
+    output:
+    stdout
+
+    script:
+
+    mash_path = "${mash_directory}/${query_name}.msh"
+    """
+    $params.load_mash_module
+    mash sketch -s 10000 -p 1 -o $mash_path $query_fasta
+    echo "${mash_path}"
+    """
 }
 
 process refChooser{
@@ -79,5 +106,20 @@ process saveRefIDs{
     script:
     ref_id_file.append(ref_ids.join('\n') + '\n')        
     """
+    """
+}
+
+process saveMashPaths{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(mash_paths)
+
+    script:
+    sketch_file.append(mash_paths.join('\n') + '\n')        
+    """
+    echo "${sketch_file}"
     """
 }

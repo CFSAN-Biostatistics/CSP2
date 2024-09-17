@@ -145,7 +145,8 @@ if(params.runmode == "assemble"){
     // Set paths for log subdirectories
     screen_log_dir = file("${log_directory}/Screening_Logs")
     snp_log_dir = file("${log_directory}/SNP_Logs")
-    
+    mash_dir = file("${log_directory}/sketch_dir")
+
     // If --reads/--ref_reads are provided, prepare a directory for assemblies
     if((params.reads != "") || (params.ref_reads != "")){
         assembly_directory.mkdirs()
@@ -155,6 +156,9 @@ if(params.runmode == "assemble"){
     if(params.runmode == "snp"){
         snp_directory.mkdirs()
         snp_log_dir.mkdirs()
+        if(!ref_mode){
+            mash_dir.mkdirs()
+        }        
     }
 
     // If runmode is screen, prepare a directory for screening logs
@@ -173,6 +177,7 @@ params.mummer_directory = file(mummer_directory)
 params.snpdiffs_directory = file(snpdiffs_directory)
 params.snp_directory = file(snp_directory)
 params.ref_id_file = file(ref_id_file)
+params.mash_directory = file(mash_dir)
 
 params.ref_mode = ref_mode
 
@@ -182,6 +187,7 @@ params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${pa
 params.load_bedtools_module = params.bedtools_module == "" ? "" : "module load -s ${params.bedtools_module}"
 params.load_bbtools_module = params.bbtools_module == "" ? "" : "module load -s ${params.bbtools_module}"
 params.load_mummer_module = params.mummer_module == "" ? "" : "module load -s ${params.mummer_module}"
+params.load_mash_module = params.mash_module == "" ? "" : "module load -s ${params.mash_module}"
 params.load_refchooser_module = params.refchooser_module == "" ? "" : "module load -s ${params.refchooser_module}"
 params.unload_refchooser_module = params.refchooser_module == "" ? "" : "module unload -s ${params.refchooser_module}"
 
