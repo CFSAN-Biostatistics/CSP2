@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import os
 import pandas as pd
 import sys
 from sklearn.cluster import KMeans
@@ -79,6 +80,8 @@ elif ref_count == inlier_count:
 inlier_isolates = inlier_df['Isolate_ID'].tolist()
 
 distance_matrix = pd.read_csv(sys.argv[3], sep="\t", index_col=0)
+ref_file = os.path.join(os.path.dirname(os.path.abspath(sys.argv[3])), 'CSP2_Ref_Selection.tsv')
+
 pruned_distance_matrix = distance_matrix.loc[inlier_isolates,inlier_isolates]
 
 pruned_mean_data = [(x, pruned_distance_matrix.loc[x][pruned_distance_matrix.columns != x].mean()) for x in inlier_isolates]
@@ -121,5 +124,10 @@ while len(refs_chosen) < ref_count:
     final_ref_df = pd.concat([final_ref_df, possible_refs.nlargest(1, 'Sort_Score').drop(['Sort_Score','Mean_Ref_Distance','Mean_Ref_Distance_Zscore'],axis=1)])
     refs_chosen = final_ref_df['Isolate_ID'].tolist()
     possible_refs = possible_refs.loc[~possible_refs['Isolate_ID'].isin(refs_chosen)].copy()
+
+non_ref_df = cluster_df.loc[~cluster_df['Isolate_ID'].isin(refs_chosen)].sort_values('Base_Score', ascending=False)
+non_ref_df['Is_Ref'] = False
+final_ref_df['Is_Ref'] = True
+final_ref_df.append(non_ref_df).reset_index(drop=True).to_csv(ref_file, index=False,sep="\t")
 
 print(",".join(final_ref_df['Path'].tolist()))

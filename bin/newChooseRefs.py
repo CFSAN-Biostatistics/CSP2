@@ -83,7 +83,8 @@ def fasta_info(file_path):
 
 # Read in args
 ref_count = int(sys.argv[1])
-mash_triangle_file = str(sys.argv[2])
+mash_triangle_file = os.path.abspath((sys.argv[2]))
+ref_file = os.path.join(os.path.dirname(mash_triangle_file), 'CSP2_Ref_Selection.tsv')
 trim_name = str(sys.argv[3])
 
 # Get Sample IDs
@@ -176,5 +177,10 @@ while len(refs_chosen) < ref_count:
     final_ref_df = pd.concat([final_ref_df, possible_refs.nlargest(1, 'Sort_Score').drop(['Sort_Score','Mean_Ref_Distance','Mean_Ref_Distance_Zscore'],axis=1)])
     refs_chosen = final_ref_df['Isolate_ID'].tolist()
     possible_refs = possible_refs.loc[~possible_refs['Isolate_ID'].isin(refs_chosen)].copy()
+
+non_ref_df = cluster_df.loc[~cluster_df['Isolate_ID'].isin(refs_chosen)].sort_values('Base_Score', ascending=False)
+non_ref_df['Is_Ref'] = False
+final_ref_df['Is_Ref'] = True
+final_ref_df.append(non_ref_df).reset_index(drop=True).to_csv(ref_file, index=False,sep="\t")
 
 print(",".join(final_ref_df['Path'].tolist()))
