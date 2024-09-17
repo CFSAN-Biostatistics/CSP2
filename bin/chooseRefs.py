@@ -122,6 +122,4 @@ while len(refs_chosen) < ref_count:
     refs_chosen = final_ref_df['Isolate_ID'].tolist()
     possible_refs = possible_refs.loc[~possible_refs['Isolate_ID'].isin(refs_chosen)].copy()
 
-print(cluster_df.sort_values(by='Base_Score',ascending=False).head(20))
-print(final_ref_df)
 print(",".join(final_ref_df['Path'].tolist()))

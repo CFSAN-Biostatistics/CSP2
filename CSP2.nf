@@ -245,7 +245,7 @@ workflow{
             
             // If running SNP pipeline without references, run RefChooser to choose references
             else if(params.runmode == "snp"){
-                reference_data = runRefChooser(query_data)
+                reference_data = runNewRefChooser(query_data)
                 
                 to_align = query_data
                 .combine(reference_data)
