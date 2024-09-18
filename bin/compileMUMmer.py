@@ -374,7 +374,7 @@ try:
                                                 'Query_N50','Query_N90','Query_L50','Query_L90','Query_SHA256'],query_data)]
     
     with open(log_file, "a") as log:
-        log.write("Fetched Query Data...")
+        log.write("Fetched Query Data...\n")
 
     # Get reference data
     reference_data = [reference] + fasta_info(reference_fasta)
@@ -382,7 +382,7 @@ try:
                                                     'Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256'],reference_data)]
 
     with open(log_file, "a") as log:
-        log.write("Fetched Reference Data...")
+        log.write("Fetched Reference Data...\n")
         
     # Get kmer distance
     [ref_kmers,query_kmers,
@@ -390,14 +390,14 @@ try:
     kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
 
     with open(log_file, "a") as log:
-        log.write("Fetched Kmer Data...")
+        log.write("Fetched Kmer Data...\n")
         
     # Create reference BED file using fasta seq lengths
     query_chr_bed = fasta_to_bedtool(query_fasta)
     reference_chr_bed = fasta_to_bedtool(reference_fasta)
 
     with open(log_file, "a") as log:
-        log.write("Created BED files...")
+        log.write("Created BED files...\n")
         
     # Set report ID
     report_id = query + "__vs__" + reference
@@ -423,14 +423,14 @@ try:
                 ref_tandem,query_tandem] = parseMUmmerReport(mummer_dir,report_id)
 
     with open(log_file, "a") as log:
-        log.write("Parsed MUMmer report...")
+        log.write("Parsed MUMmer report...\n")
         
     if percent_ref_aligned > 0:
         
         #### 03: Process MUMmer coords file ####
         coords_file = parseMUmmerCoords(mummer_dir,report_id,reference_chr_bed,query_chr_bed)
         with open(log_file, "a") as log:
-            log.write("Parsed MUMmer coords...")
+            log.write("Parsed MUMmer coords...\n")
             
         aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
         if aligned_coords.shape[0] > 0:
@@ -443,7 +443,7 @@ try:
             ##### 04: Process MUMmer SNP file ####
             processed_snps = parseMUmmerSNPs(mummer_dir,report_id,aligned_coords)
             with open(log_file, "a") as log:
-                log.write("Parsed MUMmer SNPs...")
+                log.write("Parsed MUMmer SNPs...\n")
             # Check if processed_snps is a df or a tuple
             if isinstance(processed_snps, tuple):
                 total_snp_count,total_indel_count,total_invalid_count = processed_snps
@@ -455,7 +455,7 @@ try:
     # Clean up pybedtools temp
     helpers.cleanup(verbose=False,remove_all = False)
     with open(log_file, "a") as log:
-        log.write("Cleaned up TMP...")
+        log.write("Cleaned up TMP...\n")
 
     # Create header
     percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
@@ -518,7 +518,7 @@ try:
     "gIndels:"+g_indels]))
 
     with open(log_file, "a") as log:
-        log.write("Prepped snpdiffs output...")
+        log.write("Prepped snpdiffs output...\n")
 
     with open(snpdiffs_file,"w") as file:
         file.write("\n".join(snpdiffs_header) + "\n")
@@ -531,7 +531,7 @@ try:
                 file.write("\t".join(map(str, row))+"\n")
     
     with open(log_file, "a") as log:
-        log.write("Saved snpdiffs file...")
+        log.write("Saved snpdiffs file...\n")
 
     print(",".join([query,reference,snpdiffs_file]))
 
