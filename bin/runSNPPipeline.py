@@ -852,27 +852,29 @@ try:
         missing_df = pd.DataFrame(columns=['Ref_Loc','Query_ID','Query_Base','Cat'])
 
         covered_snps = pd.concat([snp_base_df,purged_snp_df]).copy()
-        ref_loc_sets = covered_snps.groupby('Query_ID')['Ref_Loc'].apply(set).to_dict()
+        ref_loc_sets = covered_snps.groupby('Query_ID')['Ref_Loc'].agg(set).to_dict()
         isolates_with_missing = [isolate for isolate in pass_qc_isolates if len(set(snp_list) - ref_loc_sets.get(isolate, set())) > 0]
         
         uncovered_df = pd.DataFrame()
-        if len(isolates_with_missing) > 0:
+        
+        if isolates_with_missing:
             isolate_data = [(isolate, list(set(snp_list) - ref_loc_sets.get(isolate, set()))) for isolate in isolates_with_missing]        
             
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 results = [executor.submit(assessCoverage, query, sites) for query, sites in isolate_data]
+                coverage_dfs = [result.result() for result in concurrent.futures.as_completed(results)]
 
-            coverage_df = pd.concat([item.result() for item in results])
-            covered_df = coverage_df[coverage_df['Cat']=='Ref_Base'].copy()
-            uncovered_df = coverage_df[coverage_df['Cat']=='Uncovered'].copy()
-
-            if uncovered_df.shape[0] > 0:
+            coverage_df = pd.concat(coverage_dfs)
+            covered_df = coverage_df[coverage_df['Cat'] == 'Ref_Base']
+            uncovered_df = coverage_df[coverage_df['Cat'] == 'Uncovered']
+            
+            if not uncovered_df.empty:
                 uncovered_df.loc[:, 'Query_Base'] = "?"
-                missing_df = pd.concat([missing_df,uncovered_df[['Ref_Loc','Query_ID','Query_Base','Cat']]])
-          
-            if covered_df.shape[0] > 0:
-                ref_base_snp_df = covered_df.merge(ref_base_df[['Ref_Loc','Query_Base']], on='Ref_Loc', how='left')
-                missing_df = pd.concat([missing_df,ref_base_snp_df[['Ref_Loc','Query_ID','Query_Base','Cat']]])
+                missing_df = pd.concat([missing_df, uncovered_df[['Ref_Loc', 'Query_ID', 'Query_Base', 'Cat']]])
+    
+            if not covered_df.empty:
+                ref_base_snp_df = covered_df.merge(ref_base_df[['Ref_Loc', 'Query_Base']], on='Ref_Loc', how='left')
+                missing_df = pd.concat([missing_df, ref_base_snp_df[['Ref_Loc', 'Query_ID', 'Query_Base', 'Cat']]])        
         
         final_snp_df = pd.concat([snp_base_df,purged_snp_df,missing_df,ref_base_df]).sort_values(by=['Ref_Loc','Query_ID']).reset_index(drop=True)
         snp_counts = final_snp_df.groupby('Query_ID')['Ref_Loc'].count().reset_index().rename(columns={'Ref_Loc':'SNP_Count'})
