@@ -298,7 +298,7 @@ def fasta_to_bedtool(fasta_file):
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
-def get_kmers(command, retries=10, delay=5, timeout=30):
+def get_kmers(command, log_file, retries=10, delay=5, timeout=30):
     kmer_set = set()
 
     for attempt in range(retries):
@@ -310,9 +310,13 @@ def get_kmers(command, retries=10, delay=5, timeout=30):
                 return kmer_set
 
         except subprocess.TimeoutExpired:
+            with open(log_file, "a") as log:
+                log.write(f"Kmer command timed out after {timeout} seconds\n")
             time.sleep(delay)
 
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            with open(log_file, "a") as log:
+                log.write(f"Kmer command errored out: {e}\n")
             time.sleep(delay)
 
         # Wait before retrying if this is not the last attempt
@@ -323,13 +327,13 @@ def get_kmers(command, retries=10, delay=5, timeout=30):
     
     return None
 
-def compare_kmers(query_file,reference_file):
+def compare_kmers(query_file,reference_file,log_file):
 
     ref_command = ["kmercountexact.sh", f"in={reference_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
     query_command = ["kmercountexact.sh", f"in={query_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
 
-    ref_kmers = get_kmers(ref_command)
-    query_kmers = get_kmers(query_command)
+    ref_kmers = get_kmers(ref_command,log_file)
+    query_kmers = get_kmers(query_command,log_file)
     
     intersection = len(ref_kmers.intersection(query_kmers))
     similarity = 100*(intersection/(len(ref_kmers) + len(query_kmers) - intersection))
@@ -396,7 +400,7 @@ try:
     # Get kmer distance
     [ref_kmers,query_kmers,
     unique_ref_kmers,unique_query_kmers,
-    kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
+    kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta,log_file)
 
     with open(log_file, "a") as log:
         log.write("Fetched Kmer Data...\n")
