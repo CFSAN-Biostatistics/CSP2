@@ -3,6 +3,7 @@
 // Set path variables
 output_directory = file(params.output_directory)
 mummer_directory = file(params.mummer_directory)
+mummer_log_directory = file(params.mummer_log_directory)
 snpdiffs_directory = file(params.snpdiffs_directory)
 log_directory = file(params.log_directory)
 
@@ -68,6 +69,7 @@ process runMUMmer{
     script:
 
     report_id = "${query_name}__vs__${ref_name}"
+    mummer_log = file("${mummer_log_directory}/${report_id}.log")
 
     // Ensure MUmmer directories exist
     if(!mummer_directory.isDirectory()){
@@ -92,7 +94,7 @@ process runMUMmer{
         rm -rf ${mummer_directory}/${report_id}.unref
         rm -rf ${mummer_directory}/${report_id}.unqry
 
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}"
+        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}" "${mummer_log}"
         """
     }
 }

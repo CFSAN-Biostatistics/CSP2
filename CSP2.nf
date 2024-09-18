@@ -132,11 +132,13 @@ if(params.runmode == "assemble"){
     // Set directories
     log_directory = file("${output_directory}/logs")
     assembly_directory = file("${output_directory}/Assemblies")
+    mummer_log_directory = file("${log_directory}/MUMmer_Logs")
     ref_id_file = file("${log_directory}/Reference_IDs.txt")
 
     // Create directories
     log_directory.mkdirs()
     mummer_directory.mkdirs()
+    mummer_log_directory.mkdirs()
     snpdiffs_directory.mkdirs()
 
     // Touch Reference_IDs.txt to establish it
@@ -174,6 +176,7 @@ params.screen_log_dir = file(screen_log_dir)
 params.snp_log_dir = file(snp_log_dir)
 params.assembly_directory = file(assembly_directory)
 params.mummer_directory = file(mummer_directory)
+params.mummer_log_directory = file(mummer_log_directory)
 params.snpdiffs_directory = file(snpdiffs_directory)
 params.snp_directory = file(snp_directory)
 params.ref_id_file = file(ref_id_file)

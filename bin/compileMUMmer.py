@@ -339,6 +339,14 @@ reference = str(sys.argv[3])
 reference_fasta = str(sys.argv[4])
 mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
 snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
+log_file = os.path.normpath(os.path.abspath(sys.argv[8]))
+
+with open(log_file, "w") as log:
+    log.write(f"CSP2 MUMmer Compilation Log: {query}__vs__{reference}\n")
+    log.write(f"\t- Query Fasta: {query_fasta}\n")
+    log.write(f"\t- Reference Fasta: {reference_fasta}\n")
+    log.write(f"\t - MUMmer Directory: {mummer_dir}\n")
+    log.write(f"\t - snpdiffs Directory: {snpdiffs_dir}\n")
 
 global temp_dir
 if sys.argv[7] != "":
@@ -347,32 +355,50 @@ if sys.argv[7] != "":
     try:
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)
+        with open(log_file, "a") as log:
+            log.write(f"\t - Temporary Directory: {temp_dir}\n")
+
     except OSError as e:
         run_failed = True
         print(f"Error: Failed to create directory '{temp_dir}': {e}")
 else:
     temp_dir = ""
+    
+with open(log_file, "a") as log:
+    log.write("-------------------------------------------------------\n\n")
 
 try:
     # Get query data
     query_data = [query] + fasta_info(query_fasta)
     query_string = [x+":"+str(y) for x,y in zip(['Query_ID','Query_Assembly','Query_Contig_Count','Query_Assembly_Bases',
                                                 'Query_N50','Query_N90','Query_L50','Query_L90','Query_SHA256'],query_data)]
+    
+    with open(log_file, "a") as log:
+        log.write("Fetched Query Data...")
 
     # Get reference data
     reference_data = [reference] + fasta_info(reference_fasta)
     reference_string = [x+":"+str(y) for x,y in zip(['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases',
                                                     'Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256'],reference_data)]
 
+    with open(log_file, "a") as log:
+        log.write("Fetched Reference Data...")
+        
     # Get kmer distance
     [ref_kmers,query_kmers,
     unique_ref_kmers,unique_query_kmers,
     kmer_intersection,kmer_similarity] = compare_kmers(query_fasta,reference_fasta)
 
+    with open(log_file, "a") as log:
+        log.write("Fetched Kmer Data...")
+        
     # Create reference BED file using fasta seq lengths
     query_chr_bed = fasta_to_bedtool(query_fasta)
     reference_chr_bed = fasta_to_bedtool(reference_fasta)
 
+    with open(log_file, "a") as log:
+        log.write("Created BED files...")
+        
     # Set report ID
     report_id = query + "__vs__" + reference
     snpdiffs_file = snpdiffs_dir + "/" + report_id + ".snpdiffs"
@@ -396,10 +422,16 @@ try:
                 ref_insertions,query_insertions,
                 ref_tandem,query_tandem] = parseMUmmerReport(mummer_dir,report_id)
 
+    with open(log_file, "a") as log:
+        log.write("Parsed MUMmer report...")
+        
     if percent_ref_aligned > 0:
         
         #### 03: Process MUMmer coords file ####
         coords_file = parseMUmmerCoords(mummer_dir,report_id,reference_chr_bed,query_chr_bed)
+        with open(log_file, "a") as log:
+            log.write("Parsed MUMmer coords...")
+            
         aligned_coords = coords_file[~((coords_file['Query_Contig'] == ".") | (coords_file['Ref_Contig'] == "."))]
         if aligned_coords.shape[0] > 0:
             aligned_coords['Perc_Iden'] = aligned_coords['Perc_Iden'].astype(float)
@@ -410,7 +442,8 @@ try:
 
             ##### 04: Process MUMmer SNP file ####
             processed_snps = parseMUmmerSNPs(mummer_dir,report_id,aligned_coords)
-            
+            with open(log_file, "a") as log:
+                log.write("Parsed MUMmer SNPs...")
             # Check if processed_snps is a df or a tuple
             if isinstance(processed_snps, tuple):
                 total_snp_count,total_indel_count,total_invalid_count = processed_snps
@@ -421,6 +454,8 @@ try:
             
     # Clean up pybedtools temp
     helpers.cleanup(verbose=False,remove_all = False)
+    with open(log_file, "a") as log:
+        log.write("Cleaned up TMP...")
 
     # Create header
     percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
@@ -482,6 +517,9 @@ try:
     "gSNPs:"+g_snps,
     "gIndels:"+g_indels]))
 
+    with open(log_file, "a") as log:
+        log.write("Prepped snpdiffs output...")
+
     with open(snpdiffs_file,"w") as file:
         file.write("\n".join(snpdiffs_header) + "\n")
         for index, row in coords_file.iterrows():
@@ -491,6 +529,9 @@ try:
         else:
             for index, row in processed_snps.iterrows():
                 file.write("\t".join(map(str, row))+"\n")
+    
+    with open(log_file, "a") as log:
+        log.write("Saved snpdiffs file...")
 
     print(",".join([query,reference,snpdiffs_file]))
 
