@@ -298,11 +298,11 @@ def fasta_to_bedtool(fasta_file):
 def calculate_total_length(bedtool):
     return sum(len(interval) for interval in bedtool)
 
-def get_kmers(command, retries=5, delay=2):
+def get_kmers(command, retries=10, delay=5):
     kmer_set = set()
     for attempt in range(retries):
         
-        process = subprocess.run(command, capture_output=True, text=True)
+        process = subprocess.run(command, capture_output=True, text=True,timeout=60)
         kmer_set.update(process.stdout.strip().split('\n'))
         
         if len(kmer_set) > 1:
@@ -313,7 +313,7 @@ def get_kmers(command, retries=5, delay=2):
             else:
                 raise RuntimeError(f"Command failed after {retries} attempts: {command}")
     return None
-
+            
 def compare_kmers(query_file,reference_file):
 
     ref_command = ["kmercountexact.sh", f"in={reference_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
