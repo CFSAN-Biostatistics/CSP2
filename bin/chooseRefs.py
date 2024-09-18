@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import scipy.stats
 from itertools import combinations
-
+from Bio import SeqIO
 
 def getOptimalK(data, ref_count):
     
@@ -56,55 +56,108 @@ def getOptimalK(data, ref_count):
 
     return optimal_k
 
+def fasta_info(file_path):
+    records = list(SeqIO.parse(file_path, 'fasta'))
+    contig_count = int(len(records))
+    lengths = sorted([len(record) for record in records], reverse=True)
+    assembly_bases = sum(lengths)
+
+    cumulative_length = 0
+    n50 = None
+    n90 = None
+    l50 = None
+    l90 = None
+    
+    for i, length in enumerate(lengths, start=1):
+        cumulative_length += length
+        if cumulative_length >= assembly_bases * 0.5 and n50 is None:
+            n50 = length
+            l50 = i
+        if cumulative_length >= assembly_bases * 0.9 and n90 is None:
+            n90 = length
+            l90 = i
+        if n50 is not None and n90 is not None:
+            break
+
+    return [file_path,contig_count,assembly_bases,n50,n90,l50,l90]
+
+# Read in args
 ref_count = int(sys.argv[1])
-mean_distance_df = pd.read_csv(sys.argv[2], sep="\t").rename(columns = {'Assembly':'Isolate_ID'})
-isolate_count = mean_distance_df.shape[0]
+mash_triangle_file = os.path.abspath((sys.argv[2]))
+ref_file = os.path.join(os.path.dirname(mash_triangle_file), 'CSP2_Ref_Selection.tsv')
+trim_name = str(sys.argv[3])
 
-mean_distance_df['Assembly_Bases_Zscore'] =  mean_distance_df['Length'].transform(scipy.stats.zscore).astype('float').round(3)
-mean_distance_df['Contig_Count_Zscore'] =  mean_distance_df['Contigs'].transform(scipy.stats.zscore).astype('float').round(3)
-mean_distance_df['N50_Zscore'] =  mean_distance_df['N50'].transform(scipy.stats.zscore).astype('float').round(3)
+# Get Sample IDs
+sample_df = pd.read_csv(mash_triangle_file, sep='\t', usecols=[0], skip_blank_lines=True).dropna()
+sample_df = sample_df[sample_df[sample_df.columns[0]].str.strip() != '']
+sample_df.columns = ['Path']
+sample_df['Isolate_ID'] = [os.path.splitext(os.path.basename(file))[0].replace(trim_name, '') for file in sample_df[sample_df.columns[0]].tolist()]
+assembly_names = [os.path.splitext(os.path.basename(file))[0].replace(trim_name, '') for file in sample_df[sample_df.columns[0]].tolist()]
+num_isolates = sample_df.shape[0]
 
-inlier_df = mean_distance_df.loc[(mean_distance_df['N50_Zscore'] > -3) & 
-                        (mean_distance_df['Assembly_Bases_Zscore'] < 3) & 
-                        (mean_distance_df['Assembly_Bases_Zscore'] > -3) & 
-                        (mean_distance_df['Contig_Count_Zscore'] < 3)]
+# Get FASTA metrics
+metrics_df = pd.DataFrame(sample_df['Path'].apply(fasta_info).tolist(), columns=['Path', 'Contigs', 'Length', 'N50','N90','L50','L90'])
+metrics_df['Assembly_Bases_Zscore'] =  metrics_df['Length'].transform(scipy.stats.zscore).astype('float').round(3)
+metrics_df['Contig_Count_Zscore'] =  metrics_df['Contigs'].transform(scipy.stats.zscore).astype('float').round(3)
+metrics_df['N50_Zscore'] =  metrics_df['N50'].transform(scipy.stats.zscore).astype('float').round(3)
+
+# Find outliers
+inlier_df = metrics_df.loc[(metrics_df['N50_Zscore'] > -3) & 
+                        (metrics_df['Assembly_Bases_Zscore'] < 3) & 
+                        (metrics_df['Assembly_Bases_Zscore'] > -3) & 
+                        (metrics_df['Contig_Count_Zscore'] < 3)]
 
 inlier_count = inlier_df.shape[0]
+inlier_isolates = [os.path.splitext(os.path.basename(file))[0].replace(trim_name, '') for file in inlier_df[inlier_df.columns[0]].tolist()]
 
+# If not enough or just enough inliers, script is done
 if ref_count > inlier_count:
     sys.exit("Error: Fewer inliers than requested references?")
 elif ref_count == inlier_count:
     print(",".join(inlier_df['Path'].tolist()))
     sys.exit(0)
+    
+# Left join metrics_df and inlier_df
+sample_df = inlier_df.merge(sample_df, on = "Path", how='left')[['Isolate_ID','Path','Contigs','Length','N50','N90','L50','L90','N50_Zscore']]
 
-inlier_isolates = inlier_df['Isolate_ID'].tolist()
+# Create distance matrix
+with open(mash_triangle_file) as mash_triangle:
+    a = np.zeros((num_isolates, num_isolates))
+    mash_triangle.readline()
+    mash_triangle.readline()
+    idx = 1
+    for line in mash_triangle:
+        tokens = line.split()
+        distances = [float(token) for token in tokens[1:]]
+        a[idx, 0: len(distances)] = distances
+        a[0: len(distances), idx] = distances
+        idx += 1
 
-distance_matrix = pd.read_csv(sys.argv[3], sep="\t", index_col=0)
-ref_file = os.path.join(os.path.dirname(os.path.abspath(sys.argv[3])), 'CSP2_Ref_Selection.tsv')
+dist_df = pd.DataFrame(a, index=assembly_names, columns=assembly_names).loc[inlier_isolates,inlier_isolates]
 
-pruned_distance_matrix = distance_matrix.loc[inlier_isolates,inlier_isolates]
+# Get mean distances after masking diagonal
+mask = ~np.eye(dist_df.shape[0], dtype=bool)
+mean_distances = dist_df.where(mask).mean().reset_index()
+mean_distances.columns = ['Isolate_ID', 'Mean_Distance']
 
-pruned_mean_data = [(x, pruned_distance_matrix.loc[x][pruned_distance_matrix.columns != x].mean()) for x in inlier_isolates]
-pruned_mean_df = pd.DataFrame(pruned_mean_data, columns=['Isolate_ID','Pruned_Mean_Distance'])
-
-inlier_df = inlier_df.merge(pruned_mean_df, on='Isolate_ID')
-inlier_df['Mean_Distance_Zscore'] = inlier_df['Pruned_Mean_Distance'].transform(scipy.stats.zscore).astype('float').round(3)
-inlier_df['Base_Score'] = inlier_df['N50_Zscore'] - inlier_df['Mean_Distance_Zscore']
+sample_df = sample_df.merge(mean_distances, on='Isolate_ID', how='left')
+sample_df['Mean_Distance_Zscore'] = sample_df['Mean_Distance'].transform(scipy.stats.zscore).astype('float').round(3)
+sample_df['Base_Score'] = sample_df['N50_Zscore'] - sample_df['Mean_Distance_Zscore']
 
 if ref_count == 1:
-    print(",".join(inlier_df.nlargest(1, 'Base_Score')['Path'].tolist()))
+    print(",".join(sample_df.nlargest(1, 'Base_Score')['Path'].tolist()))
     sys.exit(0)
 
-optimal_k = getOptimalK(pruned_distance_matrix, ref_count)
+optimal_k = getOptimalK(dist_df, ref_count)
 
 if optimal_k == 1:
-    print(",".join(inlier_df.nlargest(ref_count, 'Base_Score')['Path'].tolist()))
+    print(",".join(sample_df.nlargest(ref_count, 'Base_Score')['Path'].tolist()))
     sys.exit(0)
 
-kmeans = KMeans(n_clusters=optimal_k, random_state=0,n_init='auto').fit(pruned_distance_matrix)
+kmeans = KMeans(n_clusters=optimal_k, random_state=0,n_init='auto').fit(dist_df)
 clusters = kmeans.labels_
 
-cluster_df = pd.DataFrame({'Isolate_ID': pruned_distance_matrix.index, 'Cluster': clusters}).merge(inlier_df, on='Isolate_ID',how='left')
+cluster_df = pd.DataFrame({'Isolate_ID': dist_df.index, 'Cluster': clusters}).merge(sample_df, on='Isolate_ID',how='left')
 
 cluster_size_df = cluster_df['Cluster'].value_counts().reset_index().rename(columns={'index':'Cluster','Cluster':'count'})
 cluster_size_df['Prop'] = cluster_size_df['count']/cluster_size_df['count'].sum()
@@ -117,7 +170,7 @@ refs_chosen = final_ref_df['Isolate_ID'].tolist()
 possible_refs = cluster_df.loc[~cluster_df['Isolate_ID'].isin(refs_chosen)].copy()
 
 while len(refs_chosen) < ref_count:
-    possible_refs['Mean_Ref_Distance'] = possible_refs['Isolate_ID'].apply(lambda isolate_id: np.mean(pruned_distance_matrix.loc[isolate_id, refs_chosen].values))
+    possible_refs['Mean_Ref_Distance'] = possible_refs['Isolate_ID'].apply(lambda isolate_id: np.mean(dist_df.loc[isolate_id, refs_chosen].values))
     possible_refs['Mean_Ref_Distance_Zscore'] = possible_refs['Mean_Ref_Distance'].transform(scipy.stats.zscore).astype('float').round(3)      
     possible_refs['Sort_Score'] = possible_refs.apply(lambda row: (row['Base_Score'] + row['Mean_Ref_Distance_Zscore']) if row['Mean_Ref_Distance_Zscore'] <= 0 else (row['Base_Score'] + (row['Mean_Ref_Distance_Zscore']*row['Prop'])), axis=1)
     

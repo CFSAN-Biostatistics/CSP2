@@ -3,11 +3,7 @@
 // Set directory structure
 output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
-
-assembly_file = file("${log_directory}/Query_Assemblies.txt")
-ref_id_file = file(params.ref_id_file)
-
-ref_script = file("$projectDir/bin/chooseRefs.py")
+mash_directory = file(params.mash_directory)
 
 workflow runRefChooser{
     take:
@@ -18,18 +14,19 @@ workflow runRefChooser{
 
     main:
 
-    // Run RefChooser
-    refchooser_results = query_data
+    // Make MASH sketches (1 CPU per query) and generate triangle (all CPUs)
+    mash_refs = query_data
     .unique{it -> it[1]}
-    .collect{it -> it[1]}
-    | refChooser 
+    .map { [ it[0], it[1] ] }
+    | mashSkech 
+    | collect
+    | mashTriangle
+    | chooseRefs
     | splitCsv | collect | flatten | collate(1) 
-    | map{it -> tuple(it[0].toString(),null)}
-   
-    // Set reference_data channel 
+
     reference_data = query_data
     .map{it -> tuple(it[1].toString(),it[0])}
-    .join(refchooser_results, by:0)
+    .join(mash_refs, by:0)
     .map{tuple(it[1],it[0])}
     .unique{it -> it[0]}.collect().flatten().collate(2)
 
@@ -39,14 +36,14 @@ workflow runRefChooser{
     | saveRefIDs
 }
 
-process refChooser{
+process chooseRefs{
     
     executor = 'local'
     cpus = 1
     maxForks = 1
 
     input:
-    val(assembly_paths)
+    val(mash_triangle)
 
     output:
     stdout
@@ -54,17 +51,52 @@ process refChooser{
     script:
 
     ref_count = params.n_ref.toInteger()
-    assembly_file.write(assembly_paths.join('\n') + '\n')
+    ref_script = file("${projectDir}/bin/chooseRefs.py")
     """
-    $params.load_refchooser_module
-    cd $log_directory
+    $params.load_python_module  
+    cd $mash_directory
+
+    python $ref_script $ref_count $mash_triangle "${params.trim_name}"
+    """
+}
+
+process mashTriangle{
+
+    input:
+    val(mash_sketches)
+
+    output:
+    stdout
+
+    script:
+
+    sketch_file = file("${mash_directory}/Mash_Sketches.txt")
+    mash_triangle_file = file("${mash_directory}/Mash_Triangle")
+
+    """
+    $params.load_mash_module
+    ls ${mash_directory}/*.msh > $sketch_file
+    mash triangle -p ${params.cores} -l $sketch_file > $mash_triangle_file
+    echo -n $mash_triangle_file
+    """
+}
+
+process mashSkech{
+    cpus = 1
+
+    input:
+    tuple val(query_name),val(query_fasta)
     
-    refchooser metrics --sort Score $assembly_file ${log_directory}/sketch_dir > ${log_directory}/refchooser_results.txt
-    refchooser matrix $assembly_file ${log_directory}/sketch_dir ${log_directory}/refchooser_matrix.txt
-    
-    $params.unload_refchooser_module
-    $params.load_python_module
-    python $ref_script $ref_count refchooser_results.txt refchooser_matrix.txt
+    output:
+    stdout
+
+    script:
+
+    mash_path = "${mash_directory}/${query_name}.msh"
+    """
+    $params.load_mash_module
+    mash sketch -s 10000 -p 1 -o $mash_path $query_fasta
+    echo -n "${mash_path}"
     """
 }
 
@@ -77,6 +109,7 @@ process saveRefIDs{
     val(ref_ids)
 
     script:
+    ref_id_file = file(params.ref_id_file)
     ref_id_file.append(ref_ids.join('\n') + '\n')        
     """
     """
