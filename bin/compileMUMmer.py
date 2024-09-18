@@ -333,7 +333,12 @@ def compare_kmers(query_file,reference_file,log_file):
     query_command = ["kmercountexact.sh", f"in={query_file}", "threads=1", "fastadump=f", "out=stdout", "|", "cut", "-f1"]
 
     ref_kmers = get_kmers(ref_command,log_file)
+    with open(log_file, "a") as log:
+        log.write(f"Fetched reference kmers...\n")
+    
     query_kmers = get_kmers(query_command,log_file)
+    with open(log_file, "a") as log:
+        log.write(f"Fetched query kmers...\n")
     
     intersection = len(ref_kmers.intersection(query_kmers))
     similarity = 100*(intersection/(len(ref_kmers) + len(query_kmers) - intersection))
