@@ -119,6 +119,8 @@ if(params.runmode == "assemble"){
     screen_log_dir = file("${log_directory}/Screening_Logs")
     snp_log_dir = file("${log_directory}/SNP_Logs")
     ref_id_file = file("${log_directory}/Reference_IDs.txt")
+    mummer_log_directory = file("${log_directory}/MUMmer_Logs")
+    mash_dir = file("${log_directory}/sketch_dir")
 
 } else{
 
