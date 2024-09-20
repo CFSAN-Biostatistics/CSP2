@@ -817,7 +817,12 @@ try:
             # Add rescued SNPs to snp_df
             rescued_edge_df.loc[:,'Cat'] = "Rescued_SNP"    
             snp_df = pd.concat([snp_df,rescued_edge_df]).reset_index(drop=True)
-                    
+            with open(log_file,"a+") as log:
+                log.write(f"\t- Rescued {rescued_edge_df.shape[0]} query SNPs that fell within {query_edge}bp of the query contig edge...\n")
+        else:
+            with open(log_file,"a+") as log:
+                log.write(f"\t- No query SNPs that fell within {query_edge}bp of the query contig edge were rescued...\n")
+                             
         # Gather base data for all valid SNPs
         snp_base_df = snp_df[['Ref_Loc','Query_ID','Query_Base','Cat']].copy()
         
@@ -876,6 +881,9 @@ try:
                 ref_base_snp_df = covered_df.merge(ref_base_df[['Ref_Loc', 'Query_Base']], on='Ref_Loc', how='left')
                 missing_df = pd.concat([missing_df, ref_base_snp_df[['Ref_Loc', 'Query_ID', 'Query_Base', 'Cat']]])        
         
+        with open(log_file,"a+") as log:
+            log.write("\t- Processed coverage information...\n")
+
         final_snp_df = pd.concat([snp_base_df,purged_snp_df,missing_df,ref_base_df]).sort_values(by=['Ref_Loc','Query_ID']).reset_index(drop=True)
         snp_counts = final_snp_df.groupby('Query_ID')['Ref_Loc'].count().reset_index().rename(columns={'Ref_Loc':'SNP_Count'})
 
