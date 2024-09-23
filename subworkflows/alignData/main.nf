@@ -76,7 +76,6 @@ process runMUMmer{
         error "$mummer_directory does not exist..."
     } else{
         """
-        $params.purge_modules
         $params.load_mummer_module
         $params.load_python_module
         $params.load_bedtools_module
