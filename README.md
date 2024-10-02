@@ -119,7 +119,7 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 
 | Parameter        | Description                                                                                                | Default Value                             |
 |------------------|------------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| --outroot        | Base directory to create output folder                                                       				| $CWD 								        |
+| --outroot        | Base directory to create output folder                                                       				      | $CWD 								                      |
 | --out            | Name of the output folder to create (must not exist)                                                       | CSP2_${new java.util.Date().getTime()}    |
 | --forward        | Full file extension for forward/left reads of query                                                        | _1.fastq.gz                               |
 | --reverse        | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                               |
@@ -137,18 +137,18 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 | --n_ref          | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                         |
 
 **Options without defaults include**:  
-| Parameter              | Description                                                                                                          |
-|------------------------|----------------------------------------------------------------------------------------------------------------------|
-| --reads                | Location of query read data (Path to directory, or path to file with multiple directories)                           |
-| --fasta                | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)        |
-| --ref_reads            | Location of reference read data (Path to directory, or path to file with multiple directories)                       |
-| --ref_fasta            | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)    |
-| --python_module        | Name of Python module if 'module load PYTHON' statement is required.                                                 |
-| --mummer_module        | Name of MUmmer module if 'module load MUMMER' statement is required.                                                 |
-| --skesa_module         | Name of SKESA module if 'module load SKESA' statement is required.                                                   |
-| --refchooser_module    | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                         |
-| --bedtools_module      | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                             |
-| --trim_name            | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                       |
+| Parameter              | Description                                                                                                                        |
+|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| --reads                | Location of query read data (Path to directory, or path to file with multiple directories)                                         |
+| --fasta                | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, file with list of multiple FASTA paths)       |
+| --ref_reads            | Location of reference read data (Path to directory, or path to file with multiple directories)                                     |
+| --ref_fasta            | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)                  |
+| --python_module        | Name of Python module if 'module load PYTHON' statement is required.                                                               |
+| --mummer_module        | Name of MUmmer module if 'module load MUMMER' statement is required.                                                               |
+| --skesa_module         | Name of SKESA module if 'module load SKESA' statement is required.                                                                 |
+| --refchooser_module    | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                                       |
+| --bedtools_module      | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                                           |
+| --trim_name            | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                                     |
 
 ---
 
@@ -345,8 +345,9 @@ nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta asset
 nextflow run CSP2.nf              // Run CSP2  
 --out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
 --runmode snp                     // Compare all queries to each other
---fasta assets/SNP                // Gather query assemblies from this directory
+--fasta assets/SNP                // Gather query assemblies from this directory (you can also point to a text file containing multiple FASTA paths)
 ```
+
 ### Output
 
 If all went well, you should see something like this:
