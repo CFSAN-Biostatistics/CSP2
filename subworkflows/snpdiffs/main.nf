@@ -14,6 +14,9 @@ ref_id_file = file(params.ref_id_file)
 
 ref_mode = params.ref_mode
 
+// Assess whether to rescue edge-filtered SNPs
+edge_rescue = "${params.rescue}" == "norescue" ? "norescue" : "rescue"
+
 // Set paths for output files 
 all_snpdiffs_list = file("${log_directory}/All_SNPDiffs.txt")
 snp_dirs_list = file("${log_directory}/SNP_Dirs.txt")
@@ -123,7 +126,7 @@ process runSnpPipeline{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}" "${temp_dir}"
+    python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}" "${temp_dir}" "${edge_rescue}"
     echo -n $snp_dir
     """
 }

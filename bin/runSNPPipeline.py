@@ -700,6 +700,21 @@ if sys.argv[14] != "":
 else:
     temp_dir = ""
 
+rescue_edge = str(sys.argv[15])
+if rescue_edge not in ["rescue","norescue"]:
+    with open(log_file,"a+") as log:
+        log.write(f"\t- Unexpected rescue_edge variable ('{rescue_edge}'). Not performing SNP edge rescuing (any SNPs found within {query_edge}bp of a query contig edge will be purged)...\n")
+        log.write("-------------------------------------------------------\n\n")
+    rescue_edge = "norescue"
+elif rescue_edge == "rescue":
+    with open(log_file,"a+") as log:
+        log.write(f"\t- Rescuing edge SNPs within {query_edge}bp of query contig edges if found more centrally in another query...\n")
+        log.write("-------------------------------------------------------\n\n")
+else:
+    with open(log_file,"a+") as log:
+        log.write(f"\t- Not performing SNP edge rescuing (any SNPs found within {query_edge}bp of a query contig edge will be purged)...\n")
+        log.write("-------------------------------------------------------\n\n")
+
 try:
     # Establish output files
     reference_screening_file = f"{output_directory}/Reference_Screening.tsv"
@@ -807,8 +822,12 @@ try:
         
         # Rescue SNPs that are near the edge if they are valid SNPs in other samples
         rescued_edge_df = pass_filter_snps[(pass_filter_snps['Cat'] == "Filtered_Query_Edge") & (pass_filter_snps['Ref_Loc'].isin(snp_list))].copy()
-
-        if rescued_edge_df.shape[0] > 0:
+        
+        if rescue_edge == "norescue":
+            with open(log_file,"a+") as log:
+                log.write("\t- Skipping edge resucing...\n")
+        
+        elif rescued_edge_df.shape[0] > 0:
             
             # Remove rescued sites from pass_filter_snps
             rescue_merge = pass_filter_snps.merge(rescued_edge_df, indicator=True, how='outer')
@@ -819,6 +838,7 @@ try:
             snp_df = pd.concat([snp_df,rescued_edge_df]).reset_index(drop=True)
             with open(log_file,"a+") as log:
                 log.write(f"\t- Rescued {rescued_edge_df.shape[0]} query SNPs that fell within {query_edge}bp of the query contig edge...\n")
+        
         else:
             with open(log_file,"a+") as log:
                 log.write(f"\t- No query SNPs that fell within {query_edge}bp of the query contig edge were rescued...\n")
@@ -973,7 +993,7 @@ try:
                 log.write(f"\t- Saved duplicate ordered loc list to {preserved_loclist}\n")
         else:
             with open(log_file,"a+") as log:
-                log.write(f"Preserving SNPs with at most {max_missing}% missing data...\n")
+                log.write(f"\t- Preserving SNPs with at most {max_missing}% missing data...\n")
             
             # Parse missing data
             locs_pass_missing = list(set(locus_coverage_df[locus_coverage_df['Missing_Ratio'] <= max_missing]['Ref_Loc']))
