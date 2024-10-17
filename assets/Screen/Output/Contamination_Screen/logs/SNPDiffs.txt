@@ -1,2 +1,0 @@
-Test_Output/Contamination_Screen/snpdiffs/Week_42_Reads__vs__Lab_Control.snpdiffs
-Test_Output/Contamination_Screen/snpdiffs/Week_42_Assembly__vs__Lab_Control.snpdiffs

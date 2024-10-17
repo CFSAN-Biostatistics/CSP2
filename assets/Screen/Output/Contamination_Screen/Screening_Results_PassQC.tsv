@@ -1,3 +1,0 @@
-Query_ID	Reference_ID	SNPs	Percent_Query_Aligned	Percent_Reference_Aligned	Median_Percent_Identity	Median_SNP_Percent_Identity	Purged_Alignment	Purged_N	Purged_Indel	Purged_Duplicate	Purged_Het	Purged_Density	Filtered_Edge
-Week_42_Assembly	Lab_Control	1	99.97	97.55	100.00	99.99	0	0	0	0	0	0	0
-Week_42_Reads	Lab_Control	49	99.55	99.04	100.00	99.99	11	0	2	0	0	0	3
