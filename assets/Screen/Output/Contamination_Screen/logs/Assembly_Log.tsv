@@ -1,2 +1,0 @@
-Isolate_ID	Read_Type	Read_Data	Assembly	Contig_Count	Assembly_Bases	SHA256
-Week_42_Reads	Paired	assets/Screen/Reads/Week_42_Reads_1.fq.gz;assets/Screen/Reads/Week_42_Reads_2.fq.gz	Test_Output/Contamination_Screen/Assemblies/Week_42_Reads.fasta	372	4561747	28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009

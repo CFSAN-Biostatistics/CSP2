@@ -1,57 +1,26 @@
 // Subworkflow to fetch sample and reference data from --fasta/--reads/--ref_fasta/--ref_reads
 
-// Set directory structure
-if(params.outroot == "") {
-    output_directory = file(params.out)
-} else {
-    output_directory = file("${file(params.outroot)}/${params.out}")
-}
+// Set path variables
+output_directory = file(params.output_directory)
+assembly_directory = file(params.assembly_directory)
+log_directory = file(params.log_directory)
 
-// Assess run mode
-if (params.runmode == "") {
-    if (params.snpdiffs != "") {
-        run_mode = "screen" // If .snpdiffs are provided, generate a summary of query/reference alignments
-    } else if((params.reads != "" || params.ref_reads != "") && (params.fasta == "" && params.ref_fasta == "")){
-        run_mode = "assemble" // If only reads are provided, generate assemblies
-    } else if(params.reads == "" && params.fasta == ""){
-        error "No query data provided via --reads/--fasta/--snpdiffs" // Exit if no data is provided
-    } else if (params.ref_fasta == "" && params.ref_reads == ""){
-        run_mode = "snp" // If query data is provided without reference data, run the SNP pipeline with RefChooser
-    } else if((params.reads != "" || params.fasta != "") && (params.ref_reads != "" || params.ref_fasta == "")){
-        run_mode = "screen" // If query and reference data are provided, perform MUMmer alignment and generate a summary
-    } else if((params.fasta == "" && params.reads == "") && (params.ref_fasta != "" || params.ref_reads != "")){
-        error "Reference data provided via --ref_reads/--ref_fasta, but no query data provided by --reads/--fasta/--snpdiffs" // Exit if no query data is provided
-    } 
-} else if (['assemble', 'align', 'screen', 'snp'].contains(params.runmode)) {
-    run_mode = "${params.runmode}"
-} else {
-    error "--runmode must be 'assemble', 'align', 'screen', or 'snp', not ${params.runmode}..."
-}
+ref_id_file = file(params.ref_id_file)
 
-// Save assembly data in the main directory if --runmode is 'assemble'
-if(run_mode == "assemble"){
-    assembly_directory = file("${output_directory}")
-    assembly_log = file("${output_directory}/Isolate_Data.tsv")
-} else{
-    log_directory = file("${output_directory}/logs")
-    assembly_log = file("${log_directory}/assembly.log")
-    isolate_file = file("${output_directory}/Isolate_Data.tsv")
-    assembly_directory = file("${output_directory}/Assemblies")
-}
+// Set ref_mode
+ref_mode = params.ref_mode
 
+// Set file headers
+assembly_header = "Isolate_ID\tRead_Type\tRead_Location\tAssembly_Path\n"
 
-// Set paths to accessory scripts
-findPairedReads = file("${projectDir}/bin/fetchReads.py")
-processFasta = file("${projectDir}/bin/processFasta.py")
+// Set paths to accessory files/scripts
+assembly_log = file("${log_directory}/Assembly_Data.tsv")
+user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
+findReads = file("${projectDir}/bin/fetchReads.py")
+userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 
-// Set up modules if needed
-params.load_python_module = params.python_module == "" ? "" : "module load -s ${params.python_module}"
-params.load_skesa_module = params.skesa_module == "" ? "" : "module load -s ${params.skesa_module}"
-
-// Set SKESA cores
+// Set SKESA cores to 5 or fewer
 skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
-
-include {saveAssemblyLog} from "../logging/main.nf"
 
 // Top-level workflow //
 workflow fetchData{
@@ -59,23 +28,77 @@ workflow fetchData{
     emit:
     query_data
     reference_data
-    snpdiffs_data
+    snpdiff_data
 
     main:
+    // Get any excluded IDs
+    ("${params.exclude}" != "" ? processExclude() : Channel.empty()).set{exclude_ids} 
+    
+    // Process snpdiffs alignments
+    // If assembly file cannot be found, it will be 'null'
+    ("${params.snpdiffs}" != "" ? processSNPDiffs() : Channel.empty()).set{user_snpdiffs}
 
-    // Read in data
+    excluded_snpdiffs = user_snpdiffs.map{it -> tuple(it[1],it[0])}
+    .concat(user_snpdiffs.map{it -> tuple(it[10],it[0])})
+    .join(exclude_ids,by:0)
+    .unique{it -> it[1]}
+    .map{it -> tuple(it[1],"Exclude")}
+
+    // Generate return channel: 3-item tuple (Query_ID, Reference_ID, SNPDiff_Path)
+    snpdiff_data = user_snpdiffs
+    .map{it -> tuple(it[0],it[1],it[10])}
+    .join(excluded_snpdiffs,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
+    .filter{it -> it[3].toString() != "Exclude"}
+    .unique{it -> it[0]}
+    .map{it -> tuple(it[1],it[2],it[0])}
+    .collect().flatten().collate(3)
+
+    // Get assembly data from snpdiffs
+    snpdiff_assemblies = user_snpdiffs.map{it-> tuple(it[1],it[2])}
+    .concat(user_snpdiffs.map{it-> tuple(it[10],it[11])})
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
+    .filter{it -> it[2].toString() != "Exclude"} 
+    .map{it -> tuple(it[0],it[1],'SNPDiff')}
+    .collect().flatten().collate(3)
+
+    assembled_snpdiffs = snpdiff_assemblies
+    .filter{it -> it[1].toString() != "null"}
+    .unique{it->it[0]}.collect().flatten().collate(3)
+
+    // Process any data provided as assemblies
+    // Returns 2-item tuples with the following format: (Isolate_ID, Assembly_Path)
     ("${params.fasta}" != "" ? fetchQueryFasta() : Channel.empty()).set{query_fasta}
     ("${params.ref_fasta}" != "" ? fetchRefFasta() : Channel.empty()).set{ref_fasta}
-    all_assembled = query_fasta.concat(ref_fasta).collect().flatten().collate(2).unique{it->it[0]}
-    
+
+    pre_assembled = assembled_snpdiffs
+    .map{it -> tuple(it[0],it[1])}
+    .concat(query_fasta)
+    .concat(ref_fasta)
+    .unique{it -> it[0]}
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
+    .filter{it -> it[2].toString() != "Exclude"}
+    .map{it->tuple(it[0],it[1])}
+    .collect().flatten().collate(2)
+
+    // Process any data provided as reads
+    // Returns 3-item tuples with the following format: (Isolate_ID, Read_Type, Read_Path)
     ("${params.reads}" != "" ? fetchQueryReads() : Channel.empty()).set{query_reads}
     ("${params.ref_reads}" != "" ? fetchRefReads() : Channel.empty()).set{ref_reads}
-    all_reads =  query_reads.concat(ref_reads).collect().flatten().collate(3).unique{it->it[0]}
 
-    ("${params.snpdiffs}" != "" ? getSNPDiffs() : Channel.empty()).set{snpdiffs_data}
-    
+    all_reads = query_reads
+    .concat(ref_reads)
+    .unique{it->it[0]}
+    .join(exclude_ids,by:0,remainder:true)
+    .filter{it -> it[0].toString() != "null"}
+    .filter{it -> it[3].toString() != "Exclude"}
+    .map{it->tuple(it[0],it[1],it[2])}            
+    .collect().flatten().collate(3)
+
     // Figure out if any assembly is necessary
-    fasta_read_combo = all_reads.join(all_assembled,by:0,remainder: true) |
+    fasta_read_combo = all_reads.join(pre_assembled,by:0,remainder: true) |
     branch{it ->
         assembly: it[1].toString() == "null"
             return(tuple(it[0],it[2]))
@@ -84,13 +107,101 @@ workflow fetchData{
         combo: true
            return(tuple(it[0],it[3]))}
 
-    assembled_reads = fasta_read_combo.read.collect().flatten().collate(3).unique{it->it[0]} | assembleReads
-    assembled_isolates = all_assembled.concat(assembled_reads).collect().flatten().collate(2)
+    // Assemble reads if necessary
+    assembled_reads = fasta_read_combo.read
+    .collect().flatten().collate(3) | assembleReads
 
-    query_data = query_fasta.map{it->it[0]}.concat(query_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
-    reference_data = ref_fasta.map{it->it[0]}.concat(ref_reads.map{it->it[0]}).collect().flatten().collate(1).unique().join(assembled_isolates,by:0).collect().flatten().collate(2)
+    // If runmode is 'assemble', tasks are complete
+    if(params.runmode == "assemble"){
+        query_data = Channel.empty()
+        reference_data = Channel.empty()
+    } else{
+        
+        // If FASTAs are provided via data and snpdiffs, use snpdiffs (as it's already been used)
+        user_fastas = query_fasta
+        .concat(ref_fasta)
+        .concat(assembled_reads)
+        .unique{it -> it[0]}
+        .join(exclude_ids,by:0,remainder:true)
+        .filter{it -> it[0].toString() != "null"}
+        .filter{it -> it[2].toString() != "Exclude"}
+        .map{it->tuple(it[0],it[1],'User')}
+        .collect().flatten().collate(3)
+        .join(assembled_snpdiffs,by:0,remainder:true)
+        .filter{it -> it[3].toString() == "null"}
+        .map{it->tuple(it[0],it[1])}
+
+        // Get all assemblies
+        all_assembled = assembled_snpdiffs
+        .map{it -> tuple(it[0],it[1])}
+        .concat(user_fastas)
+        .unique{it->it[0]}.collect().flatten().collate(2)
+
+        // Get data for isolates where a SNPDiff was provided, but no FASTA could be located
+        no_assembly = snpdiff_assemblies
+        .map{it -> tuple(it[0],it[1])}
+        .filter{it -> it[1].toString() == "null"}
+        .unique{it -> it[0]}
+        .join(all_assembled,by:0,remainder:true)
+        .filter{it -> it[2].toString() == "null"}
+        .map{it->tuple(it[0],it[1])}
+        .collect().flatten().collate(2)
+
+        // Compile all samples
+        all_samples = all_assembled
+        .concat(no_assembly)
+        .unique{it-> it[0]}.collect().flatten().collate(2)
+
+        // If no reference data is provided return a blank channel
+        if(!ref_mode){
+            reference_data = Channel.empty()
+            
+            query_data = all_samples                
+            .unique{it -> it[0]}
+            .collect().flatten().collate(2)
+
+        } else{
+
+            // Process additional reference IDs
+            ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
+            
+            all_ref_ids = ref_fasta.map{it->tuple(it[0])}
+            .concat(ref_reads.map{it->tuple(it[0])})
+            .concat(user_ref_ids)
+            .unique{it-> it[0]}.collect().flatten().collate(1)
+            .map{it -> tuple(it[0],"Reference")}
+            .join(exclude_ids,by:0,remainder:true)
+            .filter{it -> it[0].toString() != "null"}
+            .filter{it -> it[2].toString() != "Exclude"}
+            .map{it -> tuple(it[0],it[1])}
+
+            reference_data = all_samples
+            .join(all_ref_ids,by:0,remainder:true)
+            .filter{it -> it[2].toString() == "Reference"}
+            .map{it->tuple(it[0],it[1])}
+            .unique{it -> it[0]}
+            .collect().flatten().collate(2)
+
+            // Save reference data to file
+            reference_data
+            .collect{it -> it[0]}
+            | saveRefIDs
+
+            if(params.runmode == "screen" || params.runmode == "align"){
+                query_data = all_samples
+                .join(all_ref_ids,by:0,remainder:true)
+                .filter{it -> it[2].toString() != "Reference"}
+                .map{it->tuple(it[0],it[1])}
+                .unique{it -> it[0]}
+                .collect().flatten().collate(2)
+            } else if(params.runmode == "snp"){
+                query_data = all_samples
+                .unique{it -> it[0]}
+                .collect().flatten().collate(2)
+            }
+        }
+    }
 }
-
 
 // Fetching preassembled data //
 workflow fetchQueryFasta{
@@ -153,10 +264,10 @@ workflow getAssemblies{
         .map { filePath ->
             def fileName = file(filePath).getBaseName()
             def sampleName = fileName.replaceAll(trim_this, "")
-            tuple(sampleName,filePath)}
+            tuple(sampleName, filePath)}
     }
 }
-workflow getSNPDiffs{
+workflow processSNPDiffs{
 
     emit:
     snpdiffs_data
@@ -188,12 +299,34 @@ workflow getSNPDiffs{
             error "$snpdiffs_dir is not a valid directory or file..."
         }
 
-        snpdiffs_data = ch_snpdiffs.map { filePath ->
-        def fileName = filePath.getBaseName()
-        def query = fileName.tokenize('__vs')[0]
-        def reference = fileName.tokenize('vs__')[1].tokenize('.')[0]
-        tuple(query,reference,filePath)}
+        snpdiffs_data = ch_snpdiffs
+            .filter { file(it).exists() }
+            .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(19)
+
+        // (1) SNPDiffs_File, (2) Query_ID, (3) Query_Assembly, (4) Query_Contig_Count, (5) Query_Assembly_Bases, 
+        // (6) Query_N50, (7) Query_N90, (8) Query_L50, (9) Query_L90, (10) Query_SHA256,
+        // (11) Reference_ID, (12) Reference_Assembly, (13) Reference_Contig_Count, (14) Reference_Assembly_Bases,
+        // (15) Reference_N50, (16) Reference_N90, (17) Reference_L50, (18) Reference_L90, (19) Reference_SHA256
     }
+}
+process getSNPDiffsData{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+
+    input:
+    val(snpdiffs_paths)
+
+    output:
+    stdout
+
+    script:
+
+    user_snpdiffs_list.write(snpdiffs_paths.join('\n') + "\n")
+    """
+    $params.load_python_module
+    python ${userSNPDiffs} "${user_snpdiffs_list}" "${params.trim_name}"
+    """
 }
 
 
@@ -239,12 +372,12 @@ workflow processReads{
 
         // If --reads is a single directory, get all reads from that directory
         if(read_dir.isDirectory()){
-            read_info = fetchPairedReads(read_dir,read_ext,forward,reverse) | splitCsv
+            read_info = fetchReads(read_dir,read_ext,forward,reverse) | splitCsv
         } 
 
         // If --reads is a file including paths to many directories, process reads from all directories
         else if(read_dir.isFile()){
-            read_info = fetchPairedReads(Channel.from(read_dir.readLines()),read_ext,forward,reverse) | splitCsv
+            read_info = fetchReads(Channel.from(read_dir.readLines()),read_ext,forward,reverse) | splitCsv
         }
         // Error if --reads doesn't point to a valid file or directory
         else{
@@ -252,7 +385,7 @@ workflow processReads{
         }
     }      
 }
-process fetchPairedReads{
+process fetchReads{
 
     executor = 'local'
     cpus = 1
@@ -273,12 +406,58 @@ process fetchPairedReads{
         error "$dir is not a valid directory..."
     } else{
     """
-    ${params.load_python_module}
-    python ${findPairedReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix} ${params.trim_name}
+    $params.load_python_module
+    python ${findReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix} ${params.trim_name}
     """
     }
 }
 
+// Fetch reference IDs //
+workflow processRefIDs{
+
+    emit:
+    ref_ids
+    
+    main:
+    def trim_this = "${params.trim_name}"
+
+    ref_ids = params.ref_id
+    .tokenize(',')
+    .unique()
+    .collect { it ->
+        "${it}".replaceAll(trim_this, "")}
+    .flatten()
+}
+
+// Fetch reference IDs //
+workflow processExclude{
+
+    emit:
+    exclude_ids
+    
+    main:
+    def trim_this = "${params.trim_name}"
+
+    exclude_ids = Channel.from(params.exclude
+    .tokenize(',')
+    .collect { it -> "${it}".replaceAll(trim_this, "")})
+    .map{it -> tuple(it.toString(),"Exclude")}
+    .unique{it -> it[0]}
+}
+
+process saveRefIDs{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(ref_ids)
+
+    script:
+    ref_id_file.append(ref_ids.join('\n') + '\n')        
+    """
+    """
+}
 
 // Assembly //
 workflow assembleReads{
@@ -301,9 +480,7 @@ workflow assembleReads{
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
 }
 process skesaAssemble{
-// TO DO: Read count to memory check?
-   
-    memory '12 GB'
+    memory '12 GB' // Add readcount/memory check?
 
     input:
     tuple val(sample_name),val(read_type),val(read_location)
@@ -314,30 +491,39 @@ process skesaAssemble{
     script:
     assembly_file = file("${assembly_directory}/${sample_name}.fasta")
     
-    if(assembly_directory.isDirectory()){
-        if(assembly_file.isFile()){
-            error "$assembly_file already exists..."
-        }     
-    } else{
-        assembly_directory.mkdirs()
-    }
-        
-    if(read_type == "Paired"){
+    // Ensure folder exists and file doesn't
+    if(!assembly_directory.isDirectory()){
+        error "$assembly_directory is not a valid directory..."
+    } else if(assembly_file.isFile()){
+        error "$assembly_file already exists..."
+    } else if(read_type == "Paired"){
         forward_reverse = read_location.split(";")
         """
-        $params.load_python_module
         $params.load_skesa_module
         skesa --cores ${skesa_cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
-        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        echo "${sample_name},${read_type},${read_location},${assembly_file}"
         """
     } else if(read_type == "Single"){
         """
-        $params.load_python_module
         $params.load_skesa_module
         skesa --cores ${skesa_cpus} --fastq ${read_location} --contigs_out ${assembly_file}
-        python ${processFasta} "${sample_name}" "${read_type}" "${read_location}" "${assembly_file}"
+        echo "${sample_name},${read_type},${read_location},${assembly_file}"
         """
     } else{
         error "read_type should be Paired or Single, not $read_type..."
     }
+}
+process saveAssemblyLog{
+    executor = 'local'
+    cpus = 1
+    maxForks = 1
+    
+    input:
+    val(assembly_data)
+
+    script:
+    assembly_log.write(assembly_header)    
+    assembly_log.append(assembly_data.join('\n') + '\n')    
+    """
+    """
 }

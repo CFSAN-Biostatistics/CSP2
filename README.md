@@ -8,8 +8,8 @@
 **Center for Food Safety and Applied Nutrition**  
 **US Food and Drug Administration**  
   
-**Current Release**: [v.0.9.0 (Dec-20-2023)](https://github.com/CFSAN-Biostatistics/CSP2/releases/tag/v.0.9.0)  
-**Last Push**: Dec-21-2023  
+**Current Release**: [v.0.9.5 (Oct-17-2024)](https://github.com/CFSAN-Biostatistics/CSP2/releases/tag/v.0.9.5)  
+**Last Push**: Oct-17-2024
 
 **Important Note:** *CSP2 is currently under development, and has not been validated for non-research purposes. Current workflows and data processing parameters may change prior to full release version.*
 
@@ -60,10 +60,11 @@ The following software are required to run CSP2. Software version used during CS
 - [Nextflow](https://www.nextflow.io/docs/latest/getstarted.html) (22.10.7)  
 - [Python](https://www.python.org/downloads/) (3.8.1)  
   - [pybedtools](https://pypi.org/project/pybedtools/)  
-  - [RefChooser](https://pypi.org/project/refchooser/)  
-    - [MASH](https://github.com/marbl/Mash/releases)  
+  - [sklearn](https://scikit-learn.org/stable/)  
+- [MASH](https://github.com/marbl/Mash/releases) (2.3)  
 - [BEDTools](https://bedtools.readthedocs.io/en/latest/) (2.26.0)  
-- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)  
+- [MUmmer](https://github.com/mummer4/mummer) (4.0.0)
+- [BBTools](https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbmap-guide/) (38.94)  
 - [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
   
 ---
@@ -81,7 +82,7 @@ There are two main configuration files associated with CSP2:
 
 - The profiles.config file is where you add custom information about your computing environment, but you can also set parameters here as well. An example configuration setup (slurmHPC) is provided as a model.  
   
-- In this example profile, access to the required programs relies on the loading of modules. **However**, there is no need to specify a module for Python, MUMmer, SKESA, bedtools, or RefChooser if those programs are already in your path. 
+- In this example profile, access to the required programs relies on the loading of modules. **However**, there is no need to specify a module for Python, MUMmer, SKESA, bedtools, or MASH if those programs are already in your path. 
 
 ```
 profiles {
@@ -92,16 +93,19 @@ profiles {
         params.mummer_module = ""
         params.skesa_module = ""
         params.bedtools_module = ""
-        params.refchooser_module = ""
+        params.mash_module = ""
+        params.bbtools_module = ""
     }
     slurmHPC {
         process.executor = 'slurm'
         params.cores = 20
-        params.python_module = "python/3.8.1"
-        params.mummer_module = "mummer/4.0.0"
-        params.skesa_module = "skesa/2.5.0"
-        params.bedtools_module = "bedtools"
-        params.refchooser_module = "refchooser/0.2.1"
+        params.python_module = "/nfs/software/modules/python/3.8.1"
+        params.mummer_module = "/nfs/software/modules/mummer/4.0.0"
+        params.skesa_module = "/nfs/software/modules/skesa/2.5.0"
+        params.bedtools_module = "/nfs/sw/Modules/bedtools"
+        params.bbtools_module = "/nfs/software/modules/bbtools/38.94"
+        params.mash_module = "/nfs/software/modules/mash/2.3"
+        params.trim_name = "_contigs_skesa"
     }
 }
 ```
@@ -117,8 +121,8 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 
 | Parameter        | Description                                                                                                | Default Value                             |
 |------------------|------------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| --outroot        | Base directory to create output folder                                                       				| $CWD 								        |
-| --out            | Name of the output folder to create (must not exist)                                                       | CSP2_${new java.util.Date().getTime()}    |
+| --outroot        | Base directory to create output folder                                                       				      | $CWD 								                      |
+| --out            | Name of the output folder to create (must not exist)                                                       | CSP2_(java.util.Date().getTime())         |
 | --forward        | Full file extension for forward/left reads of query                                                        | _1.fastq.gz                               |
 | --reverse        | Full file extension for reverse/right reads of reference                                                   | _2.fastq.gz                               |
 | --ref_forward    | Full file extension for forward/left reads of reference                                                    | _1.fastq.gz                               |
@@ -130,23 +134,24 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 | --min_len        | Only consider alignments that span at least <min_len>bp                                                    | 500                                       |
 | --dwin           | A comma-separated list of windows to check SNP densities                                                   | 1000,125,15                               |
 | --wsnps          | The maximum number of SNPs allowed in the corresponding window from --dwin                                 | 3,2,1                                     |
-| --query_edge     | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 250                                       |
-| --ref_edge       | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 250                                       |
-| --n_ref          | The number of RefChooser reference isolates to consider (only applied if using RefChooser)                 | 1                                         |
+| --query_edge     | Only consider SNPs that occur within <query_edge>bp of the end of a query contig                           | 150                                       |
+| --ref_edge       | Only consider SNPs that occur within <query_edge>bp of the end of a reference contig                       | 150                                       |
+| --n_ref          | The number of reference isolates to consider (only applied if CSP2 is choosing references)                 | 1                                         |
+| --rescue         | If running in SNP Pipeline mode, rescue edge-filtered SNPs that are not edge filtered in 1+ query          | Unset (Do not rescue)                     |
 
 **Options without defaults include**:  
-| Parameter              | Description                                                                                                          |
-|------------------------|----------------------------------------------------------------------------------------------------------------------|
-| --reads                | Location of query read data (Path to directory, or path to file with multiple directories)                           |
-| --fasta                | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)        |
-| --ref_reads            | Location of reference read data (Path to directory, or path to file with multiple directories)                       |
-| --ref_fasta            | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)    |
-| --python_module        | Name of Python module if 'module load PYTHON' statement is required.                                                 |
-| --mummer_module        | Name of MUmmer module if 'module load MUMMER' statement is required.                                                 |
-| --skesa_module         | Name of SKESA module if 'module load SKESA' statement is required.                                                   |
-| --refchooser_module    | Name of RefChooser module if 'module load REFCHOOSER' statement is required.                                         |
-| --bedtools_module      | Name of BEDTools module if 'module load BEDTOOLS' statement is required.                                             |
-| --trim_name            | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                       |
+| Parameter              | Description                                                                                                                        |
+|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| --reads                | Location of query read data (Path to directory, or path to file with multiple directories)                                         |
+| --fasta                | Location of query assembly data (Path to directory containing FASTAs, path to FASTA, file with list of multiple FASTA paths)       |
+| --ref_reads            | Location of reference read data (Path to directory, or path to file with multiple directories)                                     |
+| --ref_fasta            | Location of reference assembly data (Path to directory containing FASTAs, path to FASTA, path to multiple FASTAs)                  |
+| --python_module        | Name of Python module if 'module load python' statement is required.                                                               |
+| --mummer_module        | Name of MUmmer module if 'module load mummer' statement is required.                                                               |
+| --skesa_module         | Name of SKESA module if 'module load skesa' statement is required.                                                                 |
+| --bedtools_module      | Name of BEDTools module if 'module load bedtools' statement is required.                                                           |
+| --mash_module          | Name of MASH module if 'module load mash' statement is required.                                                                   |
+| --trim_name            | A string in assembly file names that you want to remove from sample IDs (e.g., _contigs_skesa)                                     |
 
 ---
 
@@ -218,7 +223,7 @@ nextflow run CSP2.nf                                    // Run CSP2
 
 If all went well, you should see something like this:
 <p align="center">
-  <img src="img/Screen_Run.png" alt="Nextflow print output for screening run"/>
+  <img src="img/Screen_Run.jpg" alt="Nextflow print output for screening run"/>
 </p>
 
 From top to bottom, we can see that CSP2:  
@@ -233,13 +238,12 @@ Let's take a look to see what was generated:
 ls Test_Output/Contamination_Screen
 
 Assemblies/
-logs/           
+Isolate_Data.tsv
+logs/
 MUMmer_Output/
-Query_Isolates.tsv      
-Reference_Isolates.tsv
-Screening_Results_PassQC.tsv
+Raw_MUMmer_Summary.tsv
+Screening_Results.tsv
 snpdiffs/
-
 ```
 -**Note**: This output is available to inspect in [assets/Screen/Output](assets/Screen/Output)  
 
@@ -251,79 +255,101 @@ snpdiffs/
   - *snpdiffs*: Directory where .snpdiffs files are stored
   
 **Files**
-  - *Query_Isolates.tsv*: A TSV file with basic FASTA stats for each query isolate
+  - *Isolate_Data.tsv*: A TSV file with basic FASTA stats for each isolate
 
-    | Query_ID         | Query_Assembly                                                  | Query_SHA256                                                     | Query_Contig_Count | Query_Assembly_Bases |
-    |------------------|-----------------------------------------------------------------|------------------------------------------------------------------|--------------------|----------------------|
-    | Week_42_Assembly | assets/Screen/Assembly/Week_42_Assembly.fasta                   | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 | 747                | 4473771              |
-    | Week_42_Reads    | Test_Output/Contamination_Screen/Assemblies/Week_42_Reads.fasta | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 | 372                | 4561747              |
+    | Isolate_ID       | Isolate_Type | Assembly_Path                                                                                                                           | Contig_Count | Assembly_Bases | N50   | N90   | L50 | L90 | SHA256                                                           |
+    |------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------|--------------|----------------|-------|-------|-----|-----|------------------------------------------------------------------|
+    | Lab_Control      | Reference    | /flash/storage/scratch/Robert.Literman/NextFlow/CSP2/assets/Screen/Assembly/Lab_Control.fasta                                           | 254          | 4584986        | 41813 | 13112 | 38  | 110 | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef |
+    | Week_42_Reads    | Query        | /flash/storage/scratch/Robert.Literman/NextFlow/CSP2/Test_Output/241024_Test_Output/Contamination_Screen/Assemblies/Week_42_Reads.fasta | 372          | 4561747        | 24332 | 7894  | 56  | 171 | 28eca0ecf14fcc1166ae7236c849acc08ad040cd011fc4331ba124db73601009 |
+    | Week_42_Assembly | Query        | /flash/storage/scratch/Robert.Literman/NextFlow/CSP2/assets/Screen/Assembly/Week_42_Assembly.fasta                                      | 747          | 4473771        | 12782 | 3438  | 105 | 360 | 85c216de6e1bb9ccf76e7e5d64931884375d66e765f4c4fe726f3be15eb91563 |   
 
-  - *Reference_Isolates.tsv*: A TSV file with basic FASTA stats for each reference isolate  
-
-    | Reference_ID | Reference_Assembly                       | Reference_SHA256                                                 | Reference_Contig_Count | Reference_Assembly_Bases |
-    |--------------|------------------------------------------|------------------------------------------------------------------|------------------------|--------------------------|
-    | Lab_Control  | assets/Screen/Assembly/Lab_Control.fasta | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | 254                    | 4584986                  |
 
 - *Screening_Results_PassQC.tsv*: A TSV file with screening results for all queries that made it through QC  
 
-  | Query_ID         | Reference_ID | SNPs | Percent_Query_Aligned | Percent_Reference_Aligned | Median_Percent_Identity | Median_SNP_Percent_Identity | Purged_Alignment | Purged_N | Purged_Indel | Purged_Duplicate | Purged_Het | Purged_Density | Filtered_Edge |
-  |------------------|--------------|------|-----------------------|---------------------------|-------------------------|-----------------------------|------------------|----------|--------------|------------------|------------|----------------|---------------|
-  | Week_42_Assembly | Lab_Control  | 1    | 99.97                 | 97.55                     | 100.00                  | 99.99                       | 0                | 0        | 0            | 0                | 0          | 0              | 0             |
-  | Week_42_Reads    | Lab_Control  | 49   | 99.55                 | 99.04                     | 100.00                  | 99.99                       | 11               | 0        | 2            | 0                | 0          | 0              | 3             |
-
-  - **Note:** There will be a separate file for any queries that fail QC, along with some indication as to why they failed (*Screening_Results_FailQC.tsv*)  
+  | Query_ID         | Reference_ID | Screen_Category | CSP2_Screen_SNPs | Query_Percent_Aligned | Reference_Percent_Aligned | Query_Contigs | Query_Bases | Reference_Contigs | Reference_Bases | Raw_SNPs | Purged_Length | Purged_Identity | Purged_LengthIdentity | Purged_Invalid | Purged_Indel | Purged_Duplicate | Purged_Het | Purged_Density | Filtered_Query_Edge | Filtered_Ref_Edge | Filtered_Both_Edge | Kmer_Similarity | Shared_Kmers | Query_Unique_Kmers | Reference_Unique_Kmers | MUMmer_gSNPs | MUMmer_gIndels |
+  |------------------|--------------|-----------------|------------------|-----------------------|---------------------------|---------------|-------------|-------------------|-----------------|----------|---------------|-----------------|-----------------------|----------------|--------------|------------------|------------|----------------|---------------------|-------------------|--------------------|-----------------|--------------|--------------------|------------------------|--------------|----------------|
+  | Week_42_Assembly | Lab_Control  | Pass            | 1                | 99.1                  | 96.7                      | 747           | 4473771     | 254               | 4584986         | 1        | 0             | 0               | 0                     | 0              | 0            | 0                | 0          | 0              | 0                   | 0                 | 0                  | 97.32           | 4449973      | 746                | 121740                 | 1            | 0              |
+  | Week_42_Reads    | Lab_Control  | Pass            | 50               | 99.15                 | 98.65                     | 372           | 4561747     | 254               | 4584986         | 61       | 0             | 0               | 12                    | 0              | 2            | 0                | 0          | 0              | 1                   | 1                 | 0                  | 98.51           | 4526310      | 23072              | 45403                  | 58           | 1              |  
+  
   - **Columns**  
-    - **SNPs**: The SNP distance between the query and reference assemblies  
-    - **Percent_(Query/Reference)_Aligned**: The percent of bases from the (query/reference) genome involved in an 1-to-1 alignment that passed QC  
-    - **Median_Percent_Identity**: The median percent identity of all 1-to-1 alignments  
-    - **Median_SNP_Percent_Identity**: The median percent identity of 1-to-1 alignments containing SNPs  
-    - **Purged_Alignment**: Count of MUMmer SNPs removed due to falling on short alignments (*--min_len*) or contigs with low similarity (*--min_iden*)
-    - **Purged_N**: Count of MUMmer SNPs removed due to presence of a non-ACTG base  
-    - **Purged_Indel**: Count of MUMmer indel SNPs removed  
-    - **Purged_Duplicate**: Count of MUMmer SNPs removed due to duplicated mapping to the same region (the SNP from the longest contig is retained unless there is heterozygosity)  
-    - **Purged_Het**: Count of MUMmer SNPs removed due multiple alignments with multiple bases  
-    - **Purged_Density**: Count of MUMmer SNPs removed due to having too many SNPs (*--wsnps*) within prescribed windows (*--dwin*)
-    - **Filtered_Edge**: Count of MUMmer SNPs removed due to falling too near the edge of the contig in the query (*--query_edge*) or reference (*--ref_edge*) 
+
+    | Column                    | Contents                                                 |
+    |---------------------------|----------------------------------------------------------|
+    | Query_ID                  | Name of query isolate                                    |
+    | Reference_ID              | Name of reference isolate                                |
+    | Screen_Category           | Pass/Fail                                                |
+    | CSP2_Screen_SNPs          | SNP distance between query and reference                 |
+    | Query_Percent_Aligned     | Percent of query genome aligned to reference             |
+    | Reference_Percent_Aligned | Percent of reference genome aligned to query             |
+    | Query_Contigs             | Contigs in query assembly                                |
+    | Query_Bases               | Bases in query assembly                                  |
+    | Reference_Contigs         | Contigs in reference assembly                            |
+    | Reference_Bases           | Bases in reference assembly                              |
+    | Raw_SNPs                  | Raw SNPs prior to filtering                              |
+    | Purged_Length             | SNPs purged due to contigs less than min_len             |
+    | Purged_Identity           | SNPs purged due to percent identity less than min_iden   |
+    | Purged_LengthIdentity     | SNPs purged to short + low quality alignments            |
+    | Purged_Invalid            | SNPs purged due to non-ACTG                              |
+    | Purged_Indel              | SNPs purged as indels                                    |
+    | Purged_Duplicate          | SNPs purged as duplicate alignments                      |
+    | Purged_Het                | SNPs purged with heterozygous signal                     |
+    | Purged_Density            | SNPs purged for having more than wsnps in dwin           |
+    | Filtered_Query_Edge       | SNPs purged for being too close to query contig edge     |
+    | Filtered_Ref_Edge         | SNPs purged for being too close to reference contig edge |
+    | Filtered_Both_Edge        | SNPs purged for being too close to both contig edges     |
+    | Kmer_Similarity           | Kmer similarity between query and reference              |
+    | Shared_Kmers              | Number of shared kmers between query and reference       |
+    | Query_Unique_Kmers        | Unique kmer count for query                              |
+    | Reference_Unique_Kmers    | Unique kmer count for reference                          |
+    | MUMmer_gSNPs              | Number of MUMmer gSNPs                                   |
+    | MUMmer_gIndels            | Number of MUMmer gIndels                                 |  
+
 - SNPDiffs Files  
   - The .snpdiffs files generated by CSP2 have three main components:  
+    
     1. **Header**: The header row of a .snpdiffs file contains all the same information as the screening results TSV.  
          - To peek at a .snpdiffs header, try:
            ```
            head -1 (QUERY)__vs__(REF).snpdiffs | tr "\t" "\n"
-           ```
-    2. **BED File**: Assuming sufficient overlap in assemblies, the next section will be a BED file of all the 1-to-1 overlaps between the query and reference that passed QC. This section is denoted by '##\t'  
-   
+           ```  
+
+    2. **BED File**: Assuming sufficient overlap in assemblies, the next section will be a BED file of all the 1-to-1 overlaps between the query and reference. This section is denoted by '##\t'  
         ```
         grep "##" Week_42_Reads__vs__Lab_Control.snpdiffs | head -10
+        ```  
+        
 
-        ##      SRR16119110_100_32.8137 1       6519
-        ##      SRR16119110_100_32.8137 6587    7524
-        ##      SRR16119110_100_32.8137 7829    36104
-        ##      SRR16119110_102_54.229  226     12863
-        ##      SRR16119110_103_30.5388 144     6585
-        ##      SRR16119110_104_40.3209 1       12590
-        ##      SRR16119110_104_40.3209 12665   19615
-        ##      SRR16119110_105_32.917  34      11125
-        ##      SRR16119110_106_22.2235 1       2959
-        ##      SRR16119110_107_44.0162 140     12900
-        ```
-    3. **SNP Data**: Finally, the third section of a .snpdiffs file contains all the data on SNPs that passed and failed QC. Only SNPs with the Category "SNP" are counted in the final distance. The columns headers are: 
-    - **Reference_Contig/Position**, **SNP_Category**, **Reference_Base**, **Query_Base**, **Query_Contig/Position**, **Alignment_Length**, **Percent_Identity**
+        |    | Reference_Contig        | Reference_Align_Start | Reference_Align_End | Reference_Contig_Length | Reference_Contig_Aligned | Query_Contig       | Query_Align_Start | Query_Align_End | Query_Contig_Length | Query_Contig_Aligned | Percent_Identity |
+        |----|-------------------------|-----------------------|---------------------|-------------------------|--------------------------|--------------------|-------------------|-----------------|---------------------|----------------------|------------------|
+        | ## | SRR16119110_100_32.8137 | 0                     | 6519                | 36207                   | 6519                     | Contig_277_13.5424 | 4804              | 11323           | 11323               | 6519                 | 100              |
+        | ## | SRR16119110_100_32.8137 | 6586                  | 7524                | 36207                   | 938                      | Contig_73_15.3932  | 0                 | 938             | 938                 | 938                  | 100              |
+        | ## | SRR16119110_100_32.8137 | 7828                  | 36104               | 36207                   | 28276                    | Contig_8_13.8951   | 0                 | 28276           | 28276               | 28276                | 100              |
+        | ## | SRR16119110_102_54.229  | 225                   | 12863               | 12876                   | 12638                    | Contig_232_18.7715 | 0                 | 12638           | 12638               | 12638                | 100              |
+        | ## | SRR16119110_103_30.5388 | 143                   | 6585                | 6585                    | 6442                     | Contig_355_13.8058 | 6300              | 12742           | 12742               | 6442                 | 100              |
+        | ## | SRR16119110_104_40.3209 | 0                     | 12590               | 19820                   | 12590                    | Contig_153_15.5804 | 8748              | 21338           | 21338               | 12590                | 100              |
+        | ## | SRR16119110_104_40.3209 | 12664                 | 19615               | 19820                   | 6951                     | Contig_35_15.127   | 0                 | 6951            | 6951                | 6951                 | 100              |
+        | ## | SRR16119110_105_32.917  | 33                    | 11125               | 11125                   | 11092                    | Contig_57_14.4746  | 37635             | 48727           | 48727               | 11092                | 100              |
+        | ## | SRR16119110_106_22.2235 | 0                     | 2959                | 2959                    | 2959                     | Contig_166_11.9238 | 0                 | 2959            | 3512                | 2959                 | 100              |
+        | ## | SRR16119110_107_44.0162 | 139                   | 12900               | 204844                  | 12761                    | Contig_174_15.2027 | 0                 | 12761           | 12761               | 12761                | 100              |  
 
+    3. **SNP Data**: Finally, the third section of a .snpdiffs file contains all the data on SNPs that passed and failed QC. Only SNPs with the Category "SNP" are counted in the final distance.   
       ```
       grep -v "#" Week_42_Reads__vs__Lab_Control.snpdiffs | head -10
+      ```  
 
-      SRR16119110_107_44.0162/199487  Purged_Indel    C       .       Contig_93_15.202/78689  84047   99.99
-      SRR16119110_107_44.0162/199488  Purged_Indel    G       .       Contig_93_15.202/78689  84047   99.99
-      SRR16119110_135_26.5159/2371    Filtered_Edge   G       A       Contig_215_11.8373/2371 2511    99.96
-      SRR16119110_169_34.8837/29667   Filtered_Edge   C       T       Contig_343_14.7634/29737        29908   99.99
-      SRR16119110_68_27.0865/4663     Filtered_Edge   T       G       Contig_87_14.297/4      2865    99.97
-      SRR16119110_107_44.0162/79354   SNP     A       T       Contig_138_15.1806/38295        75647   99.99
-      SRR16119110_107_44.0162/96798   SNP     C       T       Contig_138_15.1806/55739        75647   99.99
-      SRR16119110_107_44.0162/105822  SNP     G       A       Contig_138_15.1806/64763        75647   99.99
-      SRR16119110_107_44.0162/170609  SNP     G       A       Contig_93_15.202/49812  84047   99.99
-      SRR16119110_107_44.0162/183056  SNP     C       T       Contig_93_15.202/62259  84047   99.99
-      ```
+      | Reference_Contig        | Reference_Loc_Start | Reference_Loc_End | Query_Contig       | Query_Loc_Start | Query_Loc_End | Ref_Loc_ID                     | Query_Loc_ID             | Reference_Alignment_Start | Reference_Alignment_End | Query_Alignment_Start | Query_Alignment_End | Reference_Base | Query_Base | Distance_to_Reference_Contig_Edge | Distance_to_Query_Contig_Edge | Reference_Aligned | Query_Aligned | Direction | Percent_Identity | Category |
+      |-------------------------|---------------------|-------------------|--------------------|-----------------|---------------|--------------------------------|--------------------------|---------------------------|-------------------------|-----------------------|---------------------|----------------|------------|-----------------------------------|-------------------------------|-------------------|---------------|-----------|------------------|----------|
+      | SRR16119110_107_44.0162 | 79353               | 79354             | Contig_138_15.1806 | 38294           | 38295         | SRR16119110_107_44.0162/79354  | Contig_138_15.1806/38295 | 41059                     | 116706                  | 0                     | 75647               | A              | T          | 79354                             | 37352                         | 75647             | 75647         | 1         | 99.99            | SNP      |
+      | SRR16119110_107_44.0162 | 96797               | 96798             | Contig_138_15.1806 | 55738           | 55739         | SRR16119110_107_44.0162/96798  | Contig_138_15.1806/55739 | 41059                     | 116706                  | 0                     | 75647               | C              | T          | 96798                             | 19908                         | 75647             | 75647         | 1         | 99.99            | SNP      |
+      | SRR16119110_107_44.0162 | 105821              | 105822            | Contig_138_15.1806 | 64762           | 64763         | SRR16119110_107_44.0162/105822 | Contig_138_15.1806/64763 | 41059                     | 116706                  | 0                     | 75647               | G              | A          | 99022                             | 10884                         | 75647             | 75647         | 1         | 99.99            | SNP      |
+      | SRR16119110_107_44.0162 | 170608              | 170609            | Contig_93_15.202   | 49811           | 49812         | SRR16119110_107_44.0162/170609 | Contig_93_15.202/49812   | 120797                    | 204844                  | 0                     | 84045               | G              | A          | 34235                             | 47655                         | 84047             | 84045         | 1         | 99.99            | SNP      |
+      | SRR16119110_107_44.0162 | 183055              | 183056            | Contig_93_15.202   | 62258           | 62259         | SRR16119110_107_44.0162/183056 | Contig_93_15.202/62259   | 120797                    | 204844                  | 0                     | 84045               | C              | T          | 21788                             | 35208                         | 84047             | 84045         | 1         | 99.99            | SNP      |
+      | SRR16119110_135_26.5159 | 2370                | 2371              | Contig_215_11.8373 | 2370            | 2371          | SRR16119110_135_26.5159/2371   | Contig_215_11.8373/2371  | 0                         | 2511                    | 0                     | 2511                | G              | A          | 140                               | 789                           | 2511              | 2511          | 1         | 99.96            | SNP      |
+      | SRR16119110_150_30.823  | 36612               | 36613             | Contig_168_14.004  | 36883           | 36884         | SRR16119110_150_30.823/36613   | Contig_168_14.004/36884  | 0                         | 49916                   | 271                   | 50187               | C              | T          | 13485                             | 13303                         | 49916             | 49916         | 1         | 99.99            | SNP      |
+      | SRR16119110_153_30.6937 | 3685                | 3686              | Contig_233_12.8229 | 3685            | 3686          | SRR16119110_153_30.6937/3686   | Contig_233_12.8229/3686  | 0                         | 7254                    | 0                     | 7254                | G              | A          | 3568                              | 3594                          | 7254              | 7254          | 1         | 99.99            | SNP      |
+      | SRR16119110_156_32.1591 | 12089               | 12090             | Contig_281_12.9967 | 13905           | 13906         | SRR16119110_156_32.1591/12090  | Contig_281_12.9967/13906 | 0                         | 24120                   | 1816                  | 25936               | A              | T          | 12030                             | 13591                         | 24120             | 24120         | 1         | 99.99            | SNP      |
+      | SRR16119110_156_32.1591 | 19366               | 19367             | Contig_281_12.9967 | 21182           | 21183         | SRR16119110_156_32.1591/19367  | Contig_281_12.9967/21183 | 0                         | 24120                   | 1816                  | 25936               | A              | G          | 4753                              | 6314                          | 24120             | 24120         | 1         | 99.99            | SNP      |
+  
   **Conclusions**
   
   Based on these results, the assembly provided by the DNA sequencing facility had only 1 SNP relative to the lab control strain, but the read data was over 40 SNPs away, suggesting that the wrong assembly was packaged with the read data.  
@@ -343,18 +369,19 @@ nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta asset
 nextflow run CSP2.nf              // Run CSP2  
 --out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
 --runmode snp                     // Compare all queries to each other
---fasta assets/SNP                // Gather query assemblies from this directory
+--fasta assets/SNP                // Gather query assemblies from this directory (you can also point to a text file containing multiple FASTA paths)
 ```
+
 ### Output
 
-If all went well, you should see something like this:
+If all went well, you should see something like this:  
 <p align="center">
-  <img src="img/SNP_Run.png" alt="Nextflow print output for SNP Pipeline run"/>
+  <img src="img/SNP.jpg" alt="Nextflow print output for SNP Pipeline run"/>
 </p>
 
 From top to bottom, we can see that CSP2:  
 - Skipped assembly steps, as queries were already assembled
-- Ran *RefChooser* to choose a suitable reference genome
+- Ran *MASH* to choose a suitable reference genome  
 - Aligned each query to the reference using MUMmer
 - Ran the SNP pipeline workflow on the .snpdiffs files to generate alignments and SNP distance data  
 
@@ -362,10 +389,12 @@ Let's take a look to see what was generated:
 ```
 ls Test_Output/Soil_Analysis
 
+Isolate_Data.tsv
 logs/
 MUMmer_Output/
+Raw_MUMmer_Summary.tsv
+SNP_Analysis/
 snpdiffs/
-SNP_Sample_A
 ```
 -**Note**: This output is available to inspect in [assets/SNP/Output](assets/SNP/Output)  
 
@@ -373,7 +402,7 @@ SNP_Sample_A
   - *logs*: Directory where run logs are stored  
   - *MUMmer_Output*: Directory where raw MUMmer .snps, .report, .1coords are stored  
   - *snpdiffs*: Directory where .snpdiffs files are stored
-  - *SNP_Sample_A*: Directory where SNP pipeline results using Sample_A as a reference are stored
+  - *SNP_Analysis*: Directory where SNP pipeline results are stored
   
 **Files**
  
@@ -382,209 +411,71 @@ SNP_Sample_A
     ```
     cat logs/SNP_Sample_A.log
 
-    -------------------------------------------------------
-    SNP Analysis
+    CSP2 SNP Pipeline Analysis
     Reference Isolate: Sample_A
-    2023-12-18 13:49:19
+    2024-10-17 11:37:44
     -------------------------------------------------------
 
-    Step 1: Reading in .snpdiffs files...Done!
-            - Found 14 .snpdiffs files
-            - Processed 14 .snpdiffs files in 0.37s
-
+    Reading in SNPDiffs files...Done!
+            - Read in 14 SNPdiffs files
     -------------------------------------------------------
 
-    Step 2: Performing sanity checks...Done!
-
+            - Not performing SNP edge rescuing (any SNPs found within 150bp of a query contig edge will be purged)...
     -------------------------------------------------------
 
-    Step 3: Removing alignments that failed QC...Done!
-            - 14 alignments passed QC
-
+    Screening all queries against reference...Done!
+            - Reference screening data saved to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/Reference_Screening.tsv
+            - Of 14 comparisons, 14 covered at least 85.0% of the reference genome after removing poor alignments
     -------------------------------------------------------
 
-    Step 4: Collecting SNPs from all queries...Done!
-            - 163 SNPs detected
-
+    Compiling SNPs across 14 samples...
+            - 220 total SNPs detected across all samples...
+            - 167 unique SNPs passed QC filtering in at least one sample...
+            - 1 unique SNPs were within 150bp of a reference contig end and were not considered in any query...
+            - Skipping edge resucing...
+            - 53 unique SNPs were purged in all queries they were found in, and were not considered in the final dataset...
+            - Processed coverage information...
+            - SNP coverage information: /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/Locus_Categories.tsv
+            - Query coverage information: /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/Query_Coverage.tsv
     -------------------------------------------------------
 
-    Step 5: Processing purged loci...Done!  - No purged sites to process...
-
+    Processing alignment data...Done!
+            - Saved alignment of 167 SNPs to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snpma.fasta
+            - Saved ordered loc list to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snplist.txt
+            - Preserving SNPs with at most 50.0% missing data...
+            - Of 167 SNPs, 167 SNPs pass the 50.0% missing data threshold...
+            - Saved preserved alignment to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snpma_preserved.fasta
+            - Saved preserved ordered loc list to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snplist_preserved.txt
     -------------------------------------------------------
 
-    Step 6: Creating BED file for all SNP loci...Done! (0.06s)
-
+    Processing pairwise comparisons files...Done!
+            - Saved raw pairwise distances to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snp_distance_pairwise.tsv
+            - Saved raw pairwise matrix to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snp_distance_matrix.tsv
+            - Saved preserved pairwise distances to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snp_distance_pairwise_preserved.tsv
+            - Saved preserved pairwise matrix to /flash/storage/scratch/Robert.Literman/NextFlow/Test_CSP2/241024_Test_Output/Soil_Analysis/SNP_Analysis/Sample_A/snp_distance_matrix_preserved.tsv
+    Total Time: 1.45 seconds
     -------------------------------------------------------
+    ```  
 
-    Step 7: Looking for SNP loci that are not covered in any query...Done! (0.17s)
-            - Queries lacked alignment coverage for 8 total sites
+- For each reference sample there will be a folder called SNP_Analysis/REFERENCE_ID, containing:  
+  - *CSP2_SNP_Pipeline.log*: Log file for SNP Pipeline run  
+  - *Locus_Categories.tsv*: A TSV file containing information about each SNP and how many isolates had missing or purged data  
+  - *Query_Coverage.tsv*: A TSV file containing information about each query and how many sites had missing or purged data  
+  - *Reference_Screening.tsv*: Output from CSP2 Screening mode  
+  - *snpdiffs.txt*: File containing a list of all *snpdiffs* files used in the analysis  
+  - *snp_distance_matrix.tsv*: SNP distances between isolates in matrix format  
+  - *snp_distance_pairwise.tsv*: SNP distances between isolates in column format  
+  - *snplist.txt*: List of reference loc IDs (Reference_Contig/End_Position)  
+  - *snpma.fasta*: Alignment of SNP data  
 
-    -------------------------------------------------------
+- If using the --max_missing argument, CSP2 will also output files where SNPs with too many missing data are removed:  
 
-    Step 8: Looking for SNP loci that have the reference base in some queries...Done! (0.05s)
-            - Queries had the reference base for for 1992 total sites
+  - *snp_distance_matrix_preserved.tsv*  
+  - *snp_distance_pairwise_preserved.tsv*  
+  - *snplist_preserved.txt*  
+  - *snpma_preserved.fasta*  
 
-    -------------------------------------------------------
-
-    Step 9: Compiling data and checking SNP counts...Done!
-            - Saved locus category data to Test_Output/Soil_Analysis/SNP_Sample_A/Locus_Categories.tsv
-            - Saved isolate data to Test_Output/Soil_Analysis/SNP_Sample_A/Isolate_Data.tsv
-
-    -------------------------------------------------------
-
-    Step 10: Processing alignment data...Done!
-            - Created alignment(s) in 0.18s
-            - Saved alignment to Test_Output/Soil_Analysis/SNP_Sample_A/snp_alignment.fasta
-            - Saved ordered list of loci to Test_Output/Soil_Analysis/SNP_Sample_A/Loc_List.txt
-            - Identified no sites to prune.
-                    - Saved original alignment to Test_Output/Soil_Analysis/SNP_Sample_A/pruned_snp_alignment.fasta
-                    - Saved original ordered list of pruned loci to Test_Output/Soil_Analysis/SNP_Sample_A/Pruned_Loc_List.txt
-
-    -------------------------------------------------------
-
-    Step 11: Processing pairwise comparisons files...Done!
-            - Calculated 105 pairwise distances in 0.24s
-            - Saved pairwise distance data to Test_Output/Soil_Analysis/SNP_Sample_A/distance_pairwise.tsv
-            - Saved distance matrix to Test_Output/Soil_Analysis/SNP_Sample_A/distance_matrix.tsv
-                    - No sites pruned, saved original pairwise distance data to Test_Output/Soil_Analysis/SNP_Sample_A/pruned_distance_pairwise.tsv
-                    - No sites pruned, saved original distance matrix to Test_Output/Soil_Analysis/SNP_Sample_A/pruned_distance_matrix.tsv
-
-    -------------------------------------------------------
-
-    Total Runtime: 1.32s
-
-    ```
-
-- For each reference sample there will be a folder called SNP_*Reference_ID*, containing:  
-
-  - *Isolate_Data.tsv*: A TSV file containing the alignment information for each query, along with data about the reference isolate
-  - *Locus_Categories.tsv*: A TSV file containing information about each SNP and how many isolates had missing or purged data
-  - *snp_alignment.fasta*: A FASTA alignment of SNPs
-  - *Loc_List.txt*: The ordered list of locs (Reference Contig/Position) of SNPs corresponding to *snp_alignment.fasta*
-  - *distance_matrix.tsv*: A distance matrix for all queries that passed QC
-  - *distance_pairwise.tsv*: A TSV file containing Query_1,Query_2,SNP_Distance,Cocalled_Sites
-
-- There is a pruning step that removes any SNPs where > 2/3 isolates have missing data, resulting in: 
-
-  - *pruned_snp_alignment.fasta*: A FASTA alignment of SNPs after pruning  
-  - *Pruned_Loc_List.txt*: The ordered list of locs (Reference Contig/Position) of SNPs corresponding to *pruned_snp_alignment.fasta*   
-  - *pruned_distance_matrix.tsv*: A distance matrix for all queries that passed QC after pruning  
-  - *pruned_distance_pairwise.tsv*: A TSV file containing Query_1,Query_2,SNP_Distance,Cocalled_Sites after pruning  
-
-Let's check out our isolate data:  
-```
-cat Test_Output/Soil_Analysis/SNP_Sample_A/Isolate_Data.tsv
-```
-| Isolate_ID | Assembly                  | Contig_Count | Assembly_Bases | SHA256                                                           | Category          | Percent_Reference_Aligned | Percent_Query_Aligned | SNPs | Purged_Alignment | Purged_N | Purged_Het | Purged_Indel | Purged_Density | Filtered_Edge |
-|------------|---------------------------|--------------|----------------|------------------------------------------------------------------|-------------------|---------------------------|-----------------------|------|------------------|----------|------------|--------------|----------------|---------------|
-| Sample_D   | assets/SNP/Sample_D.fasta | 55           | 4627990        | 0a8824d9ecda9632b817d421c082e8bf87b613a8032e6e41ce02fb8a8167d8c0 | PASS              | 99.97                     | 99.93                 | 10   | 0                | 0        | 0          | 9            | 0              | 0             |
-| Sample_F   | assets/SNP/Sample_F.fasta | 275          | 4582721        | 1f9e26d3f5ea00ac336292f5877077fcf74f8fbfa13c7e64c594f9808fd392ef | PASS              | 99.04                     | 99.98                 | 28   | 0                | 0        | 0          | 1            | 0              | 1             |
-| Sample_H   | assets/SNP/Sample_H.fasta | 54           | 4728796        | 7f3d73397edee903cfea5b796e4f1a257cc50b63233dcb68a5379ec4fad22953 | PASS              | 99.97                     | 97.81                 | 25   | 0                | 0        | 0          | 1            | 0              | 0             |
-| Sample_E   | assets/SNP/Sample_E.fasta | 84           | 4624417        | 342f8303aafabca5c3e3f175b975cab322eb91fa1f0aabb72340f07bd4740623 | PASS              | 99.93                     | 99.97                 | 10   | 0                | 0        | 0          | 3            | 0              | 0             |
-| Sample_C   | assets/SNP/Sample_C.fasta | 49           | 4668385        | c4676142f6ab101d74ffea7d9315433ccaacee08df481f019cdc2cf29969f52b | PASS              | 99.98                     | 99.08                 | 18   | 0                | 0        | 0          | 1            | 0              | 0             |
-| Sample_B   | assets/SNP/Sample_B.fasta | 40           | 4631086        | 2486ab6c17c1c7997a5707111aa8e2cac41c578382aff413fa66086a31fbde38 | PASS              | 99.99                     | 99.88                 | 31   | 0                | 0        | 0          | 1            | 2              | 4             |
-| Sample_K   | assets/SNP/Sample_K.fasta | 38           | 4632444        | eb45e2ad3c47422df1d3bb56c8900d89daf2e623e00389a94d77f2099e6288ff | PASS              | 99.95                     | 99.82                 | 15   | 0                | 0        | 0          | 14           | 0              | 0             |
-| Sample_I   | assets/SNP/Sample_I.fasta | 47           | 4668267        | e05093575566fd4d00f1e50534435fc38b757b0f26ff73c3046ac9f436fd6208 | PASS              | 99.97                     | 99.07                 | 12   | 0                | 0        | 0          | 2            | 0              | 0             |
-| Sample_M   | assets/SNP/Sample_M.fasta | 805          | 4587464        | 43cb745a1d68479c4c5478bc92d6dbe3c8c999be665ce6394243b7b659a7fa1f | PASS              | 98.14                     | 98.97                 | 27   | 0                | 0        | 0          | 1            | 0              | 2             |
-| Sample_L   | assets/SNP/Sample_L.fasta | 61           | 4627094        | c0c473f21eb8c605b2bd77299e5cbff8d7e6944d62937f0202efb6425f7a1f2c | PASS              | 99.94                     | 99.93                 | 9    | 0                | 0        | 0          | 3            | 0              | 0             |
-| Sample_G   | assets/SNP/Sample_G.fasta | 254          | 4584986        | aae3a07d055bff2fa66127ca77cae35dd5cce5cc42dafea481787d4010c7dbef | PASS              | 99.07                     | 99.97                 | 29   | 0                | 0        | 0          | 1            | 0              | 1             |
-| Sample_O   | assets/SNP/Sample_O.fasta | 83           | 4623444        | cbcc76d3c8bd2e8c61daeb1abeeab82b5f6285b1b52ec3211252fe8fa721df78 | PASS              | 99.87                     | 99.93                 | 34   | 0                | 0        | 0          | 15           | 3              | 0             |
-| Sample_J   | assets/SNP/Sample_J.fasta | 170          | 4730789        | f4b68669533ce36a0f19f97ed11ffa0ea40daa27767f9b094cca7d4ffff53225 | PASS              | 99.58                     | 97.38                 | 17   | 0                | 0        | 0          | 1            | 0              | 0             |
-| Sample_N   | assets/SNP/Sample_N.fasta | 63           | 4667287        | d32b34cc2dd9824e5381b505505ff44d510d4e9d5e7352eab60ec2878d3a688b | PASS              | 99.95                     | 99.07                 | 17   | 0                | 0        | 0          | 1            | 0              | 0             |
-| Sample_A   | assets/SNP/Sample_A.fasta | 50           | 4626313        | dae2379030db9c465040198216d2976ef11fcea1a5739c2dc47950253842bd4b | Reference_Isolate |                           |                       |      |                  |          |            |              |                |               |
-
-Everything seems to have aligned well, so let's check the SNP distances for our samples:
-
-```
-cat pruned_distance_matrix.tsv
-```
-
-|          | Sample_A | Sample_B | Sample_C | Sample_D | Sample_E | Sample_F | Sample_G | Sample_H | Sample_I | Sample_J | Sample_K | Sample_L | Sample_M | Sample_N | Sample_O |
-|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| Sample_A | 0        | 31       | 18       | 10       | 10       | 28       | 29       | 25       | 12       | 17       | 15       | 9        | 27       | 17       | 34       |
-| Sample_B | 31       | 0        | 39       | 31       | 31       | 49       | 50       | 48       | 33       | 38       | 36       | 36       | 50       | 38       | 27       |
-| Sample_C | 18       | 39       | 0        | 18       | 18       | 35       | 35       | 35       | 14       | 24       | 23       | 23       | 36       | 7        | 42       |
-| Sample_D | 10       | 31       | 18       | 0        | 0        | 28       | 29       | 27       | 12       | 17       | 15       | 15       | 29       | 17       | 34       |
-| Sample_E | 10       | 31       | 18       | 0        | 0        | 28       | 29       | 27       | 12       | 17       | 15       | 15       | 29       | 17       | 34       |
-| Sample_F | 28       | 49       | 35       | 28       | 28       | 0        | 3        | 45       | 29       | 32       | 30       | 33       | 46       | 34       | 52       |
-| Sample_G | 29       | 50       | 35       | 29       | 29       | 3        | 0        | 46       | 30       | 33       | 31       | 34       | 47       | 35       | 53       |
-| Sample_H | 25       | 48       | 35       | 27       | 27       | 45       | 46       | 0        | 29       | 34       | 32       | 30       | 44       | 34       | 51       |
-| Sample_I | 12       | 33       | 14       | 12       | 12       | 29       | 30       | 29       | 0        | 18       | 17       | 17       | 30       | 13       | 36       |
-| Sample_J | 17       | 38       | 24       | 17       | 17       | 32       | 33       | 34       | 18       | 0        | 12       | 22       | 36       | 23       | 41       |
-| Sample_K | 15       | 36       | 23       | 15       | 15       | 30       | 31       | 32       | 17       | 12       | 0        | 20       | 34       | 22       | 39       |
-| Sample_L | 9        | 36       | 23       | 15       | 15       | 33       | 34       | 30       | 17       | 22       | 20       | 0        | 32       | 22       | 39       |
-| Sample_M | 27       | 50       | 36       | 29       | 29       | 46       | 47       | 44       | 30       | 36       | 34       | 32       | 0        | 35       | 53       |
-| Sample_N | 17       | 38       | 7        | 17       | 17       | 34       | 35       | 34       | 13       | 23       | 22       | 22       | 35       | 0        | 41       |
-| Sample_O | 34       | 27       | 42       | 34       | 34       | 52       | 53       | 51       | 36       | 41       | 39       | 39       | 53       | 41       | 0        |
-
-And the alignment:
-```
-cat pruned_snp_alignment.fasta
-
->Sample_A
-TAAGCCTGCACCGCGGCGGCGATCGGACAAGCGACGAGTACCACTCGCCTCGTCGGCGAC
-AACGTACCGCGCACACTTTAAGGCGCGGCAAGCGATGCGTTGTGCTTACGAGGGCTTTCG
-GACGTTACCCTTTTGAGCCGACCAGGGAGCCGGCGTGATAGCT
->Sample_B
-TAAGCCTGCATCACGACGACAATTGGACATGCGGCCAGCACCGTCTGCCGCGACGGCAAC
-AACATACCGCACACACTTTAAGGAGCGGCACGCGATGCGTCGTACTCACGAGGGCTTTAG
-GACGTGACCCTTTTGAGCCACCCAGGGAGCCGCCGTGAGAGCC
->Sample_C
-TAATCTTACACCACGGCGGCGATCGTACAAGCGACGAGCACCACTCGCCGCGTCGGCAAC
-AAAGTAAAGCGCACACTTTCAGGCGCGGCAAGCGATGCATTGTGCTTACGAGGGCTTTCG
-GACGTTACCCTTCTGAGTTGACCAGGGAGCCGGCGTGATATCC
->Sample_D
-TAAGCCTGCACCACGGCGGCGATCGGACAAGCGACGAGCACCACTCGCCGCGTCTGCAAC
-AACGTACCGCGCACACTTTAAGGCGCGGCAAGCGATGCGTTATGCTTACGAGGGCTTTCG
-GACGCTATCCTTTTGAGCCGACCAGGGAGTCGGCGTGATAGCC
->Sample_E
-TAAGCCTGCACCACGGCGGCGATCGGACAAGCGACGAGCACCACTCGCCGCGTCTGCAAC
-AACGTACCGCGCACACTTTAAGGCGCGGCAAGCGATGCGTTATGCTTACGAGGGCTTTCG
-GACGCTATCCTTTTGAGCCGACCAGGGAGTCGGCGTGATAGCC
->Sample_F
-TACGCCTGTACTACGGCGGTGAACGGGCAAGCGACGGGCGCTACTCGCTGTATCGGCAAC
-AGNGTACCGCGCNTATTTTAAGGCGCGGCAAGCGATGTGTTGCGCTTACGAAAGCTTTCG
-GGCGTTACCCTTTTGCGCCGACCGGGGAGCCGGAGTGATAGCC
->Sample_G
-TACGCCTGTGCTACGGCGGTGAACGGGCAAGCGACGGGCGCTACTCGCTGTATCGGCAAC
-AANGTACCGCGCNTATTTTAAGGCGCGGCAAGCGATGTGCTGCGCTTACGAAAGCTTTCG
-GGCGTTACCCTTTTGCGCCGACCGGGGAGCCGGAGTGATANCC
->Sample_H
-TAAGCCTGCACCATCGGGGCGATCGGACAAGCGACGAGCACCACTCGCCTCGTCGGCAAC
-AACGTACCGCGCACACTTAAGGCCGCGGCAACCCATGCGTTGTGCATACCAGGGCTCCCG
-GAGGTTACTTTTTGCATCCGACCATCGAGCCGGCGTTATAGCC
->Sample_I
-TAATCCTACACCACGGCGGCGATCGGACAAGCGACGAGCACCACTCGCCGCGTCGGCAAC
-AAAGTACCGCGCACACTTTAAGGCACGGCGAGCGATGCGTTGTGCTTACGAGGGCTTTCG
-AACGTTACCCTTTTGAGCCGACCAGGAAGCCGGCGTGATAGCC
->Sample_J
-TAAGCCTGCACCACGGCAGCGATCGGACCAGCGACGAGCGCCACTCGCCGCGTCGGCAAC
-AANGTACCGCGCGCGCTCTAAGGCGCGGCAAGCGATTCGTTGTGCTTACGAGGGTCTTCG
-GACATTACCCTTTTGAGCCGATCAGGGAGCCGGCGTGTTAGCC
->Sample_K
-TAAGACTGCACCACGGCGGCGATCGGACCAGCTAGGAGCGCCACTCGCCGCGTCGGCAAC
-AACGTACCGAGCGCACTTTAAGGCGCGGCAAGCGATTCGTTGTGCTTACGAGGGCTTTCG
-GACGTTACCCTTTTGAGCCGATCAGGGGGCCGGCGTGATAGCC
->Sample_L
-TAAGCCCGCACCGCGGCGGCGATCGGACAAGCGACGAATACCACTCATCTCGTCGGCAAC
-AACGTACCGCGCACACTTTAAGGCGCAGCAAGCGATGCGTTGTGTTTACGAGGGCTTTCA
-GACGTTACCCTTTTGAGCCGACCAGGGAGCCGGCGTGATAGCC
->Sample_M
-TAAGCCTGCACCACGGCGGCGGTCGGACAATCGACGAGCATCACTCGCCTCGTCGACATT
-AANGCACCACGTACACTTTAAGGCGCGATAAGTGACGCGTTGNGCTTCTGGGGACTTTCG
-GACGTTTCCCGTTTGAGCCGACCAGGGAACTGGCAGGATAGCC
->Sample_N
-TAATCCTACACCACGGCGGCGATCGTACAAGCGACGAGCACCACTCGCCGCGTCGGAAAC
-AAAGTCCAGCGCACACTTTCAGGCGCGGCAAGCGATGCATTGTGCTTACGAGGGCTTTCG
-GACGTTACCCTTTTGAGTTGACCAGGGAGCCAGCGTGATAGCC
->Sample_O
-GGAGCCTGCATCACGACGACAATTAGATAAGTGGCGAGCACCGCCCGCCGCGTAGGCAAC
-GACGTACCGCGCACACATTAAAGCGTGGCACGCGCTGCGTCGTGCTCACGAGGGCTTTCG
-GACGTGACCCTATTGAGCCGACTAGGGAGCCGCCGTGAGGGTC
-
-```
-
-To see if the reference genome has an impact on SNP distance estimation, you can test one or more via *--ref_fasta* / *--ref_reads* or have RefChooser choose *--n_ref* isolates
+To see if the reference genome has an impact on SNP distance estimation, you can test one or more via *--ref_fasta* / *--ref_reads* or have CSP2 choose *--n_ref* isolates
 ```
 nextflow run CSP2.nf --out Test_Output/Soil_Analysis --runmode snp --fasta assets/SNP/ --n_ref 3
 ```
@@ -593,5 +484,5 @@ nextflow run CSP2.nf              // Run CSP2
 --out Test_Output/Soil_Analysis   // Save results to ./Test_Output/Soil_Analysis  
 --runmode snp                     // Compare all queries to each other
 --fasta assets/SNP                // Gather query assemblies from this directory
---n_ref 3                         // Choose the top 3 references from RefChooser and run 3 sepearate analyses
+--n_ref 3                         // Choose the top 3 references and run 3 sepearate analyses
 ```
