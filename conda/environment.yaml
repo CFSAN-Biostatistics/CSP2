@@ -1,0 +1,21 @@
+name: csp2_env
+
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.8.1
+  - bedtools
+  - mash
+  - skesa
+  - mummer
+  - bbmap
+  - pip
+  - pip:
+    - nextflow
+    - pybedtools
+    - scikit-learn
+    - pandas
+    - Bio
