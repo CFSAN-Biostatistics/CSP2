@@ -19,3 +19,4 @@ dependencies:
     - scikit-learn
     - pandas
     - Bio
+    - datetime
