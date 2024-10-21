@@ -157,7 +157,7 @@ nextflow run CSP2.nf -profile myNewProfile <args>
 
 ## Examples
 
-The repo contains small test datasets to ensure things are running as expected. Here are a few examples of how you can use CSP2 in screening mode or in SNP pipeline mode. 
+The [CSP2 Test Data repo](https://github.com/CFSAN-Biostatistics/CSP2_TestData) contains small test datasets to ensure things are running as expected. Here are a few examples of how you can use CSP2 in screening mode or in SNP pipeline mode. 
 
 ## Screening Mode (Example)
 *Situation*: As part of a long-term microbiology experiment, you perform weekly WGS sequencing on isolates as they evolve under different selective conditions. As results, your DNA sequencing facility returns raw WGS reads and assembled genomes. 
