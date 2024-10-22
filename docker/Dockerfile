@@ -157,18 +157,18 @@ RUN export CAPSULE_LOG=debug && curl -s https://get.nextflow.io | bash && \
     mv nextflow /usr/local/bin && \
     nextflow run hello
 
-COPY Makefile .
+ADD docker/Makefile .
 
 # set PATH, set perl locale settings for singularity compatibility
 ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     LC_ALL=C \
     NXF_OFFLINE='true'
 
-ADD https://github.com/CFSAN-Biostatistics/CSP2.git#${CSP2_BRANCH}:bin ./bin
-ADD https://github.com/CFSAN-Biostatistics/CSP2.git#${CSP2_BRANCH}:conf ./conf
-ADD https://github.com/CFSAN-Biostatistics/CSP2.git#${CSP2_BRANCH}:subworkflows ./subworkflows
-ADD https://raw.githubusercontent.com/CFSAN-Biostatistics/CSP2/${CSP2_BRANCH}/CSP2.nf ./CSP2.nf
-ADD https://raw.githubusercontent.com/CFSAN-Biostatistics/CSP2/${CSP2_BRANCH}/nextflow.config ./nextflow.config
+ADD bin ./bin
+ADD conf ./conf
+ADD subworkflows ./subworkflows
+ADD CSP2.nf ./CSP2.nf
+ADD nextflow.config ./nextflow.config
 
 
 FROM app AS pretest
@@ -179,8 +179,7 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     NXF_OFFLINE='true'
 
 #Alternate test data directory
-ADD https://github.com/crashfrog/CSP2.git#main:assets assets/
-# ADD https://github.com/crashfrog/CSP2.git#main:Test_Output Test_Output/
+ADD https://github.com/CFSAN-Biostatistics/CSP2_TestData#main:assets assets/
 
 
 # Test MUmmer installation
