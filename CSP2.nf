@@ -4,6 +4,115 @@ nextflow.enable.dsl=2
 // CSP2 Main Script
 // Params are read in from command line or from nextflow.config and/or conf/profiles.config
 
+// Check if help flag was passed
+help1 = "${params.help}" == "nohelp" ? "nohelp" : "help"
+help2 = "${params.h}" == "nohelp" ? "nohelp" : "help"
+
+def printHelp() {
+    println """
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CSP2
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Global default params:
+
+  --out            Set name for output folder/file prefixes (Default: CSP2_<timestamp>)
+  --outroot        Set output parent directory (Default: CWD; Useful to hardset in nextflow.config if 
+                   you want all output go to the same parent folder, with unique IDs set by --out)
+  --tmp_dir        Manually specify a TMP directory for pybedtools output
+  --help/--h       Display this help menu
+
+
+CSP2 can run in the following run modes:
+
+  --runmode        Run mode for CSP2:
+
+                   - assemble: Assemble read data (--reads/--ref_reads) into FASTA using SKESA
+  
+                   - align: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta), 
+                            run MUMmer alignment analysis for each query/ref combination
+  
+                   - screen: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta) 
+                             and/or MUMmer output (.snpdiffs), create a report for raw SNP 
+                             distances between each query and reference assembly
+  
+                   - snp: Given query data (--reads/--fasta) and reference data (--ref_reads/--ref_fasta) 
+                          and/or MUMmer output (.snpdiffs), generate alignments and pairwise 
+                          distances for all queries based on each reference dataset
+
+Input Data:
+
+  --fasta          Location for query isolate assembly data (.fasta/.fa/.fna). Can be a list of files, a path 
+                   to a signle single FASTA, or a path to a directories with assemblies. 
+  --ref_fasta      Location for reference isolate assembly data (.fasta/.fa/.fna). Can be a list of files, a 
+                   path to a signle single FASTA, or a path to a directories with assemblies. 
+
+  --reads          Directory or list of directories containing query isolate read data
+  --readext        Read file extension (Default: fastq.gz)
+  --forward        Forward read file suffix (Default: _1.fastq.gz)
+  --reverse        Reverse read file suffix (Default: _2.fastq.gz)
+  
+  --ref_reads      Directory or list of directories containing reference isolate read data
+  --ref_readext    Reference read file extension (Default: fastq.gz)
+  --ref_forward    Reference forward read file suffix (Default: _1.fastq.gz)
+  --ref_reverse    Reference reverse read file suffix (Default: _2.fastq.gz)
+
+  --snpdiffs       Location for pre-generated snpdiffs files (List of snpdiffs files, directory with snpdiffs)
+
+  --ref_id         IDs to specify reference sequences (Comma-separated list; e.g., Sample_A,Sample_B,Sample_C)
+
+  --trim_name      A common string to remove from all sample IDs (Default: ''; Useful if all assemblies end in 
+                   something like "_contigs_skesa.fasta")
+
+  --n_ref          If running in --runmode snp, the number of reference genomes for CSP2 to select if none are provided (Default: 1)
+
+  --exclude        A comma-separated list of IDs to remove prior to analysis (Useful for removing low quality 
+                   isolates in combination with --snpdiffs)
+
+QC variables:
+
+  --min_cov        Only consider queries if the reference genome is covered by at least <min_cov>% (Default: 85)
+  --min_len        Only consider SNPs from contig alignments longer than <min_len> bp (Default: 500)
+  --min_iden       Only consider SNPs from alignments with at least <min_iden> percent identity (Default: 99)
+  --dwin           A comma-separated set of window sizes for SNP density filters (Default: 1000,125,15; Set --dwin 0 to disable density filtering)
+  --wsnps          A comma-separated set of maximum SNP counts per window above (Default: 3,2,1)
+  --max_missing    If running in --runmode snp, mask SNPs where data is missing or purged from <max_missing>% of isolates (Default: 50)
+
+Edge Trimming:
+
+  --ref_edge       Don't include SNPs that fall within <ref_edge>bp of a reference contig edge (Default: 150) 
+  --query_edge     Don't include SNPs that fall within <query_edge>bp of a query contig edge (Default: 150)
+  --rescue         If flagged (Default: not flagged), sites that were filtered out due solely to query edge proximity are rescued if 
+                   the same reference position is covered more centrally by another query
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example Commands: 
+
+1) Run CSP2 in SNP Pipeline mode using all the FASTA from /my/data/dir, and choose 3 references
+
+nextflow run CSP2.nf --runmode snp --fasta /my/data/dir --n_ref 3
+
+2) Screen all the paired-end .fastq files from /my/read/dir against the reference isolate in /my/reference/isolates.txt
+
+nextflow run CSP2.nf --runmode screen --ref_fasta /my/reference/isolates.txt --reads /my/read/dir --readext .fastq --forward _1.fastq --reverse _2.fastq
+
+3) Re-run the SNP pipeline using old snpdiffs files after changing the density filters and removing a bad sample
+
+nextflow run CSP2.nf --runmode snp --snpdiffs /my/old/analysis/snpdiffs --dwin 5000,2500,1000 --wsnps 6,4,2 --ref_id Sample_A --exclude Sample_Q --out HQ_Density 
+
+4) Run in assembly mode and use HPC modules specified in profiles.config (NOTE: Setting the profile in nextflow uses a single hyphen (-) as compared to other arguments (--))
+
+nextflow run CSP2.nf -profile myHPC --runmode assemble --reads /my/read/dir --out Assemblies
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""
+    System.exit(0)
+}
+
+if (params.help || params.help2 != "nohelp") {
+    printHelp()
+}
+
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
