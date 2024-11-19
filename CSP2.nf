@@ -109,7 +109,9 @@ nextflow run CSP2.nf -profile myHPC --runmode assemble --reads /my/read/dir --ou
     System.exit(0)
 }
 
-if (params.help || params.help2 != "nohelp") {
+if (help1 == "help") {
+    printHelp()
+} else if(help2 =="help"){
     printHelp()
 }
 
