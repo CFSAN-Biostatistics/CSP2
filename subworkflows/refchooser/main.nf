@@ -18,7 +18,7 @@ workflow runRefChooser{
     mash_refs = query_data
     .unique{it -> it[1]}
     .map { [ it[0], it[1] ] }
-    | mashSkech 
+    | mashSketch 
     | collect
     | mashTriangle
     | chooseRefs
@@ -81,7 +81,7 @@ process mashTriangle{
     """
 }
 
-process mashSkech{
+process mashSketch{
     cpus = 1
 
     input:
