@@ -157,10 +157,10 @@ kmeans = KMeans(n_clusters=optimal_k, random_state=0,n_init='auto').fit(dist_df)
 clusters = kmeans.labels_
 
 cluster_df = pd.DataFrame({'Isolate_ID': dist_df.index, 'Cluster': clusters}).merge(sample_df, on='Isolate_ID',how='left')
-
-cluster_size_df = cluster_df['Cluster'].value_counts().reset_index().rename(columns={'index':'Cluster','Cluster':'count'})
-cluster_size_df['Prop'] = cluster_size_df['count']/cluster_size_df['count'].sum()
-cluster_df = cluster_df.merge(cluster_size_df[['Cluster','Prop']], on='Cluster')
+cluster_counts = cluster_df['Cluster'].value_counts().reset_index()
+cluster_counts.columns = ['Cluster', 'count']
+cluster_counts['Prop'] = cluster_counts['count'] / cluster_counts['count'].sum()
+cluster_df = cluster_df.merge(cluster_counts[['Cluster', 'Prop']], on='Cluster')
 
 # Grab top ref 
 final_ref_df = cluster_df.nlargest(1, 'Base_Score')
