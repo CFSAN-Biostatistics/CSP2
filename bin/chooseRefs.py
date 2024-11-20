@@ -97,9 +97,9 @@ num_isolates = sample_df.shape[0]
 
 # Get FASTA metrics
 metrics_df = pd.DataFrame(sample_df['Path'].apply(fasta_info).tolist(), columns=['Path', 'Contigs', 'Length', 'N50','N90','L50','L90'])
-metrics_df['Assembly_Bases_Zscore'] =  metrics_df['Length'].transform(scipy.stats.zscore).astype('float').round(3)
-metrics_df['Contig_Count_Zscore'] =  metrics_df['Contigs'].transform(scipy.stats.zscore).astype('float').round(3)
-metrics_df['N50_Zscore'] =  metrics_df['N50'].transform(scipy.stats.zscore).astype('float').round(3)
+metrics_df['Assembly_Bases_Zscore'] =  metrics_df['Length'].transform(scipy.stats.zscore).astype('float').round(3).fillna(0)
+metrics_df['Contig_Count_Zscore'] =  metrics_df['Contigs'].transform(scipy.stats.zscore).astype('float').round(3).fillna(0)
+metrics_df['N50_Zscore'] =  metrics_df['N50'].transform(scipy.stats.zscore).astype('float').round(3).fillna(0)
 
 # Find outliers
 inlier_df = metrics_df.loc[(metrics_df['N50_Zscore'] > -3) & 
@@ -134,7 +134,6 @@ with open(mash_triangle_file) as mash_triangle:
         idx += 1
 
 dist_df = pd.DataFrame(a, index=assembly_names, columns=assembly_names).loc[inlier_isolates,inlier_isolates]
-
 # Get mean distances after masking diagonal
 mask = ~np.eye(dist_df.shape[0], dtype=bool)
 mean_distances = dist_df.where(mask).mean().reset_index()
@@ -142,7 +141,7 @@ mean_distances.columns = ['Isolate_ID', 'Mean_Distance']
 
 sample_df = sample_df.merge(mean_distances, on='Isolate_ID', how='left')
 sample_df['Mean_Distance_Zscore'] = sample_df['Mean_Distance'].transform(scipy.stats.zscore).astype('float').round(3)
-sample_df['Base_Score'] = sample_df['N50_Zscore'] - sample_df['Mean_Distance_Zscore']
+sample_df['Base_Score'] = sample_df['N50_Zscore'] - sample_df['Mean_Distance_Zscore'].fillna(0)
 
 if ref_count == 1:
     print(",".join(sample_df.nlargest(1, 'Base_Score')['Path'].tolist()))
