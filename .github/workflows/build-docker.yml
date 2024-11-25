@@ -31,4 +31,4 @@ jobs:
             VERSION=${{ github.ref_name }}
             CSP2_BRANCH=${{ github.ref_name }}
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/csp2:latest,${{ secrets.DOCKERHUB_USERNAME }}/csp2:${{ github.ref_name }}
+          tags: cfsanbiostatistics/csp2:latest,cfsanbiostatistics/csp2:${{ github.ref_name }}
