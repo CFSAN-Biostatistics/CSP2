@@ -9,6 +9,7 @@ from sklearn.metrics import silhouette_score
 import scipy.stats
 from itertools import combinations
 from Bio import SeqIO
+import argparse
 
 def getOptimalK(data, ref_count):
     
@@ -81,11 +82,16 @@ def fasta_info(file_path):
 
     return [file_path,contig_count,assembly_bases,n50,n90,l50,l90]
 
-# Read in args
-ref_count = int(sys.argv[1])
-mash_triangle_file = os.path.abspath((sys.argv[2]))
+parser = argparse.ArgumentParser(description='Choose reference isolates based on FASTA metrics and mean distances.')
+parser.add_argument('ref_count', type=int, help='Number of reference isolates to select')
+parser.add_argument('mash_triangle_file', type=str, help='Path to the mash triangle file')
+parser.add_argument('trim_name', type=str, help='Trim name')
+args = parser.parse_args()
+
+ref_count = args.ref_count
+mash_triangle_file = os.path.abspath(args.mash_triangle_file)
+trim_name = args.trim_name
 ref_file = os.path.join(os.path.dirname(mash_triangle_file), 'CSP2_Ref_Selection.tsv')
-trim_name = str(sys.argv[3])
 
 # Get Sample IDs
 sample_df = pd.read_csv(mash_triangle_file, sep='\t', usecols=[0], skip_blank_lines=True).dropna()

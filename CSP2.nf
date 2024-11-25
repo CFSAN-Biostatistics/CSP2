@@ -104,6 +104,10 @@ nextflow run CSP2.nf --runmode snp --snpdiffs /my/old/analysis/snpdiffs --dwin 5
 
 nextflow run CSP2.nf -profile myHPC --runmode assemble --reads /my/read/dir --out Assemblies
 
+5) Run in SNP pipeline mode using SLURM and use the built in conda environment (NOTE: For local jobs using conda, use -profile standard_conda)
+
+nextflow run CSP2.nf -profile slurm_conda --runmode snp --fasta /my/data/dir --out CSP2_Conda
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
     System.exit(0)
