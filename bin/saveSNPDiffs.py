@@ -4,6 +4,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
+import argparse
 
 def processHeader(header_row,file_path,trim_name):
     header_cols = [item.split(':')[0] for item in header_row]
@@ -24,14 +25,24 @@ def processHeader(header_row,file_path,trim_name):
     
     return header_data
 
-snpdiffs_list_file = sys.argv[1]
-summary_file = sys.argv[2]
-isolate_data_file = sys.argv[3]
-trim_name = str(sys.argv[4])
-if os.stat(sys.argv[5]).st_size == 0:
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--snpdiffs_file", help="Path to the SNP diffs list file")
+parser.add_argument("--summary_file", help="Path to the summary file")
+parser.add_argument("--isolate_file", help="Path to the isolate data file")
+parser.add_argument("--trim_name", help="Trim name")
+parser.add_argument("--ref_id_file", help="Path to the reference IDs file")
+args = parser.parse_args()
+
+snpdiffs_list_file = args.snpdiffs_file
+summary_file = args.summary_file
+isolate_data_file = args.isolate_file
+trim_name = args.trim_name
+
+if os.stat(args.ref_id_file).st_size == 0:
     ref_ids = []
 else:
-    ref_ids = [line.strip() for line in open(sys.argv[5], 'r')]
+    ref_ids = [line.strip() for line in open(args.ref_id_file, 'r')]
 
 # Read in all lines and ensure each file exists
 snpdiffs_list = [line.strip() for line in open(snpdiffs_list_file, 'r')]

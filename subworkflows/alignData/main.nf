@@ -115,6 +115,6 @@ process saveMUMmerLog{
     all_snpdiffs_list.write(snpdiffs_paths.join('\n') + '\n')
     """
     $params.load_python_module
-    python $saveSNPDiffs "${all_snpdiffs_list}" "${snpdiffs_summary_file}" "${isolate_data_file}" "${params.trim_name}" "${ref_id_file}"
+    python $saveSNPDiffs --snpdiffs_file "${all_snpdiffs_list}" --summary_file "${snpdiffs_summary_file}" --isolate_file "${isolate_data_file}" --trim_name "${params.trim_name}" --ref_id_file "${ref_id_file}"
     """
 }
