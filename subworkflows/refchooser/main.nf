@@ -56,7 +56,7 @@ process chooseRefs{
     $params.load_python_module  
     cd $mash_directory
 
-    python $ref_script $ref_count $mash_triangle "${params.trim_name}"
+    python $ref_script --ref_count $ref_count --mash_triangle_file $mash_triangle --trim_name "${params.trim_name}"
     """
 }
 
