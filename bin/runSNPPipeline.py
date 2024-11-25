@@ -16,6 +16,7 @@ import numpy as np
 import uuid
 import traceback
 import shutil
+import argparse
 
 def fetchHeaders(snpdiffs_file):
     
@@ -629,12 +630,39 @@ global run_failed
 run_failed = False
 
 start_time = time.time()
-reference_id = str(sys.argv[1])
 
-output_directory = os.path.abspath(sys.argv[2])
+parser = argparse.ArgumentParser(description='CSP2 SNP Pipeline Analysis')
+parser.add_argument('--reference_id', type=str, help='Reference Isolate')
+parser.add_argument('--output_directory', type=str, help='Output Directory')
+parser.add_argument('--log_directory', type=str, help='Log Directory')
+parser.add_argument('--snpdiffs_file', type=str, help='Path to SNPdiffs file')
+parser.add_argument('--min_cov', type=float, help='Minimum coverage')
+parser.add_argument('--min_len', type=int, help='Minimum length')
+parser.add_argument('--min_iden', type=float, help='Minimum identity')
+parser.add_argument('--ref_edge', type=int, help='Reference edge')
+parser.add_argument('--query_edge', type=int, help='Query edge')
+parser.add_argument('--density_windows', type=str, help='Density windows')
+parser.add_argument('--max_snps', type=str, help='Maximum SNPs')
+parser.add_argument('--trim_name', type=str, help='Trim name')
+parser.add_argument('--max_missing', type=float, help='Maximum missing')
+parser.add_argument('--tmp_dir', type=str, help='Temporary directory')
+parser.add_argument('--rescue', type=str, help='Rescue edge SNPs (rescue/norescue)')
+args = parser.parse_args()
 
-log_directory = os.path.abspath(sys.argv[4])
+reference_id = args.reference_id
+output_directory = os.path.abspath(args.output_directory)
+log_directory = os.path.abspath(args.log_directory)
 log_file = f"{output_directory}/CSP2_SNP_Pipeline.log"
+snpdiffs_file = args.snpdiffs_file
+min_cov = args.min_cov
+min_len = args.min_len
+min_iden = args.min_iden
+ref_edge = args.ref_edge
+query_edge = args.query_edge
+density_windows = [int(x) for x in args.density_windows.split(",")]
+max_snps = [int(x) for x in args.max_snps.split(",")]
+trim_name = args.trim_name
+max_missing = args.max_missing
 
 # Establish log file
 with open(log_file,"w+") as log:
@@ -644,53 +672,30 @@ with open(log_file,"w+") as log:
     log.write("-------------------------------------------------------\n\n")
     log.write("Reading in SNPDiffs files...")
 
-    
+
 # Read in all lines and ensure each file exists
-snpdiffs_list = [line.strip() for line in open(sys.argv[3], 'r')]
+snpdiffs_list = [line.strip() for line in open(snpdiffs_file, 'r')]
 snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
-        run_failed = True       
+        run_failed = True
         sys.exit("Error: File does not exist: " + snpdiffs_file)
 
 snpdiffs_list = list(set(snpdiffs_list))
 
 if len(snpdiffs_list) == 0:
-    run_failed = True       
+    run_failed = True
     sys.exit("No SNPdiffs files provided...")
-    
-with open(log_file,"a+") as log:
+
+with open(log_file, "a+") as log:
     log.write("Done!\n")
     log.write(f"\t- Read in {len(snpdiffs_list)} SNPdiffs files\n")
     log.write("-------------------------------------------------------\n\n")
 
-                
-min_cov = float(sys.argv[5])
-min_len = int(sys.argv[6])
-min_iden = float(sys.argv[7])
-
-ref_edge = int(sys.argv[8])
-query_edge = int(sys.argv[9])
-
-input_density = str(sys.argv[10])
-input_maxsnps = str(sys.argv[11])
-
-if input_density == "0":
-    density_windows = []
-    max_snps = []
-else:
-    density_windows = [int(x) for x in sys.argv[10].split(",")]
-    max_snps = [int(x) for x in sys.argv[11].split(",")]
-assert len(density_windows) == len(max_snps)
-
-trim_name = sys.argv[12]
-max_missing = float(sys.argv[13])
-random_temp_id = str(uuid.uuid4())
-
 global temp_dir
-if sys.argv[14] != "":
+if args.tmp_dir != "":
     random_temp_id = str(uuid.uuid4())
-    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[14]))}/{random_temp_id}"
+    temp_dir = f"{os.path.normpath(os.path.abspath(args.tmp_dir))}/{random_temp_id}"
     try:
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)
@@ -700,7 +705,7 @@ if sys.argv[14] != "":
 else:
     temp_dir = ""
 
-rescue_edge = str(sys.argv[15])
+rescue_edge = str(args.rescue)
 if rescue_edge not in ["rescue","norescue"]:
     with open(log_file,"a+") as log:
         log.write(f"\t- Unexpected rescue_edge variable ('{rescue_edge}'). Not performing SNP edge rescuing (any SNPs found within {query_edge}bp of a query contig edge will be purged)...\n")

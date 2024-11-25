@@ -126,7 +126,7 @@ process runSnpPipeline{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $snp_script "${reference_id}" "${snp_dir}" "${out_snpdiffs}" "${snp_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${max_missing}" "${temp_dir}" "${edge_rescue}"
+    python $snp_script --reference_id "${reference_id}" --output_directory "${snp_dir}" --snpdiffs_file "${out_snpdiffs}" --log_directory "${snp_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --ref_edge "${reference_edge}" --query_edge "${query_edge}" --density_windows "${params.dwin}" --max_snps "${params.wsnps}" --trim_name "${params.trim_name}" --max_missing "${max_missing}" --tmp_dir "${temp_dir}" --rescue "${edge_rescue}"
     echo -n $snp_dir
     """
 }
