@@ -3,19 +3,29 @@
 import os
 import sys
 from glob import glob
+import argparse
+
+# Parse args
+parser = argparse.ArgumentParser(description='Fetch Reads')
+parser.add_argument('--read_dir', type=str, help='path to directory containing read files')
+parser.add_argument('--read_filetype', type=str, help='read filetype information')
+parser.add_argument('--forward_suffix', type=str, help='forward suffix')
+parser.add_argument('--reverse_suffix', type=str, help='reverse suffix')
+parser.add_argument('--trim_name', type=str, help='trim name')
+args = parser.parse_args()
 
 # Get path to directory containing read files
-read_dir = os.path.abspath(str(sys.argv[1]))
+read_dir = os.path.abspath(args.read_dir)
 if not os.path.isdir(read_dir):
-    sys.exit("read_dir (Arg 1) - is not a valid path: "+ str(read_dir) )
+    sys.exit("--read_dir is not a valid path: " + str(read_dir))
 
 # Get read filetype information
-read_filetype = str(sys.argv[2])
+read_filetype = args.read_filetype
 if not read_filetype.startswith("."):
-    read_filetype = "." + str(sys.argv[2])
-forward_suffix = str(sys.argv[3])
-reverse_suffix = str(sys.argv[4])
-trim_name = str(sys.argv[5])
+    read_filetype = "." + read_filetype
+forward_suffix = args.forward_suffix
+reverse_suffix = args.reverse_suffix
+trim_name = args.trim_name
 
 # Check if sequence files exist in directory, ignoring undetermined reads
 read_files = sorted(glob(read_dir+"/*"+read_filetype))

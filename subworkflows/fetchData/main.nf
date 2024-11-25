@@ -407,7 +407,7 @@ process fetchReads{
     } else{
     """
     $params.load_python_module
-    python ${findReads} ${dir} ${read_ext} ${forward_suffix} ${reverse_suffix} ${params.trim_name}
+    python ${findReads} --read_dir ${dir} --read_filetype ${read_ext} --forward_suffix ${forward_suffix} --reverse_suffix ${reverse_suffix} --trim_name ${params.trim_name}
     """
     }
 }
