@@ -325,7 +325,7 @@ process getSNPDiffsData{
     user_snpdiffs_list.write(snpdiffs_paths.join('\n') + "\n")
     """
     $params.load_python_module
-    python ${userSNPDiffs} "${user_snpdiffs_list}" "${params.trim_name}"
+    python ${userSNPDiffs} --snpdiffs_file "${user_snpdiffs_list}" --trim_name "${params.trim_name}"
     """
 }
 

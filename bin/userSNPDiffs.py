@@ -4,6 +4,7 @@ import os
 import sys
 import pandas as pd
 import hashlib
+import argparse
 
 def checkLineExists(file_path, sha256):
     if not os.path.exists(file_path):
@@ -28,8 +29,13 @@ def processHeader(header_row,snpdiffs_path):
     header_data['SNPDiffs_File'] = snpdiffs_path
     return header_data
 
-snpdiffs_list_file = sys.argv[1]
-trim_name = sys.argv[2]
+parser = argparse.ArgumentParser()
+parser.add_argument("--snpdiffs_file", help="Path to the SNP diffs list file")
+parser.add_argument("--trim_name", help="Trim name")
+args = parser.parse_args()
+
+snpdiffs_list_file = args.snpdiffs_file
+trim_name = args.trim_name
 header_rows = []
 
 # Read in all files, and if they exist, read in the header
