@@ -93,7 +93,7 @@ process runMUMmer{
         rm -rf ${mummer_directory}/${report_id}.unref
         rm -rf ${mummer_directory}/${report_id}.unqry
 
-        python ${mummerScript} "${query_name}" "${query_fasta}" "${ref_name}" "${ref_fasta}" "${mummer_directory}" "${snpdiffs_directory}" "${temp_dir}" "${mummer_log}"
+        python ${mummerScript} --query "${query_name}" --query_fasta "${query_fasta}" --reference "${ref_name}" --reference_fasta "${ref_fasta}" --mummer_dir "${mummer_directory}" --snpdiffs_dir "${snpdiffs_directory}" --temp_dir "${temp_dir}" --log_file "${mummer_log}"
         """
     }
 }

@@ -14,6 +14,7 @@ import uuid
 import traceback
 import shutil
 import time
+import argparse
 
 warnings.filterwarnings("ignore")
 
@@ -351,13 +352,26 @@ def compare_kmers(query_file,reference_file,log_file):
 
 #### 01: Read in arguments ####
 run_failed = False
-query = str(sys.argv[1])
-query_fasta = str(sys.argv[2])
-reference = str(sys.argv[3])
-reference_fasta = str(sys.argv[4])
-mummer_dir = os.path.normpath(os.path.abspath(sys.argv[5]))
-snpdiffs_dir = os.path.normpath(os.path.abspath(sys.argv[6]))
-log_file = os.path.normpath(os.path.abspath(sys.argv[8]))
+
+parser = argparse.ArgumentParser(description='CSP2 MUMmer Compilation')
+parser.add_argument('--query', type=str, help='Query')
+parser.add_argument('--query_fasta', type=str, help='Query Fasta')
+parser.add_argument('--reference', type=str, help='Reference')
+parser.add_argument('--reference_fasta', type=str, help='Reference Fasta')
+parser.add_argument('--mummer_dir', type=str, help='MUMmer Directory')
+parser.add_argument('--snpdiffs_dir', type=str, help='snpdiffs Directory')
+parser.add_argument('--temp_dir', type=str, default='', help='Temporary Directory')
+parser.add_argument('--log_file', type=str, help='Log File')
+args = parser.parse_args()
+
+query = args.query
+query_fasta = args.query_fasta
+reference = args.reference
+reference_fasta = args.reference_fasta
+
+mummer_dir = os.path.normpath(os.path.abspath(args.mummer_dir))
+snpdiffs_dir = os.path.normpath(os.path.abspath(args.snpdiffs_dir))
+log_file = os.path.normpath(os.path.abspath(args.log_file))
 
 with open(log_file, "w") as log:
     log.write(f"CSP2 MUMmer Compilation Log: {query}__vs__{reference}\n")
@@ -365,11 +379,12 @@ with open(log_file, "w") as log:
     log.write(f"\t- Reference Fasta: {reference_fasta}\n")
     log.write(f"\t - MUMmer Directory: {mummer_dir}\n")
     log.write(f"\t - snpdiffs Directory: {snpdiffs_dir}\n")
-
+    
+# Set TMP
 global temp_dir
-if sys.argv[7] != "":
+if args.temp_dir != "":
     random_temp_id = str(uuid.uuid4())
-    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[7]))}/{random_temp_id}"
+    temp_dir = f"{os.path.normpath(os.path.abspath(args.temp_dir))}/{random_temp_id}"
     try:
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)
@@ -380,7 +395,7 @@ if sys.argv[7] != "":
         run_failed = True
         print(f"Error: Failed to create directory '{temp_dir}': {e}")
 else:
-    temp_dir = ""
+    temp_dir = "" 
     
 with open(log_file, "a") as log:
     log.write("-------------------------------------------------------\n\n")
