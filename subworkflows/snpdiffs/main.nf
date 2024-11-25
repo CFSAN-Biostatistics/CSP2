@@ -100,7 +100,7 @@ process compileResults{
     snp_dirs_list.write(snp_directories.join("\n")+ "\n")
     """
     $params.load_python_module
-    python $compile_script "${snp_dirs_list}" "${snp_directory}" "${isolate_data_file}" "${snpdiffs_summary_file}"
+    python $compile_script --snp_dirs_file "${snp_dirs_list}" --output_directory "${snp_directory}" --isolate_data_file "${isolate_data_file}" --mummer_data_file "${snpdiffs_summary_file}"
     """
 }
 

@@ -9,6 +9,7 @@ import scipy.stats
 import numpy as np
 import datetime
 import time
+import argparse
 
 def getWarnings(df):
 
@@ -97,14 +98,22 @@ def getWarnings(df):
     
     return warn_list
 
-# Read in arguments
 start_time = time.time()
-snp_dirs = [line.strip() for line in open(sys.argv[1], 'r')]
+
+# Get args
+parser = argparse.ArgumentParser(description='CSP2 SNP Pipeline Compiler')
+parser.add_argument('--snp_dirs_file', type=str, help='Path to the file containing SNP directories')
+parser.add_argument('--output_directory', type=str, help='Path to the output directory')
+parser.add_argument('--isolate_data_file', type=str, help='Path to the isolate data file')
+parser.add_argument('--mummer_data_file', type=str, help='Path to the MUMmer data file')
+args = parser.parse_args()
+
+snp_dirs = [line.strip() for line in open(args.snp_dirs_file, 'r')]
 raw_snp_distance_files = list(chain.from_iterable([glob.glob(snp_dir + '/snp_distance_pairwise.tsv') for snp_dir in snp_dirs]))
 screening_files = list(chain.from_iterable([glob.glob(snp_dir + '/Reference_Screening.tsv') for snp_dir in snp_dirs]))
 
 # Set paths
-output_directory = sys.argv[2]
+output_directory = args.output_directory
 log_file = f"{output_directory}/Compilation.log"
 mean_isolate_file = f"{output_directory}/Mean_Assembly_Stats.tsv"
 isolate_assembly_stats_file = f"{output_directory}/Isolate_Assembly_Stats.tsv"
@@ -122,10 +131,10 @@ with open(log_file,"w+") as log:
         log.write("\t- Compiler stopping...\n")
         sys.exit(0)
     
-isolate_data = pd.read_csv(sys.argv[3],sep="\t")
+isolate_data = pd.read_csv(args.isolate_data_file, sep="\t")
 raw_isolate_count = isolate_data.shape[0]
 
-mummer_data = pd.read_csv(sys.argv[4],sep="\t")
+mummer_data = pd.read_csv(args.mummer_data_file, sep="\t")
 
 # Get reference IDs
 reference_ids = list(set(isolate_data[isolate_data['Isolate_Type'] == "Reference"]['Isolate_ID']))
