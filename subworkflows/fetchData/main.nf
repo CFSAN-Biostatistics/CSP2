@@ -22,6 +22,16 @@ userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 // Set SKESA cores to 5 or fewer
 skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
 
+workflow {
+    main:
+    query_data, reference_data, snpdiff_data = fetchData()
+
+    publish:
+    query_data >> 'query_data.tsv'
+    reference_data >> 'reference_data.tsv'
+    snpdiff_data >> 'snpdiff_data.tsv'
+}
+
 // Top-level workflow //
 workflow fetchData{
 

@@ -22,6 +22,15 @@ isolate_data_file = file("${output_directory}/Isolate_Data.tsv")
 snpdiffs_summary_file = file("${output_directory}/Raw_MUMmer_Summary.tsv")
 mummerScript = file("$projectDir/bin/compileMUMmer.py")
 
+workflow {
+    main:
+    // Align genomes
+    snpdiffs = alignGenomes(to_align: read_data, snpdiffs_data: snpdiffs_data)
+    publish:
+    // Publish snpdiffs
+    snpdiffs >> 'snpdiffs.tsv'
+}
+
 workflow alignGenomes{
     take:
     to_align
