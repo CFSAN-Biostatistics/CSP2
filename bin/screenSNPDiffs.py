@@ -10,6 +10,7 @@ import time
 import uuid
 import traceback
 import shutil
+import argparse
 
 
 def fetchHeaders(snpdiffs_file):
@@ -544,49 +545,65 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 global run_failed
 run_failed = False
 
-# Read in all lines and ensure each file exists
-snpdiffs_list = [line.strip() for line in open(sys.argv[1], 'r')]
+parser = argparse.ArgumentParser()
+parser.add_argument("--snpdiffs_file", help="Path to the file containing SNP diffs")
+parser.add_argument("--log_dir", help="Path to the log directory")
+parser.add_argument("--min_cov", type=float, help="Minimum coverage")
+parser.add_argument("--min_len", type=int, help="Minimum length")
+parser.add_argument("--min_iden", type=float, help="Minimum identity")
+parser.add_argument("--ref_edge", type=int, help="Reference edge")
+parser.add_argument("--query_edge", type=int, help="Query edge")
+parser.add_argument("--density_windows", help="Density windows (comma-separated)")
+parser.add_argument("--max_snps", help="Maximum SNPs (comma-separated)")
+parser.add_argument("--trim_name", help="Trim name")
+parser.add_argument("--output_file", help="Output file")
+parser.add_argument("--ref_id", help="Reference IDs file")
+parser.add_argument("--tmp_dir", help="TMP dir")
+
+args = parser.parse_args()
+
+snpdiffs_list = [line.strip() for line in open(args.snpdiffs_file, 'r')]
 snpdiffs_list = [line for line in snpdiffs_list if line]
 for snpdiffs_file in snpdiffs_list:
     if not os.path.exists(snpdiffs_file):
         run_failed = True
-        sys.exit("Error: File does not exist: " + snpdiffs_file)        
+        sys.exit("Error: File does not exist: " + snpdiffs_file)
 
 snpdiffs_list = list(set(snpdiffs_list))
 
-log_dir = os.path.normpath(os.path.abspath(sys.argv[2]))
+log_dir = os.path.normpath(os.path.abspath(args.log_dir))
 
-min_cov = float(sys.argv[3])
-min_len = int(sys.argv[4])
-min_iden = float(sys.argv[5])
+min_cov = args.min_cov
+min_len = args.min_len
+min_iden = args.min_iden
 
-ref_edge = int(sys.argv[6])
-query_edge = int(sys.argv[7])
+ref_edge = args.ref_edge
+query_edge = args.query_edge
 
-input_density = str(sys.argv[8])
-input_maxsnps = str(sys.argv[9])
+input_density = args.density_windows
+input_maxsnps = args.max_snps
 
 if input_density == "0":
     density_windows = []
     max_snps = []
 else:
-    density_windows = [int(x) for x in sys.argv[8].split(",")]
-    max_snps = [int(x) for x in sys.argv[9].split(",")]
+    density_windows = [int(x) for x in args.density_windows.split(",")]
+    max_snps = [int(x) for x in args.max_snps.split(",")]
 assert len(density_windows) == len(max_snps)
 
-trim_name = sys.argv[10]
+trim_name = args.trim_name
 
-output_file = os.path.abspath(sys.argv[11])
+output_file = os.path.abspath(args.output_file)
 
-if os.stat(sys.argv[12]).st_size == 0:
+if os.stat(args.ref_id).st_size == 0:
     ref_ids = []
 else:
-    ref_ids = [line.strip() for line in open(sys.argv[12], 'r')]
+    ref_ids = [line.strip() for line in open(args.ref_id, 'r')]
 
 global temp_dir
-if sys.argv[13] != "":
+if args.tmp_dir != "":
     random_temp_id = str(uuid.uuid4())
-    temp_dir = f"{os.path.normpath(os.path.abspath(sys.argv[13]))}/{random_temp_id}"
+    temp_dir = f"{os.path.normpath(os.path.abspath(args.tmp_dir))}/{random_temp_id}"
     try:
         os.mkdir(temp_dir)
         helpers.set_tempdir(temp_dir)

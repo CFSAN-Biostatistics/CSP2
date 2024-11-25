@@ -57,7 +57,7 @@ process screenSNPDiffs{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $screenDiffs "${all_snpdiffs_list}" "${screen_log_dir}" "${min_cov}" "${min_length}" "${min_iden}" "${reference_edge}" "${query_edge}" "${params.dwin}" "${params.wsnps}" "${params.trim_name}" "${screening_results_file}" "${ref_id_file}" "${temp_dir}"
+    python $screenDiffs --snpdiffs_file "${all_snpdiffs_list}" --log_dir "${screen_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --ref_edge "${reference_edge}" --query_edge "${query_edge}" --density_windows "${params.dwin}" --max_snps "${params.wsnps}" --trim_name "${params.trim_name}" --output_file "${screening_results_file}" --ref_id "${ref_id_file}" --tmp_dir "${temp_dir}"
     """
 } 
 
