@@ -24,8 +24,11 @@ skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
 
 workflow {
     main:
-    query_data, reference_data, snpdiff_data = fetchData()
-
+    input_data = fetchData()
+    query_data = input_data.query_data
+    reference_data = input_data.reference_data
+    snpdiffs_data = input_data.snpdiff_data
+    
     publish:
     query_data >> 'query_data.tsv'
     reference_data >> 'reference_data.tsv'
