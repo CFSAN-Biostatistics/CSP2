@@ -33,6 +33,12 @@ query_edge = params.query_edge.toInteger()
 max_missing = params.max_missing.toFloat()
 n_ref = params.n_ref.toInteger()
 
+workflow {
+    main:
+    // Run SNP pipeline
+    runSNPPipeline(query_data: all_snpdiffs, reference_data: ref_id_file)
+}
+
 workflow runScreen {
     
     take:

@@ -5,6 +5,15 @@ output_directory = file(params.output_directory)
 log_directory = file(params.log_directory)
 mash_directory = file(params.mash_directory)
 
+workflow {
+    main:
+    // Run RefChooser
+    reference_data = runRefChooser(query_data: query_data)
+    publish:
+    // Publish reference data
+    reference_data >> 'reference.fa'
+}
+
 workflow runRefChooser{
     take:
     query_data
