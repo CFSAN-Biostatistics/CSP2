@@ -433,6 +433,6 @@ process conda_init {
     
     script:
     """
-    rm -rf ./work ./.nextflow* ./.git* ./README.md ./LICENSE
+    rm -rf ./work ./.nextflow* ./.git* ./README.md ./LICENSE ./getCSP2.sh
     """
 }
