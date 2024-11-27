@@ -427,10 +427,12 @@ workflow{
 // Dummy process to stimulate conda env generation
 process conda_init {
     executor = 'local'
+    errorStrategy = 'ignore'
     cpus = 1
     maxForks = 1
     
     script:
     """
+    rm -rf ./work ./.nextflow* ./.git* ./README.md ./LICENSE
     """
 }
