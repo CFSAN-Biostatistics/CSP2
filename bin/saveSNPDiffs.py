@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--snpdiffs_file", help="Path to the SNP diffs list file")
 parser.add_argument("--summary_file", help="Path to the summary file")
 parser.add_argument("--isolate_file", help="Path to the isolate data file")
-parser.add_argument("--trim_name", help="Trim name")
+parser.add_argument('--trim_name', type=str, default="", help='trim name')
 parser.add_argument("--ref_id_file", help="Path to the reference IDs file")
 args = parser.parse_args()
 

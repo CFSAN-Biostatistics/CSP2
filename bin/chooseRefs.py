@@ -85,7 +85,7 @@ def fasta_info(file_path):
 parser = argparse.ArgumentParser(description='Choose reference isolates based on FASTA metrics and mean distances.')
 parser.add_argument('--ref_count', type=int, help='Number of reference isolates to select')
 parser.add_argument('--mash_triangle_file', type=str, help='Path to the mash triangle file')
-parser.add_argument('--trim_name', type=str, help='Trim name')
+parser.add_argument('--trim_name', type=str, default="", help='trim name')
 args = parser.parse_args()
 
 ref_count = args.ref_count

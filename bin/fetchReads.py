@@ -11,7 +11,7 @@ parser.add_argument('--read_dir', type=str, help='path to directory containing r
 parser.add_argument('--read_filetype', type=str, help='read filetype information')
 parser.add_argument('--forward_suffix', type=str, help='forward suffix')
 parser.add_argument('--reverse_suffix', type=str, help='reverse suffix')
-parser.add_argument('--trim_name', type=str, help='trim name')
+parser.add_argument('--trim_name', type=str, default="", help='trim name')
 args = parser.parse_args()
 
 # Get path to directory containing read files

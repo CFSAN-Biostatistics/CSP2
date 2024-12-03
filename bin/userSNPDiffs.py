@@ -31,7 +31,7 @@ def processHeader(header_row,snpdiffs_path):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--snpdiffs_file", help="Path to the SNP diffs list file")
-parser.add_argument("--trim_name", help="Trim name")
+parser.add_argument('--trim_name', type=str, default="", help='trim name')
 args = parser.parse_args()
 
 snpdiffs_list_file = args.snpdiffs_file
