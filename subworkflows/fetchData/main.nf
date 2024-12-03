@@ -19,8 +19,8 @@ user_snpdiffs_list = file("${log_directory}/Imported_SNPDiffs.txt")
 findReads = file("${projectDir}/bin/fetchReads.py")
 userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 
-// Set SKESA cores to 5 or fewer
-skesa_cpus = (params.cores as Integer) >= 5 ? 5 : (params.cores as Integer)
+// Set SKESA cores to 4 or fewer
+skesa_cpus = (params.cores as Integer) >= 4 ? 4 : (params.cores as Integer)
 
 workflow {
     main:
