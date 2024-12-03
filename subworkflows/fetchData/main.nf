@@ -20,7 +20,7 @@ findReads = file("${projectDir}/bin/fetchReads.py")
 userSNPDiffs = file("${projectDir}/bin/userSNPDiffs.py")
 
 // Set SKESA cores to 4 or fewer
-skesa_cpus = (params.cores as Integer) >= 4 ? 4 : (params.cores as Integer)
+skesa_cpus = (params.cores as Integer) >= 4 ? 4 : params.cores as Integer
 
 workflow {
     main:
