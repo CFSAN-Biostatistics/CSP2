@@ -495,6 +495,8 @@ workflow assembleReads{
 process skesaAssemble{
     label 'skesaMem'
 
+    cpus = skesa_cpus
+    
     input:
     tuple val(sample_name),val(read_type),val(read_location)
 
