@@ -493,7 +493,7 @@ workflow assembleReads{
     assembled_data = assembly_output.map{it->tuple(it[0],it[3])}
 }
 process skesaAssemble{
-    memory '12 GB' // Add readcount/memory check?
+    label 'skesaMem'
 
     input:
     tuple val(sample_name),val(read_type),val(read_location)
