@@ -8,9 +8,9 @@ import argparse
 # Parse args
 parser = argparse.ArgumentParser(description='Fetch Reads')
 parser.add_argument('--read_dir', type=str, help='path to directory containing read files')
-parser.add_argument('--read_filetype', type=str, help='read filetype information')
-parser.add_argument('--forward_suffix', type=str, help='forward suffix')
-parser.add_argument('--reverse_suffix', type=str, help='reverse suffix')
+parser.add_argument('--read_filetype',default='fastq.gz', type=str, help='read filetype information')
+parser.add_argument('--forward_suffix',default='_1.fastq.gz', type=str, help='forward suffix')
+parser.add_argument('--reverse_suffix',default = '_2.fastq.gz', type=str, help='reverse suffix')
 parser.add_argument('--trim_name', type=str, default="", help='trim name')
 args = parser.parse_args()
 
