@@ -275,9 +275,7 @@ workflow getAssemblies{
 
         fasta_data = ch_fasta
         .map { filePath ->
-            if (!file(filePath).exists()) {
-                println "ERROR: File does not exist: ${filePath}"
-                System.exit(1) }
+            if (!file(filePath).exists()) { error "$filePath is not a valid directory or file..." }
             return filePath }
         .map { filePath ->
             def fileName = file(filePath).getBaseName()
@@ -320,11 +318,9 @@ workflow processSNPDiffs{
 
         snpdiffs_data = ch_snpdiffs
         .map { filePath ->
-            if (!file(filePath).exists()) {
-                println "ERROR: File does not exist: ${filePath}"
-                System.exit(1) }
+            if (!file(filePath).exists()) { error "$filePath is not a valid directory or file..." }
             return filePath }
-            .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(19)
+        .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(19)
 
         // (1) SNPDiffs_File, (2) Query_ID, (3) Query_Assembly, (4) Query_Contig_Count, (5) Query_Assembly_Bases, 
         // (6) Query_N50, (7) Query_N90, (8) Query_L50, (9) Query_L90, (10) Query_SHA256,
