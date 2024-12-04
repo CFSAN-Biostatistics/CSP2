@@ -272,12 +272,18 @@ workflow getAssemblies{
         } else{
             error "$fasta_dir is not a valid directory or file..."
         }
+
         fasta_data = ch_fasta
-        .filter { file(it).exists() }
+        .map { filePath ->
+            if (!file(filePath).exists()) {
+                println "ERROR: File does not exist: ${filePath}"
+                System.exit(1) }
+            return filePath }
         .map { filePath ->
             def fileName = file(filePath).getBaseName()
             def sampleName = fileName.replaceAll(trim_this, "")
-            tuple(sampleName, filePath)}
+            tuple(sampleName, filePath)
+        }
     }
 }
 workflow processSNPDiffs{
@@ -313,7 +319,11 @@ workflow processSNPDiffs{
         }
 
         snpdiffs_data = ch_snpdiffs
-            .filter { file(it).exists() }
+        .map { filePath ->
+            if (!file(filePath).exists()) {
+                println "ERROR: File does not exist: ${filePath}"
+                System.exit(1) }
+            return filePath }
             .collect() | getSNPDiffsData | splitCsv | collect | flatten | collate(19)
 
         // (1) SNPDiffs_File, (2) Query_ID, (3) Query_Assembly, (4) Query_Contig_Count, (5) Query_Assembly_Bases, 
