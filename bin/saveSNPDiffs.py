@@ -58,7 +58,8 @@ for snpdiffs_file in snpdiffs_list:
         header_rows.append(processHeader(top_line,snpdiffs_file,trim_name))
 
 output_data = pd.concat(header_rows, ignore_index=True)
-output_data.to_csv(summary_file, sep='\t', index=False)
+with open(summary_file,"w") as f:
+    output_data.to_csv(f, sep='\t', index=False)
 
 # If ref_ids is empty, save isolate data
 ref_header = ['Reference_ID','Reference_Assembly','Reference_Contig_Count','Reference_Assembly_Bases','Reference_N50','Reference_N90','Reference_L50','Reference_L90','Reference_SHA256']
@@ -79,5 +80,6 @@ combined_df = combined_df.drop_duplicates()
 cols = combined_df.columns.tolist()
 cols = cols[:1] + cols[-1:] + cols[1:-1]
 combined_df = combined_df[cols]
-combined_df.to_csv(isolate_data_file, sep='\t', index=False)
+with open(isolate_data_file,"w") as f:
+    combined_df.to_csv(f, sep='\t', index=False)
 

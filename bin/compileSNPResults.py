@@ -467,17 +467,20 @@ else:
 # Output data
 
 # Mean assembly stats
-isolate_mean_df.reset_index().to_csv(mean_isolate_file,sep='\t',index=False)
+with open(mean_isolate_file, 'w') as f:
+    isolate_mean_df.reset_index().to_csv(f,sep='\t',index=False)
 
 # Isolate assembly stats
 isolate_assembly_stats = isolate_stats.loc[isolate_stats['Measure'].isin(['Contig_Count','Assembly_Bases','L50','L90','N50','N90'])].drop(['Min','Max','StdDev','Count'],axis=1).rename(columns = {'Mean':'Value'})
-isolate_assembly_stats.to_csv(isolate_assembly_stats_file,sep='\t',index=False)
+with open(isolate_assembly_stats_file,'w') as f:
+    isolate_assembly_stats.to_csv(f,sep='\t',index=False)
 
 # Isolate alignment stats
 isolate_align_stats = pd.concat([align_stats,isolate_cocalled_stats,isolate_snp_stats,isolate_stdev_stats]).reset_index(drop=True)
 for col in ['Min', 'Mean', 'Max', 'StdDev', 'Zscore']:
     isolate_align_stats[col] = isolate_align_stats[col].astype("float").round(3)
-isolate_align_stats.to_csv(align_stats_file,sep='\t',index=False)
+with open(align_stats_file,'w') as f:
+    isolate_align_stats.to_csv(f,sep='\t',index=False)
 
 # Reference Assembly Stats
 ref_align_summary_df = ref_summary_df.loc[(~ref_summary_df['Measure'].isin(['Contig_Count','Assembly_Bases','L50','L90','N50','N90'])) & (~pd.isna(ref_summary_df['Zscore']))]
@@ -492,7 +495,9 @@ if has_preserved:
 ref_isolate_align_stats = align_stats.loc[(align_stats['Isolate_Type'] == "Reference") & (align_stats['Measure'].isin(['Self_Aligned','Compare_Aligned']))].drop(['Isolate_Type'],axis=1).rename(columns = {'Isolate_ID':'Reference_ID'})[['Reference_ID','Measure','Mean','StdDev','Min','Max','Count','Zscore','QC']]
 
 ref_mean_summary_stats = pd.concat([ref_mean_summary_df,ref_isolate_align_stats])
-ref_mean_summary_stats.to_csv(ref_mean_summary_file,sep='\t',index=False)
+
+with open(ref_mean_summary_file,'w') as f:
+    ref_mean_summary_stats.to_csv(f,sep='\t',index=False)
 
 end_time = time.time()
 
@@ -505,10 +510,12 @@ with open(log_file,"a+") as log:
     
     # Comparisons if multiple refs
     if len(reference_ids) > 1:
-        comparison_df.to_csv(snp_comparison_file,sep="\t",index = False)
+        with open(snp_comparison_file,"w") as f:
+            comparison_df.to_csv(f,sep="\t",index = False)
         log.write(f"\t- Saved SNP distance comparisons across references to {snp_comparison_file}\n")
     
     # Failures/warnings
     if warn_fail_df.shape[0] > 0:
-        warn_fail_df.to_csv(qc_file,sep="\t",index=False)
+        with open(qc_file,"w") as f:
+            warn_fail_df.to_csv(f,sep="\t",index=False)
         log.write(f"\t- Saved QC warnings/failures to {qc_file}\n")

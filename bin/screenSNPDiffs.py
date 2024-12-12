@@ -502,7 +502,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
                     
                     # Write filtered SNP data to file
                     snp_file = log_file.replace(".log","_SNPs.tsv")
-                    filtered_snp_df.to_csv(snp_file, sep="\t", index=False)
+                    with open(snp_file,"w") as f:
+                        filtered_snp_df.to_csv(f, sep="\t", index=False)
                     
                     csp2_screen_snps = filtered_snp_df[filtered_snp_df.Cat == "SNP"].shape[0]
                     
@@ -630,7 +631,8 @@ try:
                 'MUMmer_gSNPs','MUMmer_gIndels']
 
     results_df = pd.DataFrame([item.result() for item in results], columns = output_columns)
-    results_df.to_csv(output_file, sep="\t", index=False)
+    with open(output_file,"w") as f:
+        results_df.to_csv(f, sep="\t", index=False)
 except:
     run_failed = True
     print("Exception occurred:\n", traceback.format_exc())

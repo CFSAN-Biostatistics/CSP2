@@ -507,7 +507,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
                                              
                     # Write filtered SNP data to file
                     snp_file = log_file.replace(".log","_SNPs.tsv")
-                    filtered_snp_df.to_csv(snp_file, sep="\t", index=False)
+                    with open(snp_file,"w") as f:
+                        filtered_snp_df.to_csv(f, sep="\t", index=False)
                     
                     filtered_snp_df.loc[:, 'Query_ID'] = query_id
                     
@@ -750,7 +751,8 @@ try:
 
     # Save reference screening
     results_df = pd.DataFrame([item.result()[0] for item in results], columns = output_columns)
-    results_df.to_csv(reference_screening_file, sep="\t", index=False)
+    with open(reference_screening_file,"w") as f:
+        results_df.to_csv(f, sep="\t", index=False)
 
     # Get reference bed dfs
     covered_df = pd.concat([item.result()[1] for item in results])
@@ -940,7 +942,8 @@ try:
             locus_coverage_df = snp_coverage_df.merge(ref_base_coverage_df, how='outer', on='Ref_Loc').merge(uncovered_count_df, how='outer', on='Ref_Loc').merge(purged_count_df, how='outer', on='Ref_Loc').fillna(0)
             locus_coverage_df.loc[:, ['SNP_Count','Ref_Base_Count','Uncovered_Count','Purged_Count']] = locus_coverage_df.loc[:, ['SNP_Count','Ref_Base_Count','Uncovered_Count','Purged_Count']].astype(int)
             locus_coverage_df['Missing_Ratio'] = ((locus_coverage_df['Uncovered_Count'] + locus_coverage_df['Purged_Count']) / (1+len(pass_qc_isolates))) * 100
-            locus_coverage_df.to_csv(locus_category_file, sep="\t", index=False)
+            with open(locus_category_file,"w") as f:
+                locus_coverage_df.to_csv(f, sep="\t", index=False)
             
             # Get isolate coverage stats
             min_isolate_cols = ['Query_ID','SNP','Ref_Base','Percent_Missing','Purged','Uncovered','Rescued_SNP','Purged_Ref_Edge']
@@ -964,7 +967,8 @@ try:
                 isolate_coverage_df.loc[isolate_coverage_df['Query_ID'] == reference_id, 'Purged_Ref_Edge'] = ref_edge_df['Ref_Loc'].nunique()
             
             isolate_coverage_df = isolate_coverage_df[min_isolate_cols + possible_purged_cols].sort_values(by = 'Percent_Missing',ascending = False).reset_index(drop=True)
-            isolate_coverage_df.to_csv(query_coverage_file, sep="\t", index=False)
+            with open(query_coverage_file,'w') as f:
+                isolate_coverage_df.to_csv(f, sep="\t", index=False)
             
             with open(log_file,"a+") as log:
                 log.write(f"\t- SNP coverage information: {locus_category_file}\n")
@@ -1039,42 +1043,52 @@ try:
         pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
         preserved_pairwise_df = pairwise_df.copy()
         
-        pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
-        preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
+        with open(raw_pairwise,"w") as f:
+            pairwise_df.to_csv(f, sep="\t", index=False)
+        with open(preserved_pairwise,"w") as f:
+            preserved_pairwise_df.to_csv(f, sep="\t", index=False)
         
         # Create matrix
         idx = sorted(set(pairwise_df['Query_1']).union(pairwise_df['Query_2']))
         mirrored_distance_df = pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
         mirrored_distance_df.index.name = ''
-        mirrored_distance_df.to_csv(raw_matrix,sep="\t")
-        mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
+        with open(raw_matrix,"w") as f:
+            mirrored_distance_df.to_csv(f,sep="\t")
+        with open(preserved_matrix,"w") as f:
+            mirrored_distance_df.to_csv(f,sep="\t")
 
     else:
         raw_distance_results = parallelAlignment(alignment)
         raw_pairwise_df = pd.DataFrame(raw_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
-        raw_pairwise_df.to_csv(raw_pairwise, sep="\t", index=False)
+        with open(raw_pairwise,"w") as f:
+            raw_pairwise_df.to_csv(f, sep="\t", index=False)
 
         if len(locs_pass_missing) == snp_count:
             preserved_pairwise_df = raw_pairwise_df.copy()
-            preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
+            with open(preserved_pairwise,"w") as f:
+                preserved_pairwise_df.to_csv(f, sep="\t", index=False)
         elif len(locs_pass_missing) == 0:
             preserved_pairwise_df = pd.DataFrame([(pairwise[0], pairwise[1], 0,np.nan) for pairwise in pairwise_combinations],columns = ['Query_1','Query_2','SNP_Distance','SNPs_Cocalled'])
-            preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
+            with open(preserved_pairwise,"w") as f:
+                preserved_pairwise_df.to_csv(f, sep="\t", index=False)        
         else:
             preserved_distance_results = parallelAlignment(preserved_alignment)
             preserved_pairwise_df = pd.DataFrame(preserved_distance_results, columns=['Query_1', 'Query_2', 'SNP_Distance', 'SNPs_Cocalled'])
-            preserved_pairwise_df.to_csv(preserved_pairwise, sep="\t", index=False)
-    
+            with open(preserved_pairwise,"w") as f:
+                preserved_pairwise_df.to_csv(f, sep="\t", index=False)    
+        
         # Create matrix
         idx = sorted(set(raw_pairwise_df['Query_1']).union(raw_pairwise_df['Query_2']))
         mirrored_distance_df = raw_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
         mirrored_distance_df.index.name = ''
-        mirrored_distance_df.to_csv(raw_matrix,sep="\t")
+        with open(raw_matrix,"w") as f:
+            mirrored_distance_df.to_csv(f,sep="\t")
         
         idx = sorted(set(preserved_pairwise_df['Query_1']).union(preserved_pairwise_df['Query_2']))
         mirrored_distance_df = preserved_pairwise_df.pivot(index='Query_1', columns='Query_2', values='SNP_Distance').reindex(index=idx, columns=idx).fillna(0, downcast='infer').pipe(lambda x: x+x.values.T).applymap(lambda x: format(x, '.0f'))
         mirrored_distance_df.index.name = ''
-        mirrored_distance_df.to_csv(preserved_matrix,sep="\t")
+        with open(preserved_matrix,"w") as f:
+            mirrored_distance_df.to_csv(f,sep="\t")
 
     # Clean up pybedtools temp
     helpers.cleanup(verbose=False,remove_all = False)

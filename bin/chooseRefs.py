@@ -186,6 +186,8 @@ while len(refs_chosen) < ref_count:
 non_ref_df = cluster_df.loc[~cluster_df['Isolate_ID'].isin(refs_chosen)].sort_values('Base_Score', ascending=False)
 non_ref_df['Is_Ref'] = False
 final_ref_df['Is_Ref'] = True
-pd.concat([final_ref_df, non_ref_df]).reset_index(drop=True).to_csv(ref_file, index=False, sep="\t")
+
+with open(ref_file, 'w') as f:
+    pd.concat([final_ref_df, non_ref_df]).reset_index(drop=True).to_csv(f, index=False, sep="\t")
 
 print(",".join(final_ref_df['Path'].tolist()))
