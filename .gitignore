@@ -210,3 +210,5 @@ pip-selfcheck.json
 .nextflow*
 work/
 CSP2_env
+csp2
+csp2-screen
