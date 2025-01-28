@@ -13,6 +13,7 @@ dependencies:
   - mummer
   - bbmap
   - pip
+  - iqtree
   - pip:
     - pybedtools
     - scikit-learn
