@@ -33,6 +33,11 @@ query_edge = params.query_edge.toInteger()
 max_missing = params.max_missing.toFloat()
 n_ref = params.n_ref.toInteger()
 
+// iqTree bootstraps
+np_boot = params.b.toInteger()
+uf_boot = params.bb.toInteger()
+boot_sum = np_boot + uf_boot
+
 workflow {
     main:
     // Run SNP pipeline
@@ -88,7 +93,7 @@ workflow runSNPPipeline{
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | runSnpPipeline
 
-    //snp_dirs.collect() | compileResults
+    snp_trees = "${params.notree}" != "notree" ? Channel.empty() : snp_dirs | runiqtree
 }
 
 process compileResults{
@@ -136,3 +141,33 @@ process runSnpPipeline{
     echo -n $snp_dir
     """
 }
+
+process runiqtree{
+
+    input:
+    val(snp_dir)
+
+    output:
+    stdout
+
+    script:
+    preserved_alignment = file("${snp_dir}/snpma_preserved.fasta")
+    raw_tree_file = file("${snp_dir}/snpma_preserved.fasta.treefile")
+    tree_file = boot_sum == 0 ? file("${snp_dir}/snpma_preserved.noboot.tre") : file("${snp_dir}/snpma_preserved.best.withboot.tre")
+
+    // Ensure alignment exist
+    if(!preserved_alignment.isFile()){
+        error "$preserved_alignment does not exist..."
+    } else{
+        if(boot_sum == 0){
+            bootstrap = ""
+        } else{
+            bootstrap = np_boot != 0 ? "-b ${np_boot}":"-bb ${uf_boot}"
+        }
+        """
+        iqtree -T AUTO -m $params.model $bootstrap -s $preserved_alignment
+        ln -s $raw_tree_file $tree_file
+        echo -n $tree_file
+        """
+    }
+}   
