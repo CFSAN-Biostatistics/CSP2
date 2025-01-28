@@ -209,3 +209,4 @@ pip-selfcheck.json
 #Nextflow
 .nextflow*
 work/
+CSP2_env
