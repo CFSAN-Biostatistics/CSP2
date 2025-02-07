@@ -164,12 +164,10 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     LC_ALL=C \
     NXF_OFFLINE='true'
 
-ADD bin ./bin
-ADD conf ./conf
-ADD subworkflows ./subworkflows
-ADD CSP2.nf ./CSP2.nf
-ADD nextflow.config ./nextflow.config
 
+
+# Add the CSP2 pipeline, these are the parts that change most often in a release
+ADD bin/ conf/ subworkflows/ CSP2.nf nextflow.config ./
 
 FROM app AS pretest
 
@@ -221,6 +219,31 @@ RUN awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' V5.3.2.artic.bed > 
 
 RUN /bin/bash -c 'make test'
 
+FROM app AS galaxy
+
+ARG CSP2_VER
+ARG BEDTOOLS_VER
+ARG MUMMER_VER
+ARG SKESA_VER
+ARG MASH_VER
+ARG BBMAP_VER
+ARG PYTHON_VER
+ENV CSP2_VER=${CSP2_VER}
+ENV BEDTOOLS_VER=${BEDTOOLS_VER}
+ENV MUMMER_VER=${MUMMER_VER}
+ENV SKESA_VER=${SKESA_VER}
+ENV MASH_VER=${MASH_VER}
+ENV BBMAP_VER=${BBMAP_VER}
+ENV PYTHON_VER=${PYTHON_VER}
+
+# set PATH, set perl locale settings for singularity compatibility
+ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
+    LC_ALL=C \
+    NXF_OFFLINE='true'
+
+ENTRYPOINT ["/bin/bash", "-c"]
+CMD ["/bin/bash"]
+
 FROM app AS release
 
 ARG CSP2_VER
@@ -244,3 +267,4 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     NXF_OFFLINE='true'
 
 ENTRYPOINT ["make", "--makefile=/app/Makefile"]
+

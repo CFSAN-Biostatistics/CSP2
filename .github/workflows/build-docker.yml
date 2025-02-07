@@ -32,3 +32,15 @@ jobs:
             CSP2_BRANCH=${{ github.ref_name }}
           push: true
           tags: cfsanbiostatistics/csp2:latest,cfsanbiostatistics/csp2:${{ github.ref_name }}
+      -
+        name: Build for Galaxy
+        uses: docker/build-push-action@v6
+        with:
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          target: galaxy
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            CSP2_BRANCH=${{ github.ref_name }}
+          push: true
+          tags: cfsanbiostatistics/csp2:galaxy,cfsanbiostatistics/csp2:${{ github.ref_name }}-galaxy
