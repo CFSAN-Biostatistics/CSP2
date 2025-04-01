@@ -776,7 +776,7 @@ try:
                 isolate_category = results_df[results_df['Query_ID'] == isolate]['Screen_Category'].values[0]
                 log.write(f"\t\t- {isolate}: {isolate_category}\n")
             log.write("-------------------------------------------------------\n\n")
-        sys.exit(0)
+        sys.exit("No sequences passed QC filters.")
     else:    
         with open(log_file,"a+") as log:
             log.write("Done!\n")
