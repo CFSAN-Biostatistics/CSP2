@@ -409,7 +409,6 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
     
     raw_query_percent_aligned = float(header_data['Query_Percent_Aligned'][0])
     raw_ref_percent_aligned = float(header_data['Reference_Percent_Aligned'][0])
-        
     # If the reference is not covered by at least min_cov, STOP
     if raw_ref_percent_aligned < min_cov:
         query_percent_aligned = raw_query_percent_aligned
@@ -453,6 +452,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         
         if good_bed_df.shape[0] == 0:
             screen_category = "Low_Quality_Coverage"
+            query_percent_aligned = raw_query_percent_aligned
+            reference_percent_aligned = raw_ref_percent_aligned
             with open(log_file,"a+") as log:
                 log.write(f"\n\t- After filtering based on --min_len ({min_len}) and --min_iden ({min_iden}) , no valid alignments remain...Screen halted...\n")
                 log.write("-------------------------------------------------------\n\n")

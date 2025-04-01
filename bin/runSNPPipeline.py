@@ -443,6 +443,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         good_bed_df = bed_df[(bed_df['Ref_Aligned'] >= min_len) & (bed_df['Perc_Iden'] >= min_iden)].copy()
         
         if good_bed_df.shape[0] == 0:
+            query_percent_aligned = raw_query_percent_aligned
+            reference_percent_aligned = raw_ref_percent_aligned
             screen_category = "Low_Quality_Coverage"
             with open(log_file,"a+") as log:
                 log.write(f"\n\t- After filtering based on --min_len ({min_len}) and --min_iden ({min_iden}) , no valid alignments remain...Screen halted...\n")
@@ -774,7 +776,7 @@ try:
                 isolate_category = results_df[results_df['Query_ID'] == isolate]['Screen_Category'].values[0]
                 log.write(f"\t\t- {isolate}: {isolate_category}\n")
             log.write("-------------------------------------------------------\n\n")
-        sys.exit(0)
+        sys.exit("No sequences passed QC filters.")
     else:    
         with open(log_file,"a+") as log:
             log.write("Done!\n")
