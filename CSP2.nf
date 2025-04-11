@@ -40,13 +40,15 @@ CSP2 can run in the following run modes:
                           and/or MUMmer output (.snpdiffs), generate alignments and pairwise 
                           distances for all queries based on each reference dataset
 
+                   - locus: Given query data (--reads/--fasta) and reference loci (--ref_fasta) 
+                          and/or MUMmer output (.snpdiffs), detect loci in each query and, if present,
+                          extract and align them
 Input Data:
 
   --fasta          Location for query isolate assembly data (.fasta/.fa/.fna). Can be a list of files, a path 
                    to a signle single FASTA, or a path to a directories with assemblies. 
   --ref_fasta      Location for reference isolate assembly data (.fasta/.fa/.fna). Can be a list of files, a 
                    path to a signle single FASTA, or a path to a directories with assemblies. 
-
   --reads          Directory or list of directories containing query isolate read data
   --readext        Read file extension (Default: fastq.gz)
   --forward        Forward read file suffix (Default: _1.fastq.gz)
@@ -122,8 +124,8 @@ if (help1 == "help") {
 // Assess run mode
 if (params.runmode == "") {
     error "--runmode must be specified..."
-} else if (!['align','assemble', 'screen', 'snp','conda_init'].contains(params.runmode)){
-    error "--runmode must be 'align','assemble', 'screen', or 'snp', not ${params.runmode}..."
+} else if (!['align','assemble', 'screen', 'snp','locus','conda_init'].contains(params.runmode)){
+    error "--runmode must be 'align','assemble', 'screen','locus', or 'snp', not ${params.runmode}..."
 }
 
 // If runmode is conda_init, launch a local process to spurn the generation of the conda environment and exit
@@ -177,6 +179,19 @@ if (params.runmode != "conda_init") {
     else if (params.runmode == "snp"){
         if((params.snpdiffs == "") && (params.fasta == "") && (params.reads == "")) {
             error "Runmode is --snp but no query data provided via --snpdiffs/--reads/--fasta"
+        }
+    }
+
+    // Runmode 'locus'
+    //  - Requires: --reads/--fasta/--snpdiffs/--ref_fasta
+    //  - Generates .snpdiffs files (if needed), applies QC, and aligns loci extracted from queries if present
+    else if (params.runmode == "locus"){
+        if(params.snpdiffs == ""){
+            if((params.fasta == "") && (params.reads == "")) {
+                error "Runmode is --locus but no query data provided via --snpdiffs/--reads/--fasta"
+            } else if(params.ref_fasta == ""){
+                error "Runmode is --locus but no locus data provided via --snpdiffs/--ref_fasta"
+            }
         }
     } 
 
@@ -282,6 +297,12 @@ if (params.runmode != "conda_init") {
             }        
         }
 
+        // If runmode is locus, prepare a directory for SNP analysis + logs
+        if(params.runmode == "locus"){
+            snp_directory.mkdirs()
+            snp_log_dir.mkdirs()  
+        }
+
         // If runmode is screen, prepare a directory for screening logs
         if(params.runmode == "screen"){
             screen_log_dir.mkdirs()
@@ -341,7 +362,7 @@ if (params.runmode != "conda_init") {
 // Import modules
 include {fetchData} from "./subworkflows/fetchData/main.nf"
 include {alignGenomes} from "./subworkflows/alignData/main.nf"
-include {runScreen;runSNPPipeline} from "./subworkflows/snpdiffs/main.nf"
+include {runScreen;runSNPPipeline;runLocusPipeline} from "./subworkflows/snpdiffs/main.nf"
 include {runRefChooser} from "./subworkflows/refchooser/main.nf"
 
 workflow{
@@ -362,7 +383,7 @@ workflow{
         .unique{it -> it[0]}
         
         // If run mode is 'assemble', tasks are complete
-        if((params.runmode == "align") || (params.runmode == "screen") || (params.runmode == "snp")){
+        if((params.runmode == "align") || (params.runmode == "screen") || (params.runmode == "snp") || (params.runmode == "locus")){
 
             // If there is no reference data, align all query_data against each other
             if(!ref_mode){
@@ -392,14 +413,20 @@ workflow{
                     to_align = query_data
                     .combine(reference_data)
                     .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+                } else if(params.runmode == "locus"){
+                    to_align = Channel.empty() 
                 }
             }
 
             // If references are provided, align all queries against all references
             else{
-                to_align = query_data
-                .combine(reference_data)
-                .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+                if ((params.fasta == "") && (params.reads == "")){
+                    to_align = Channel.empty()
+                } else{
+                    to_align = query_data
+                    .combine(reference_data)
+                    .filter{it -> (it[1].toString() != "null") && (it[3].toString() != "null")} // Can't align without FASTA
+                }
             }
 
             // Don't align things that are already aligned via --snpdiffs
@@ -419,6 +446,8 @@ workflow{
                 runScreen(all_snpdiffs)
             } else if(params.runmode == "snp"){
                 runSNPPipeline(all_snpdiffs,reference_data)
+            } else if(params.runmode == "locus"){
+                runLocusPipeline(all_snpdiffs)
             }
         }
     }

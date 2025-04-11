@@ -96,6 +96,58 @@ workflow runSNPPipeline{
     snp_trees = "${params.notree}" != "notree" ? Channel.empty() : snp_dirs | runiqtree
 }
 
+workflow runLocusPipeline{
+    take:
+    all_snpdiffs
+
+    main:
+    
+    query_snpdiffs = all_snpdiffs.map{tuple(it[0],it[2])}
+    ref_snpdiffs = all_snpdiffs.map{tuple(it[1],it[2])}
+
+    stacked_snpdiffs = query_snpdiffs.concat(ref_snpdiffs)
+    .collect().flatten().collate(2)
+
+    reference_data = ref_snpdiffs
+    .unique{it -> it[0]}
+    .map{it -> tuple(it[0],null)}
+
+    snp_dirs = stacked_snpdiffs
+    .combine(reference_data)
+    .filter{it -> it[0].toString() == it[2].toString()}
+    .map{it -> tuple(it[0],it[1])}
+    .groupTuple(by:0)
+    .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
+    | runLocus
+}
+
+process runLocus{
+
+    input:
+    tuple val(reference_id),val(diff_files)
+
+    output:
+    stdout
+
+    script:
+
+    locus_script = file("${projectDir}/bin/runLocusPipeline.py")
+
+    // Set + create output directory
+    locus_dir = file("${snp_directory}/${reference_id}")
+    locus_dir.mkdirs()
+
+    // Write SNPDiffs list
+    out_snpdiffs = file("${locus_dir}/SNPDiffs.txt")
+    out_snpdiffs.write(diff_files.join("\n")+ "\n")
+    """
+    $params.load_python_module
+    $params.load_bedtools_module
+    python $locus_script --reference_id "${reference_id}" --output_directory "${locus_dir}" --snpdiffs_file "${out_snpdiffs}" --log_directory "${snp_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --ref_edge "${reference_edge}" --query_edge "${query_edge}" --density_windows "${params.dwin}" --max_snps "${params.wsnps}" --trim_name "${params.trim_name}" --max_missing "${max_missing}" --tmp_dir "${temp_dir}" --rescue "${edge_rescue}"
+    echo -n $locus_dir
+    """
+}
+
 process compileResults{
 
     executor = 'local'

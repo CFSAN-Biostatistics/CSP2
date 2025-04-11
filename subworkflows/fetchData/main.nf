@@ -174,45 +174,46 @@ workflow fetchData{
             .collect().flatten().collate(2)
 
         } else{
-
-            // Process additional reference IDs
-            ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
             
-            all_ref_ids = ref_fasta.map{it->tuple(it[0])}
-            .concat(ref_reads.map{it->tuple(it[0])})
-            .concat(user_ref_ids)
-            .unique{it-> it[0]}.collect().flatten().collate(1)
-            .map{it -> tuple(it[0],"Reference")}
-            .join(exclude_ids,by:0,remainder:true)
-            .filter{it -> it[0].toString() != "null"}
-            .filter{it -> it[2].toString() != "Exclude"}
-            .map{it -> tuple(it[0],it[1])}
+                // Process additional reference IDs
+                ("${params.ref_id}" != "" ? processRefIDs() : Channel.empty()).set{user_ref_ids}
+                
+                all_ref_ids = ref_fasta.map{it->tuple(it[0])}
+                .concat(ref_reads.map{it->tuple(it[0])})
+                .concat(user_ref_ids)
+                .unique{it-> it[0]}.collect().flatten().collate(1)
+                .map{it -> tuple(it[0],"Reference")}
+                .join(exclude_ids,by:0,remainder:true)
+                .filter{it -> it[0].toString() != "null"}
+                .filter{it -> it[2].toString() != "Exclude"}
+                .map{it -> tuple(it[0],it[1])}
 
-            reference_data = all_samples
-            .join(all_ref_ids,by:0,remainder:true)
-            .filter{it -> it[2].toString() == "Reference"}
-            .map{it->tuple(it[0],it[1])}
-            .unique{it -> it[0]}
-            .collect().flatten().collate(2)
-
-            // Save reference data to file
-            reference_data
-            .collect{it -> it[0]}
-            | saveRefIDs
-
-            if(params.runmode == "screen" || params.runmode == "align"){
-                query_data = all_samples
+                reference_data = all_samples
                 .join(all_ref_ids,by:0,remainder:true)
-                .filter{it -> it[2].toString() != "Reference"}
+                .filter{it -> it[2].toString() == "Reference"}
                 .map{it->tuple(it[0],it[1])}
                 .unique{it -> it[0]}
                 .collect().flatten().collate(2)
-            } else if(params.runmode == "snp"){
-                query_data = all_samples
-                .unique{it -> it[0]}
-                .collect().flatten().collate(2)
-            }
-        }
+
+                // Save reference data to file
+                reference_data
+                .collect{it -> it[0]}
+                | saveRefIDs
+
+                if(params.runmode == "screen" || params.runmode == "align" || params.runmode == "locus"){
+                    query_data = all_samples
+                    .join(all_ref_ids,by:0,remainder:true)
+                    .filter{it -> it[2].toString() != "Reference"}
+                    .map{it->tuple(it[0],it[1])}
+                    .unique{it -> it[0]}
+                    .collect().flatten().collate(2)
+                } else if(params.runmode == "snp"){
+                    query_data = all_samples
+                    .unique{it -> it[0]}
+                    .collect().flatten().collate(2)
+                }
+            } 
+
     }
 }
 
