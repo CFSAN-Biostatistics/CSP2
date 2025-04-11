@@ -92,10 +92,10 @@ process runMUMmer{
         cd ${mummer_directory}
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}
         
-        rm -rf ${mummer_directory}/${report_id}.mdelta
-        rm -rf ${mummer_directory}/${report_id}.mcoords
-        rm -rf ${mummer_directory}/${report_id}.1delta
-        rm -rf ${mummer_directory}/${report_id}.delta
+        # rm -rf ${mummer_directory}/${report_id}.mdelta
+        # rm -rf ${mummer_directory}/${report_id}.mcoords
+        # rm -rf ${mummer_directory}/${report_id}.1delta
+        # rm -rf ${mummer_directory}/${report_id}.delta
         rm -rf ${mummer_directory}/${report_id}.qdiff
         rm -rf ${mummer_directory}/${report_id}.rdiff
         rm -rf ${mummer_directory}/${report_id}.unref
