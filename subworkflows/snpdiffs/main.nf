@@ -101,27 +101,36 @@ workflow runLocusPipeline{
     all_snpdiffs
 
     main:
-    
+
     query_snpdiffs = all_snpdiffs.map{tuple(it[0],it[2])}
     ref_snpdiffs = all_snpdiffs.map{tuple(it[1],it[2])}
+
+    reference_data = ref_snpdiffs
+    .unique{it->it[0]}
+    .map{tuple(it[0],null)}
 
     stacked_snpdiffs = query_snpdiffs.concat(ref_snpdiffs)
     .collect().flatten().collate(2)
 
-    reference_data = ref_snpdiffs
-    .unique{it -> it[0]}
-    .map{it -> tuple(it[0],null)}
-
-    snp_dirs = stacked_snpdiffs
+    multi_snp_dirs = stacked_snpdiffs
     .combine(reference_data)
     .filter{it -> it[0].toString() == it[2].toString()}
     .map{it -> tuple(it[0],it[1])}
     .groupTuple(by:0)
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
-    | runLocus
+    | findLoci
+
+
+    snp_dirs = multi_snp_dirs
+    .collect()
+    .flatten()
+    .collate(1)
+    .unique{it -> it[0]}
+
+    snp_dirs.subscribe{println("$it")}
 }
 
-process runLocus{
+process findLoci{
 
     input:
     tuple val(reference_id),val(diff_files)
