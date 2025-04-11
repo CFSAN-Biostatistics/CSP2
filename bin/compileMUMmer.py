@@ -484,6 +484,9 @@ try:
                 total_snp_count = processed_snps[processed_snps['Cat'] == "SNP"].shape[0]
                 total_indel_count = processed_snps[processed_snps['Cat'] == "Indel"].shape[0]
                 total_invalid_count = processed_snps[processed_snps['Cat'] == "Invalid"].shape[0]
+    else:
+        coords_file = pd.DataFrame(columns=['Ref_Contig','Ref_Start','Ref_End','Ref_Length','Ref_Aligned','Query_Contig','Query_Start','Query_End','Query_Length','Query_Aligned','Perc_Iden'])
+        processed_snps = pd.DataFrame(columns=['Ref_Contig','Start_Ref','Ref_Pos','Query_Contig','Start_Query','Query_Pos','Ref_Loc','Query_Loc','Ref_Start','Ref_End','Query_Start','Query_End','Ref_Base','Query_Base','Dist_to_Ref_End','Dist_to_Query_End','Ref_Aligned','Query_Aligned','Query_Direction','Perc_Iden','Cat'])
             
     # Clean up pybedtools temp
     helpers.cleanup(verbose=False,remove_all = False)
