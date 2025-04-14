@@ -140,7 +140,7 @@ process findLoci{
 
     script:
 
-    locus_script = file("${projectDir}/bin/runLocusPipeline.py")
+    locus_script = file("${projectDir}/bin/findLoci.py")
 
     // Set + create output directory
     locus_dir = file("${snp_directory}/${reference_id}")
@@ -152,7 +152,7 @@ process findLoci{
     """
     $params.load_python_module
     $params.load_bedtools_module
-    python $locus_script --reference_id "${reference_id}" --output_directory "${locus_dir}" --snpdiffs_file "${out_snpdiffs}" --log_directory "${snp_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --ref_edge "${reference_edge}" --query_edge "${query_edge}" --density_windows "${params.dwin}" --max_snps "${params.wsnps}" --trim_name "${params.trim_name}" --max_missing "${max_missing}" --tmp_dir "${temp_dir}" --rescue "${edge_rescue}"
+    python $locus_script --reference_id "${reference_id}" --output_directory "${locus_dir}" --snpdiffs_file "${out_snpdiffs}" --log_directory "${snp_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --max_contigs "${max_contigs}" --trim_name "${params.trim_name}" --tmp_dir "${temp_dir}"
     echo -n $locus_dir
     """
 }
