@@ -25,6 +25,7 @@ isolate_data_file = file("${output_directory}/Isolate_Data.tsv")
 snpdiffs_summary_file = file("${output_directory}/Raw_MUMmer_Summary.tsv")
 
 // Get QC thresholds
+max_contigs = params.max_contigs.toInteger()
 min_cov = params.min_cov.toFloat()
 min_length = params.min_len.toInteger()
 min_iden = params.min_iden.toFloat()
