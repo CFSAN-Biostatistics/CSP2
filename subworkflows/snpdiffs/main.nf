@@ -113,22 +113,37 @@ workflow runLocusPipeline{
     stacked_snpdiffs = query_snpdiffs.concat(ref_snpdiffs)
     .collect().flatten().collate(2)
 
-    multi_snp_dirs = stacked_snpdiffs
+    alignment_fasta_files = stacked_snpdiffs
     .combine(reference_data)
     .filter{it -> it[0].toString() == it[2].toString()}
     .map{it -> tuple(it[0],it[1])}
     .groupTuple(by:0)
     .map { ref, diff_files -> tuple( ref.toString(), diff_files.collect() ) }
     | findLoci
+    | alignHits
+}
 
+process alignHits {
 
-    snp_dirs = multi_snp_dirs
-    .collect()
-    .flatten()
-    .collate(1)
-    .unique{it -> it[0]}
+    input:
+    val(alignment_file)
 
-    snp_dirs.subscribe{println("$it")}
+    output:
+    stdout
+
+    script:
+    alignment_dir = "${alignment_file}" == "" ? "" : file(alignment_file).getParent()
+    
+    if (alignment_dir){
+        """
+        mafft --auto ${alignment_file} > ${alignment_file}.aln
+        echo -n ${alignment_file}.aln
+        """
+    } else{
+        """
+        echo -n
+        """
+    }
 }
 
 process findLoci{
@@ -154,7 +169,6 @@ process findLoci{
     $params.load_python_module
     $params.load_bedtools_module
     python $locus_script --reference_id "${reference_id}" --output_directory "${locus_dir}" --snpdiffs_file "${out_snpdiffs}" --log_directory "${snp_log_dir}" --min_cov "${min_cov}" --min_len "${min_length}" --min_iden "${min_iden}" --max_contigs "${max_contigs}" --trim_name "${params.trim_name}" --tmp_dir "${temp_dir}"
-    echo -n $locus_dir
     """
 }
 
