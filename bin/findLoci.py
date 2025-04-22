@@ -519,7 +519,7 @@ def extendHit(query_id,reference_id,locus_coords_df,contig_id,contig_seq,locus_r
             return(query_type,query_record,query_coords,start_extension,start_extension_type,end_extension,end_extension_type)
     
     # Get the hit orientation
-    hit_orientation = locus_coords_df['Orientation'][0]
+    hit_orientation = locus_coords_df['Orientation'].values[0]
 
     lowest_hit = locus_coords_df[locus_coords_df['Ref_Start'] == ref_start]    
     highest_hit = locus_coords_df[locus_coords_df['Ref_End'] == ref_end]
@@ -532,15 +532,18 @@ def extendHit(query_id,reference_id,locus_coords_df,contig_id,contig_seq,locus_r
     
     # Reverse the contig and start/end if in the - orientation
     if hit_orientation == "+":
-        low_start = lowest_hit['Query_Start'][0]
-        low_end = lowest_hit['Query_End'][0]
-        high_end = highest_hit['Query_End'][0]
+        low_start = lowest_hit['Query_Start'].values[0]
+        low_end = lowest_hit['Query_End'].values[0]
+        high_end = highest_hit['Query_End'].values[0]
     else:
-        contig_seq = contig_seq.reverse_complement()
         
-        low_start = contig_length - lowest_hit['Query_End'][0]
-        low_end = contig_length - lowest_hit['Query_Start'][0]
-        high_end = contig_length - highest_hit['Query_Start'][0]
+        contig_seq = contig_seq.reverse_complement()
+    
+        low_start = contig_length - lowest_hit['Query_End'].values[0]
+        low_end = contig_length - lowest_hit['Query_Start'].values[0]
+        high_end = contig_length - highest_hit['Query_Start'].values[0]
+        
+
        
     # Get full hit
     oriented_hit = contig_seq[low_start:high_end]
@@ -867,7 +870,8 @@ try:
                 query_id,query_type,query_contigs,query_bases,query_record,query_coords = result
                 results.append((query_id,query_type,query_contigs,query_bases,query_record,query_coords))        
             except Exception as exc:
-                print(f"Process failed with exception: {exc}")
+                traceback.print_exc()
+                sys.exit(1)
 
         df = pd.DataFrame([{
             "Reference_Locus": reference_id,
@@ -926,7 +930,7 @@ try:
             
 except:
     run_failed = True
-    print("Exception occurred:\n", traceback.format_exc())
+    sys.exit("Exception occurred:\n", traceback.format_exc())
 finally:
     helpers.cleanup(verbose=False, remove_all=False)
     if temp_dir != "":
