@@ -121,8 +121,15 @@ process saveMUMmerLog{
     script:
     saveSNPDiffs = file("$projectDir/bin/saveSNPDiffs.py")
     all_snpdiffs_list.write(snpdiffs_paths.join('\n') + '\n')
+    if("${params.runmode}"=="locus"){
+    """
+    echo -n "NA"
+    """
+    } else{
     """
     $params.load_python_module
     python $saveSNPDiffs --snpdiffs_file "${all_snpdiffs_list}" --summary_file "${snpdiffs_summary_file}" --isolate_file "${isolate_data_file}" --trim_name "${params.trim_name}" --ref_id_file "${ref_id_file}"
     """
+
+    }
 }

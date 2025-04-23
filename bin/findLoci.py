@@ -213,7 +213,6 @@ def getLocusCoords(bed_df, min_len, min_iden):
 
 # This process assumes an in-frame protein-coding locus. Non-coding or operon functions to be added later
 def processLocus(reference_id,snpdiffs_file):
-    
     # Ensure snpdiffs file exists
     if not os.path.exists(snpdiffs_file) or not snpdiffs_file.endswith('.snpdiffs'):
         run_failed = True       
@@ -227,7 +226,7 @@ def processLocus(reference_id,snpdiffs_file):
     except:
         run_failed = True       
         sys.exit(f"Error reading headers from snpdiffs file: {snpdiffs_file}")
-        
+    
     # Check snpdiffs orientation
     if (header_ref == reference_id):
         pass
@@ -239,10 +238,9 @@ def processLocus(reference_id,snpdiffs_file):
 
     # Get locus fasta file
     locus_fasta = header_data['Reference_Assembly'][0]
-    
     # Assert locus contains a single record
     locus_assembly = SeqIO.to_dict(SeqIO.parse(locus_fasta, "fasta"))
-    
+
     # For now, one > per FASTA, but this could be a good place to work in some redundancy
     assert len(locus_assembly) == 1, f"Locus file {locus_fasta} contains more than one record"
     locus_seq_record = next(iter(locus_assembly.values()))
@@ -279,7 +277,6 @@ def processLocus(reference_id,snpdiffs_file):
             locus_type = "noncoding"
             locus_record = SeqRecord(locus_seq_record.seq, id=reference_id, name=reference_id, description=f"{reference_id}_noncoding_forward")
             protein_record = SeqRecord(Seq(""),id=reference_id, name=reference_id, description=f"{reference_id}_noncoding_forward")    
-
     return(locus_record,protein_record,locus_type,locus_fasta)
 
 # This function gets the query FASTA from the snpdiffs file, and if there is a MUMmer hit, it returns the hit with 5' and  3' extention if needed/possible
@@ -460,7 +457,6 @@ def processQuery(snpdiffs_file,trim_name, min_cov, min_len, min_iden, max_contig
             log.write(f"\t- Query was extended {start_extension}bp in the 5' direction to the end of the contig, and was reduced {end_extension}bp to a premature stop codon.\n")
         elif query_type == "Non_Terminal_Contig":
             log.write("\t- The entire query contig was in frame and no stop codon was detected, returning the in-frame contig.\n")
-
     return(query_id,query_type,query_contigs,query_bases,query_record,query_coords)
     
 def extendHit(query_id,reference_id,locus_coords_df,contig_id,contig_seq,locus_record,protein_record,fasta_name):
