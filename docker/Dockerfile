@@ -12,6 +12,7 @@ ARG SKESA_VER="2.4.0"
 ARG MASH_VER="2.3"
 ARG BBMAP_VER="38.90"
 ARG PYTHON_VER="3.8"
+ARG SOURCEFORGE_MIRROR="psychz"
 
 FROM ubuntu:focal AS build
 
@@ -21,6 +22,7 @@ ARG SKESA_VER
 ARG MASH_VER
 ARG BBMAP_VER
 ARG PYTHON_VER
+ARG SOURCEFORGE_MIRROR
 
 WORKDIR /build
 
@@ -99,7 +101,7 @@ RUN tar -xvf mash-Linux64-v${MASH_VER}.tar && \
     mv mash-Linux64-v${MASH_VER}/mash /usr/local/bin
 
 # Install BBMap
-RUN wget -O BBMap_${BBMAP_VER}.tar.gz https://sourceforge.net/projects/bbmap/files/BBMap_${BBMAP_VER}.tar.gz/download && \
+RUN wget -O BBMap_${BBMAP_VER}.tar.gz https://sourceforge.net/projects/bbmap/files/BBMap_${BBMAP_VER}.tar.gz/download?use_mirror=${SOURCEFORGE_MIRROR} && \
     tar -xvf BBMap_${BBMAP_VER}.tar.gz && \
     mv bbmap/* /usr/local/bin
 
@@ -167,7 +169,11 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
 
 
 # Add the CSP2 pipeline, these are the parts that change most often in a release
-ADD bin/ conf/ subworkflows/ CSP2.nf nextflow.config ./
+COPY bin ./bin
+COPY conf ./conf
+COPY subworkflows ./subworkflows
+COPY CSP2.nf ./CSP2.nf
+COPY nextflow.config ./nextflow.config
 
 FROM app AS pretest
 
