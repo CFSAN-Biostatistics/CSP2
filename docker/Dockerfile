@@ -13,6 +13,7 @@ ARG MASH_VER="2.3"
 ARG BBMAP_VER="38.90"
 ARG PYTHON_VER="3.8"
 ARG SOURCEFORGE_MIRROR="psychz"
+ARG IQTREE_VER="2.0.6"
 
 FROM ubuntu:focal AS build
 
@@ -23,6 +24,7 @@ ARG MASH_VER
 ARG BBMAP_VER
 ARG PYTHON_VER
 ARG SOURCEFORGE_MIRROR
+ARG IQTREE_VER
 
 WORKDIR /build
 
@@ -41,7 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libghc-bzlib-dev \
     liblzma-dev \
     wget \
-    ca-certificates 
+    ca-certificates \
+    cmake
 
 RUN add-apt-repository 'ppa:deadsnakes/ppa' && apt-get update && apt-get install -y --no-install-recommends \
     python${PYTHON_VER} \
@@ -62,6 +65,7 @@ ADD https://github.com/ncbi/SKESA/releases/download/${SKESA_VER}/skesa.centos.7.
 ADD https://github.com/ncbi/SKESA/releases/download/${SKESA_VER}/gfa_connector.centos7.7 .
 ADD https://github.com/ncbi/SKESA/releases/download/${SKESA_VER}/kmercounter.centos7.7 .
 ADD https://github.com/marbl/Mash/releases/download/v${MASH_VER}/mash-Linux64-v${MASH_VER}.tar .
+ADD https://github.com/Cibiv/IQ-TREE/releases/download/v${IQTREE_VER}/iqtree-${IQTREE_VER}-Linux.tar.gz .
 
 # Install BEDTools
 # per https://github.com/StaPH-B/docker-builds/blob/master/bedtools/2.31.1/Dockerfile
@@ -72,7 +76,7 @@ ADD https://github.com/marbl/Mash/releases/download/v${MASH_VER}/mash-Linux64-v$
 RUN tar -xzf v${BEDTOOLS_VER}.tar.gz && \
     rm v${BEDTOOLS_VER}.tar.gz && \
    cd bedtools2-${BEDTOOLS_VER} && \
-   make && \
+   make -j && \
    make install 
 
  # Install mummer
@@ -81,7 +85,7 @@ RUN tar -xvf mummer-${MUMMER_VER}rc1.tar.gz && \
     rm mummer-${MUMMER_VER}rc1.tar.gz && \
     cd mummer-${MUMMER_VER}rc1 && \
     ./configure --prefix=/usr/local && \
-    make && \
+    make -j && \
     make install && \
     ldconfig
 
@@ -104,6 +108,12 @@ RUN tar -xvf mash-Linux64-v${MASH_VER}.tar && \
 RUN wget -O BBMap_${BBMAP_VER}.tar.gz https://sourceforge.net/projects/bbmap/files/BBMap_${BBMAP_VER}.tar.gz/download?use_mirror=${SOURCEFORGE_MIRROR} && \
     tar -xvf BBMap_${BBMAP_VER}.tar.gz && \
     mv bbmap/* /usr/local/bin
+
+# Install IQTree
+RUN tar -xzvf iqtree-${IQTREE_VER}-Linux.tar.gz && \
+    cd iqtree-${IQTREE_VER}-Linux && \
+    cp bin/iqtree2 /usr/local/bin/iqtree
+    
 
 
 FROM ubuntu:focal AS app
@@ -225,6 +235,9 @@ RUN awk '{print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6}' V5.3.2.artic.bed > 
     mergeBed -i V5.3.2.bed > merged_test.bed && \
     head intersect_test.bed merged_test.bed
 
+# Test IQTree installation
+RUN iqtree --version 
+
 RUN /bin/bash -c 'make test'
 
 FROM app AS galaxy
@@ -243,6 +256,7 @@ ENV SKESA_VER=${SKESA_VER}
 ENV MASH_VER=${MASH_VER}
 ENV BBMAP_VER=${BBMAP_VER}
 ENV PYTHON_VER=${PYTHON_VER}
+ENV IQTREE_VER=${IQTREE_VER}
 
 # set PATH, set perl locale settings for singularity compatibility
 ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
@@ -268,6 +282,7 @@ ENV SKESA_VER=${SKESA_VER}
 ENV MASH_VER=${MASH_VER}
 ENV BBMAP_VER=${BBMAP_VER}
 ENV PYTHON_VER=${PYTHON_VER}
+ENV IQTREE_VER=${IQTREE_VER}
 
 # set PATH, set perl locale settings for singularity compatibility
 ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \

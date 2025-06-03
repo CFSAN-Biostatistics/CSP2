@@ -26,6 +26,7 @@ versions: version ## Show versions of key installed depedencies
 	@echo `skesa --version 2>&1` " (container says ${SKESA_VER})"
 	@echo "mash " `mash --version` " (container says ${MASH_VER})"
 	@echo `bbmap.sh --version 2>&1` " (container says ${BBMAP_VER})"
+	@echo "IQTree2" `iqtree2 --version 2>&1` " (container says ${IQTREE_VER})"
 
 help: ## Show help
 	@echo "Citation: CFSAN SNP Pipeline 2, v$${CSP2_VER}, Literman et al. 2024"
