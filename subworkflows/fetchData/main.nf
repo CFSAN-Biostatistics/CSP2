@@ -28,11 +28,11 @@ workflow {
     query_data = input_data.query_data
     reference_data = input_data.reference_data
     snpdiffs_data = input_data.snpdiff_data
-    
-    publish:
-    query_data >> 'query_data.tsv'
-    reference_data >> 'reference_data.tsv'
-    snpdiff_data >> 'snpdiff_data.tsv'
+
+    emit:
+    query_data
+    reference_data
+    snpdiffs_data
 }
 
 // Top-level workflow //

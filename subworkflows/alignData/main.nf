@@ -1,4 +1,4 @@
-// Subworkflow to run MUMmer for query/referece comparisons
+// Subworkflow to run MUMmer for query/reference comparisons
 
 // Set path variables
 output_directory = file(params.output_directory)
@@ -23,15 +23,19 @@ snpdiffs_summary_file = file("${output_directory}/Raw_MUMmer_Summary.tsv")
 mummerScript = file("$projectDir/bin/compileMUMmer.py")
 
 workflow {
+    take:
+    read_data
+    snpdiffs_data
+
     main:
     // Align genomes
     snpdiffs = alignGenomes(to_align: read_data, snpdiffs_data: snpdiffs_data)
-    publish:
-    // Publish snpdiffs
-    snpdiffs >> 'snpdiffs.tsv'
+
+    emit:
+    snpdiffs
 }
 
-workflow alignGenomes{
+workflow alignGenomes {
     take:
     to_align
     snpdiffs_data
@@ -40,49 +44,46 @@ workflow alignGenomes{
     return_snpdiffs
 
     main:
-    
     // Align anything that needs aligning
     sample_pairwise = to_align
-    .filter{"${it[0]}" != "${it[2]}"} // Don't map things to themselves
-    | runMUMmer 
-    | splitCsv
-    
+        .filter { "${it[0]}" != "${it[2]}" } // Don't map things to themselves
+        | runMUMmer
+        | splitCsv
+
     log_hold = sample_pairwise
-    .concat(snpdiffs_data)
-    .unique{it -> it[2]}
-    .collect{it -> it[2]}
+        .concat(snpdiffs_data)
+        .unique { it -> it[2] }
+        .collect { it -> it[2] }
 
     snpdiff_files = saveMUMmerLog(log_hold)
-    .collect().flatten().collate(1)
+        .collect().flatten().collate(1)
 
     return_snpdiffs = sample_pairwise
-    .concat(snpdiffs_data)
-    .map { it -> tuple([it[0], it[1]].sort().join(',').toString(),it[0], it[1], it[2]) }
-    .unique{it -> it[0]}
-    .map{it->tuple(it[3],it[1],it[2])}
-    .join(snpdiff_files,by:0)
-    .map{it->tuple(it[1],it[2],it[0])}
+        .concat(snpdiffs_data)
+        .map { it -> tuple([it[0], it[1]].sort().join(',').toString(), it[0], it[1], it[2]) }
+        .unique { it -> it[0] }
+        .map { it -> tuple(it[3], it[1], it[2]) }
+        .join(snpdiff_files, by: 0)
+        .map { it -> tuple(it[1], it[2], it[0]) }
 }
 
-process runMUMmer{
-
+process runMUMmer {
     label 'mummerMem'
 
     input:
-    tuple val(query_name),val(query_fasta),val(ref_name),val(ref_fasta)
+    tuple val(query_name), val(query_fasta), val(ref_name), val(ref_fasta)
 
     output:
     stdout
-    
-    script:
 
+    script:
     report_id = "${query_name}__vs__${ref_name}"
     mummer_log = file("${mummer_log_directory}/${report_id}.log")
 
-    // Ensure MUmmer directories exist
-    if(!mummer_directory.isDirectory()){
+    // Ensure MUMmer directories exist
+    if (!mummer_directory.isDirectory()) {
         error "$mummer_directory does not exist..."
-    } else{
+    } else {
         """
         $params.load_mummer_module
         $params.load_python_module
@@ -91,7 +92,7 @@ process runMUMmer{
 
         cd ${mummer_directory}
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}
-        
+
         rm -rf ${mummer_directory}/${report_id}.mdelta
         rm -rf ${mummer_directory}/${report_id}.mcoords
         rm -rf ${mummer_directory}/${report_id}.1delta
@@ -106,8 +107,7 @@ process runMUMmer{
     }
 }
 
-process saveMUMmerLog{
-
+process saveMUMmerLog {
     executor = 'local'
     cpus = 1
     maxForks = 1

@@ -177,13 +177,15 @@ COPY nextflow.config ./nextflow.config
 
 FROM app AS pretest
 
+WORKDIR /app
+
 # set PATH, set perl locale settings for singularity compatibility
 ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     LC_ALL=C \
     NXF_OFFLINE='true'
 
 #Alternate test data directory
-ADD https://github.com/CFSAN-Biostatistics/CSP2_TestData#main:assets assets/
+ADD https://github.com/CFSAN-Biostatistics/CSP2_TestData.git#main:assets assets/
 
 
 # Test MUmmer installation
