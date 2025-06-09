@@ -66,6 +66,7 @@ The following software are required to run CSP2. Software version used during CS
 - [MUmmer](https://github.com/mummer4/mummer) (4.0.0)
 - [BBTools](https://jgi.doe.gov/data-and-tools/software-tools/bbtools/bb-tools-user-guide/bbmap-guide/) (38.94)  
 - [SKESA](https://github.com/ncbi/SKESA) (2.5.0) [Only required if starting from raw reads]  
+- [IQTree](https://github.com/Cibiv/IQ-TREE) (2.0.6)
   
 ---
 ## Installing CSP2 
