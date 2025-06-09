@@ -93,14 +93,10 @@ process runMUMmer {
         cd ${mummer_directory}
         dnadiff -p ${report_id} ${ref_fasta} ${query_fasta}
 
-        rm -rf ${mummer_directory}/${report_id}.mdelta
-        rm -rf ${mummer_directory}/${report_id}.mcoords
-        rm -rf ${mummer_directory}/${report_id}.1delta
-        rm -rf ${mummer_directory}/${report_id}.delta
-        rm -rf ${mummer_directory}/${report_id}.qdiff
-        rm -rf ${mummer_directory}/${report_id}.rdiff
-        rm -rf ${mummer_directory}/${report_id}.unref
-        rm -rf ${mummer_directory}/${report_id}.unqry
+        # rm -rf ${mummer_directory}/${report_id}.mdelta
+        # rm -rf ${mummer_directory}/${report_id}.mcoords
+        # rm -rf ${mummer_directory}/${report_id}.1delta
+        # rm -rf ${mummer_directory}/${report_id}.delta
 
         python ${mummerScript} --query "${query_name}" --query_fasta "${query_fasta}" --reference "${ref_name}" --reference_fasta "${ref_fasta}" --mummer_dir "${mummer_directory}" --snpdiffs_dir "${snpdiffs_directory}" --temp_dir "${temp_dir}" --log_file "${mummer_log}"
         """

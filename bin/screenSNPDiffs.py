@@ -12,7 +12,18 @@ import traceback
 import shutil
 import argparse
 
+def safe_int(val):
+    try:
+        return int(val) if val != "NA" else 0
+    except:
+        return 0
 
+def safe_float(val):
+    try:
+        return float(val) if val != "NA" else 0
+    except:
+        return 0
+    
 def fetchHeaders(snpdiffs_file):
     
     with open(snpdiffs_file, 'r') as file:
@@ -390,26 +401,26 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 
     
     # Set variables from header data
-    raw_snps = int(header_data['SNPs'][0])
-    raw_indels = int(header_data['Indels'][0])
-    raw_invalid = int(header_data['Invalid'][0])
+    raw_snps = safe_int(header_data['SNPs'][0])
+    raw_indels = safe_int(header_data['Indels'][0])
+    raw_invalid = safe_int(header_data['Invalid'][0])
+
+    kmer_similarity = safe_float(header_data['Kmer_Similarity'][0])
+    shared_kmers = safe_int(header_data['Shared_Kmers'][0])
+    query_unique_kmers = safe_int(header_data['Query_Unique_Kmers'][0])
+    reference_unique_kmers = safe_int(header_data['Reference_Unique_Kmers'][0])
+    mummer_gsnps = safe_int(header_data['gSNPs'][0])
+    mummer_gindels = safe_int(header_data['gIndels'][0])
+
+    query_bases = safe_int(header_data['Query_Assembly_Bases'][0])
+    reference_bases = safe_int(header_data['Reference_Assembly_Bases'][0])
+
+    query_contigs = safe_int(header_data['Query_Contig_Count'][0])
+    reference_contigs = safe_int(header_data['Reference_Contig_Count'][0])
+
+    raw_query_percent_aligned = safe_float(header_data['Query_Percent_Aligned'][0])
+    raw_ref_percent_aligned = safe_float(header_data['Reference_Percent_Aligned'][0])
     
-    kmer_similarity = float(header_data['Kmer_Similarity'][0])
-    shared_kmers = int(header_data['Shared_Kmers'][0])
-    query_unique_kmers = int(header_data['Query_Unique_Kmers'][0])
-    reference_unique_kmers = int(header_data['Reference_Unique_Kmers'][0])
-    mummer_gsnps = int(header_data['gSNPs'][0])
-    mummer_gindels = int(header_data['gIndels'][0])
-    
-    query_bases = int(header_data['Query_Assembly_Bases'][0])
-    reference_bases = int(header_data['Reference_Assembly_Bases'][0])
-    
-    query_contigs = int(header_data['Query_Contig_Count'][0])
-    reference_contigs = int(header_data['Reference_Contig_Count'][0])
-    
-    raw_query_percent_aligned = float(header_data['Query_Percent_Aligned'][0])
-    raw_ref_percent_aligned = float(header_data['Reference_Percent_Aligned'][0])
-        
     # If the reference is not covered by at least min_cov, STOP
     if raw_ref_percent_aligned < min_cov:
         query_percent_aligned = raw_query_percent_aligned
@@ -453,6 +464,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
         
         if good_bed_df.shape[0] == 0:
             screen_category = "Low_Quality_Coverage"
+            query_percent_aligned = raw_query_percent_aligned
+            reference_percent_aligned = raw_ref_percent_aligned
             with open(log_file,"a+") as log:
                 log.write(f"\n\t- After filtering based on --min_len ({min_len}) and --min_iden ({min_iden}) , no valid alignments remain...Screen halted...\n")
                 log.write("-------------------------------------------------------\n\n")

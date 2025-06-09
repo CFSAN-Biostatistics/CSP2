@@ -1,9 +1,8 @@
 name: csp2_env
 
 channels:
-  - bioconda
   - conda-forge
-  - defaults
+  - bioconda
 
 dependencies:
   - python=3.8.1
@@ -12,13 +11,10 @@ dependencies:
   - skesa
   - mummer
   - bbmap
-  - pip
+  - pandas
+  - biopython
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - pybedtools
   - iqtree
-  - pip:
-    - pybedtools
-    - scikit-learn
-    - pandas
-    - Bio
-    - datetime
-    - seaborn
-    - matplotlib
