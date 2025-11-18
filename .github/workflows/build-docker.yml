@@ -28,8 +28,7 @@ jobs:
           platforms: linux/amd64
           target: release
           build-args: |
-            VERSION=${{ github.ref_name }}
-            CSP2_BRANCH=${{ github.ref_name }}
+            CSP2_VER=${{ github.ref_name }}
           push: true
           tags: cfsanbiostatistics/csp2:latest,cfsanbiostatistics/csp2:${{ github.ref_name }}
       -
@@ -40,7 +39,6 @@ jobs:
           platforms: linux/amd64
           target: galaxy
           build-args: |
-            VERSION=${{ github.ref_name }}
-            CSP2_BRANCH=${{ github.ref_name }}
+            CSP2_VER=${{ github.ref_name }}
           push: true
           tags: cfsanbiostatistics/csp2:galaxy,cfsanbiostatistics/csp2:${{ github.ref_name }}-galaxy
