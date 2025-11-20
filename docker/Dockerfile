@@ -263,7 +263,7 @@ ENV PATH="/opt/venv/bin:/usr/local/bin:/skesa:$PATH" \
     LC_ALL=C \
     NXF_OFFLINE='true'
 
-ENTRYPOINT ["/bin/bash", "-c"]
+ENTRYPOINT []
 CMD ["/bin/bash"]
 
 FROM app AS release
