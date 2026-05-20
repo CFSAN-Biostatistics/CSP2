@@ -216,7 +216,8 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         indel_file = snp_file[(snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == ".")]
         snp_file = snp_file[~((snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == "."))]
         
-        if total_snp_count >= 10000:
+        # TEMP CHANGE
+        if total_snp_count >= 200000:
             return (snp_file.shape[0],indel_file.shape[0],invalid_file.shape[0])
         
         else:            

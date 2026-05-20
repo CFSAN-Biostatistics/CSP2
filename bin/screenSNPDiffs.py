@@ -420,7 +420,7 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
 
     raw_query_percent_aligned = safe_float(header_data['Query_Percent_Aligned'][0])
     raw_ref_percent_aligned = safe_float(header_data['Reference_Percent_Aligned'][0])
-    
+        
     # If the reference is not covered by at least min_cov, STOP
     if raw_ref_percent_aligned < min_cov:
         query_percent_aligned = raw_query_percent_aligned
@@ -431,7 +431,8 @@ def screenSNPDiffs(snpdiffs_file,trim_name, min_cov, min_len, min_iden, ref_edge
             log.write(f"\t- Query covers less than --min_cov ({min_cov}%)...Screen halted...\n")
             log.write("-------------------------------------------------------\n\n")
 
-    elif raw_snps + raw_indels + raw_invalid > 10000:
+    # TEMP CHANGE
+    elif raw_snps + raw_indels + raw_invalid > 200000:
         query_percent_aligned = raw_query_percent_aligned
         reference_percent_aligned = raw_ref_percent_aligned
         screen_category = "SNP_Cutoff"
