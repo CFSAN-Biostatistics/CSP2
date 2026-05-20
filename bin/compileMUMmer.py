@@ -497,11 +497,16 @@ try:
         log.write("Cleaned up TMP...\n")
 
     # Create header
+    
+    # Count N
+    masked_snp_count = processed_snps['Ref_Base'].isin(['n', 'N']).sum()    
+    
     percent_ref_aligned = f"{percent_ref_aligned:.2f}" if percent_ref_aligned != "NA" else percent_ref_aligned
     percent_query_aligned = f"{percent_query_aligned:.2f}" if percent_query_aligned != "NA" else percent_query_aligned
     median_percent_identity = f"{median_percent_identity:.2f}" if median_percent_identity != "NA" else median_percent_identity
     median_alignment_length = f"{median_alignment_length:.2f}" if median_alignment_length != "NA" else median_alignment_length
     total_snp_count = f"{total_snp_count:.0f}" if total_snp_count != "NA" else total_snp_count
+    masked_snp_count = f"{masked_snp_count:.0f}" if masked_snp_count != "NA" else masked_snp_count   
     total_indel_count = f"{total_indel_count:.0f}" if total_indel_count != "NA" else total_indel_count
     total_invalid_count = f"{total_invalid_count:.0f}" if total_invalid_count != "NA" else total_invalid_count
     ref_breakpoints = f"{ref_breakpoints:.0f}"
@@ -531,6 +536,7 @@ try:
                         "\t" + "\t".join(reference_string) +
                         "\t" + "\t".join([
     "SNPs:"+total_snp_count,  
+    "Masked_SNPs:"+masked_snp_count,  
     "Reference_Percent_Aligned:"+percent_ref_aligned,
     "Query_Percent_Aligned:"+percent_query_aligned,
     "Median_Percent_Identity:"+median_percent_identity,
