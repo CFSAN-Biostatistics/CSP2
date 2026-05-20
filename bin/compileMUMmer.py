@@ -209,10 +209,12 @@ def parseMUmmerSNPs(mum_snps_dir,report_id,coords_file):
         
         total_snp_count = snp_file.shape[0]
 
-        valid_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
+        valid_query_bases = ['a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
+        valid_ref_bases = ['n','N','a', 'A', 'c', 'C', 'g', 'G', 't', 'T',"."]
         
-        invalid_file = snp_file[(~snp_file['Ref_Base'].isin(valid_bases)) | (~snp_file['Query_Base'].isin(valid_bases))]
-        snp_file = snp_file[(snp_file['Ref_Base'].isin(valid_bases)) & (snp_file['Query_Base'].isin(valid_bases))]
+        invalid_file = snp_file[(~snp_file['Ref_Base'].isin(valid_ref_bases)) | (~snp_file['Query_Base'].isin(valid_query_bases))]
+        snp_file = snp_file[(snp_file['Ref_Base'].isin(valid_ref_bases)) & (snp_file['Query_Base'].isin(valid_query_bases))]
+        
         indel_file = snp_file[(snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == ".")]
         snp_file = snp_file[~((snp_file['Query_Base'] == ".") | (snp_file['Ref_Base'] == "."))]
         
