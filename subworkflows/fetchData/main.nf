@@ -521,7 +521,7 @@ process skesaAssemble{
         forward_reverse = read_location.split(";")
         """
         $params.load_skesa_module
-        skesa --cores ${skesa_cpus} --use_paired_ends --fastq ${forward_reverse[0]} ${forward_reverse[1]} --contigs_out ${assembly_file}
+        skesa --cores ${skesa_cpus} --reads ${forward_reverse[0]},${forward_reverse[1]} --contigs_out ${assembly_file}
         echo "${sample_name},${read_type},${read_location},${assembly_file}"
         """
     } else if(read_type == "Single"){
