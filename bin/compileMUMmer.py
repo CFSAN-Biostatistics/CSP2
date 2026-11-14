@@ -305,7 +305,7 @@ def get_kmers(command, log_file, retries=10, delay=5, timeout=30):
     for attempt in range(retries):
         try:
             process = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
-            kmer_set.update(process.stdout.strip().split('\n'))
+            kmer_set = set(process.stdout.strip().split('\n'))
 
             if len(kmer_set) > 1:
                 return kmer_set
